@@ -1,0 +1,117 @@
+// Sum up all rb impulses from the local thread group
+if (anyCollisionInGroup)
+{
+    // Sum up group shared values
+    for (uint offset = TN_RBS2 / 2; offset > 0; offset /= 2)
+    {
+        GroupMemoryBarrierWithGroupSync();
+
+        if (groupIndex < offset && groupIndex + offset < TN_RBS2)
+        {
+            ImpulseData highImpulseData = rbImpulses[groupIndex + offset];
+            if (highImpulseData.rbIndex == rbIndex)
+            {
+                AddImpulseData(rbImpulses[groupIndex], highImpulseData, rbIndex);
+            }
+        }
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+    
+    // Atomically add to rb
+    if (groupIndex == 0)
+    {
+        ImpulseData totImpulseData = rbImpulses[groupIndex];
+
+        if (totImpulseData.rbIndex == rbIndex)
+        {
+            RigidBodyImpulses[groupID.x] = totImpulseData.rbIndex == rbIndex ?
+                                                int3(FloatAsInt(totImpulseData.centerImpulse.x),
+                                                    FloatAsInt(totImpulseData.centerImpulse.y),
+                                                    FloatAsInt(totImpulseData.rotImpulse))
+                                                : 1.#INF;
+        }
+    }
+}
+
+DEV FUNCTIONS:
+
+private void CheckKeyInputs_DEBUG()
+{
+    if (Input.GetKeyDown(KeyCode.P))
+    {
+        programPaused = !programPaused;
+        if (programPaused) Debug.Log("Program paused");
+    }
+    if (Input.GetKeyDown(KeyCode.F))
+    {
+        frameStep = !frameStep;
+    }
+
+    // Adjust GlobalBrightness
+    if (Input.GetKeyDown(KeyCode.Alpha1)) // Increase
+    {
+        main.GlobalBrightness += 0.1f;
+    }
+    if (Input.GetKeyDown(KeyCode.Alpha6)) // Decrease
+    {
+        main.GlobalBrightness -= 0.1f;
+    }
+
+    // Adjust Contrast
+    if (Input.GetKeyDown(KeyCode.Alpha2)) // Increase
+    {
+        main.Contrast += 0.1f;
+    }
+    if (Input.GetKeyDown(KeyCode.Alpha7)) // Decrease
+    {
+        main.Contrast -= 0.1f;
+    }
+
+    // Adjust Saturation
+    if (Input.GetKeyDown(KeyCode.Alpha3)) // Increase
+    {
+        main.Saturation += 0.1f;
+    }
+    if (Input.GetKeyDown(KeyCode.Alpha8)) // Decrease
+    {
+        main.Saturation -= 0.1f;
+    }
+
+    // Adjust Gamma
+    if (Input.GetKeyDown(KeyCode.Alpha4)) // Increase
+    {
+        main.Gamma += 0.1f;
+    }
+    if (Input.GetKeyDown(KeyCode.Alpha9)) // Decrease
+    {
+        main.Gamma -= 0.1f;
+    }
+
+    // Adjust SettingsViewDarkTintPercent
+    if (Input.GetKeyDown(KeyCode.Alpha5)) // Increase
+    {
+        main.SettingsViewDarkTintPercent += 0.05f;
+    }
+    if (Input.GetKeyDown(KeyCode.Alpha0)) // Decrease
+    {
+        main.SettingsViewDarkTintPercent -= 0.05f;
+    }
+
+    // Clamp values to valid ranges if necessary
+    main.Contrast = Mathf.Clamp(main.Contrast, 0.0f, 5.0f);
+    main.Saturation = Mathf.Clamp(main.Saturation, 0.0f, 5.0f);
+    main.Gamma = Mathf.Clamp(main.Gamma, 0.1f, 5.0f); // Avoid gamma values <= 0
+    main.SettingsViewDarkTintPercent = Mathf.Clamp(main.SettingsViewDarkTintPercent, 0.0f, 1.0f);
+
+    // Log the values every frame
+    Debug.Log(
+        "GlobalBrightness: " + main.GlobalBrightness.x.ToString("F2") +
+        ", Contrast: " + main.Contrast.ToString("F2") +
+        ", Saturation: " + main.Saturation.ToString("F2") +
+        ", Gamma: " + main.Gamma.ToString("F2") +
+        ", SettingsViewDarkTintPercent: " + main.SettingsViewDarkTintPercent.ToString("F2")
+    );
+
+    main.UpdateSettings();
+}

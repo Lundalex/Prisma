@@ -1,0 +1,56 @@
+#pragma kernel CheckShaderConstants; // 0
+
+#include "./Helpers/Constants.hlsl"
+
+const uint CS_MAX_RIGIDBODIES_NUM; // Key: 00
+
+const uint CS_TN_PS; // Key: 01, Particle Simulation
+const uint CS_TN_PS2; // Key: 02, Particle Simulation
+const uint CS_TN_R; // Key: 03, Renderer
+const uint CS_TN_RBS1; // Key: 04, Rigid Body Simulation
+const uint CS_TN_RBS2; // Key: 05, Rigid Body Simulation
+const uint CS_TN_RBS3; // Key: 06, Rigid Body Simulation
+const uint CS_TN_S; // Key: 07, Sorter
+
+const float CS_INT_FLOAT_PRECISION_RB; // Key: 08
+const float CS_INT_FLOAT_PRECISION_P; // Key: 09
+
+const float CS_MIR; // Key: 10, MaxInfluenceRadius
+const int2 CS_BOUNDARY_DIMS; // Key: 11
+const int CS_PTYPES_NUM_COPY; // Key: 12
+
+const int CS_PATH_FLAG_OFFSET; // Key: 13
+
+struct DebugData
+{
+    int incorrectVariableKey; // -1 -> No incorrect variables
+};
+
+RWStructuredBuffer<DebugData> DebugDatas;
+
+DebugData InitDebugData(int incorrectVariableKey)
+{
+    DebugData db;
+    db.incorrectVariableKey = incorrectVariableKey;
+
+    return db;
+}
+
+[numthreads(1,1,1)]
+void CheckShaderConstants (uint3 id : SV_DispatchThreadID)
+{
+    int incorrectVariableKey = -1;
+    if (CS_MAX_RIGIDBODIES_NUM > MAX_RIGIDBODIES_NUM) incorrectVariableKey = 0;
+    else if (CS_TN_PS != TN_PS) incorrectVariableKey = 1;
+    else if (CS_TN_PS2 != TN_PS2) incorrectVariableKey = 2;
+    else if (CS_TN_R != TN_R) incorrectVariableKey = 3;
+    else if (CS_TN_RBS1 != TN_RBS1) incorrectVariableKey = 4;
+    else if (CS_TN_RBS2 != TN_RBS2) incorrectVariableKey = 5;
+    else if (CS_TN_RBS3 != TN_RBS3) incorrectVariableKey = 6;
+    else if (CS_TN_S != TN_S) incorrectVariableKey = 7;
+    else if (CS_INT_FLOAT_PRECISION_RB != INT_FLOAT_PRECISION_RB) incorrectVariableKey = 8;
+    else if (CS_INT_FLOAT_PRECISION_P != INT_FLOAT_PRECISION_P) incorrectVariableKey = 9;
+    else if (CS_PATH_FLAG_OFFSET != PATH_FLAG_OFFSET) incorrectVariableKey = 13;
+
+    DebugDatas[id.x] = InitDebugData(incorrectVariableKey);
+}

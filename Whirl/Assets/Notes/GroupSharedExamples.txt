@@ -1,0 +1,76 @@
+--- Example 1: ---
+
+groupshared int localSum[TN_R*TN_R];
+void calculateGroupSum(uint2 id, uint2 TN, float threadVal)
+{
+    uint localIndex = id.x % TN.x + (id.y % TN.y) * TN.x;
+
+    localSum[localIndex] = threadVal;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    // only perform addition for the first thread in the group
+    if (localIndex == 0)
+    {
+        for (int s = 1; s < TN_R*TN_R; s++)
+        {
+            localSum[0] += localSum[s];
+        }
+
+        // use the sum value
+        Result[id.xy] = float4(localSum[0] > 10, localSum[0] > 100, localSum[0] > 100000, 0);
+    }
+}
+
+// Example use:
+calculateGroupSum(id.xy, uint2(TN_R, TN_R), 1.0);
+
+uint2 TN = uint2(TN_R, TN_R);
+uint localIndex = id.x % TN.x + (id.y % TN.y) * TN.x;
+if (localIndex == 0) return; // return for the first thread
+
+--- EXAMPLE 2: ---
+
+groupshared int localSum[TN_R*TN_R];
+void calculateGroupSum(uint2 id, uint2 TN, float threadVal)
+{
+    uint localIndex = id.x % TN.x + (id.y % TN.y) * TN.x;
+
+    localSum[localIndex] = threadVal;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    // only perform addition for the first thread in the group
+    if (localIndex == 0)
+    {
+        for (int s = 1; s < TN_R*TN_R; s++)
+        {
+            localSum[0] += localSum[s];
+        }
+
+        // use the sum value
+        Result[id.xy] = float4(localSum[0] > 10, localSum[0] > 100, localSum[0] > 100000, 0);
+    }
+}
+
+// Example use:
+calculateGroupSum(id.xy, uint2(TN_R, TN_R), 1.0);
+
+uint2 TN = uint2(TN_R, TN_R);
+uint localIndex = id.x % TN.x + (id.y % TN.y) * TN.x;
+if (localIndex == 0) return; // return for the first thread
+
+void AddImpulseData(inout ImpulseData a, ImpulseData b, int rbIndex)
+{
+    if (a.rbIndex == rbIndex)
+    {
+        a.centerImpulse += b.centerImpulse;
+        a.rotImpulse += b.rotImpulse;
+    }
+    else
+    {
+        a.centerImpulse = b.centerImpulse;
+        a.rotImpulse = b.rotImpulse;
+        a.rbIndex = rbIndex;
+    }
+}

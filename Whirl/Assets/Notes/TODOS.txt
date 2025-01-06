@@ -1,0 +1,43 @@
+--- RB sensors ---
+    Stream data using async
+
+    Rigid body data:
+        - vel
+        - pos
+        - rot vel
+        - derived data (energy, acceleration)
+
+    Fluid data:
+        - temperature
+        - pressure
+        - volume
+        - mass
+        - flow (volume/s or mass/s)
+        - flow (speed)
+        - derived data (energy, effect (new particle energy/s))
+        - energy(temp_E, vel_E)
+
+    Display:
+        - Graph visualisation?
+        - Better looking UI elements
+    
+    Physics:
+        - Rigid body spring links (and point links) (F = k * dL)
+          - Stuck RB vel -> vel & rotVel for parent rb
+
+    Extensive shader code stripping settings for better performance. Also ability to strip certain parts of the simulation engine
+
+    (/) Render springs
+    Improve code structure for RB simulation
+    Better scene builder Integration
+    Better editor UI
+    May be unnecessary calling all RB shaders each frame. Maybe only every n:th frame?
+
+GENERAL TASKS:
+
+- Fix incorrect usage of any() and all() in both 2d and 3d simulations
+
+Fix bright build render
+Disable error logging in the player settings, bottom tab
+
+IF THE KEY SHORTCUTS GET MESSED UP, USE (Win + Spacebar) TO FIX THEM

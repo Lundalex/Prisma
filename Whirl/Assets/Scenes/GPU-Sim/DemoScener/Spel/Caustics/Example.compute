@@ -1,0 +1,38 @@
+#pragma kernel CS_Sample2DArray
+#pragma kernel CS_Sample3D
+
+// Read
+Texture2DArray<unorm float4> _MyTex2DArray;
+Texture3D<unorm float4> _MyTex3D;
+
+// Write
+RWTexture2D<unorm float4> _Output;
+
+const int texSize; // x = y
+const int upscaleFactor;
+const int zIndex;
+
+[numthreads(8,8,1)]
+void CS_Sample2DArray(uint3 id : SV_DispatchThreadID)
+{
+    float4 color;
+    // int baseZ = floor(zIndex / 2.0);
+    // if (zIndex % 2 == 0) color = _MyTex2DArray.Load(int4(id.xy * upscaleFactor % texSize, baseZ, 0));
+    // else // zIndex % 2 == 1
+    // {
+    //     float4 colA = _MyTex2DArray.Load(int4(id.xy * upscaleFactor % texSize, baseZ, 0));
+    //     float4 colB = _MyTex2DArray.Load(int4(id.xy * upscaleFactor % texSize, baseZ + 1, 0));
+    //     color = (colA + colB) * 0.5;
+    // }
+    color = _MyTex2DArray.Load(int4(id.xy * upscaleFactor % texSize, zIndex, 0));
+
+    _Output[id.xy] = (float)color;
+}
+
+[numthreads(8,8,1)]
+void CS_Sample3D(uint3 id : SV_DispatchThreadID)
+{
+    float4 color = _MyTex3D.Load(int4(id.x * upscaleFactor % texSize, id.y * upscaleFactor % texSize, zIndex, 0));
+
+    _Output[id.xy] = (float)color;
+}

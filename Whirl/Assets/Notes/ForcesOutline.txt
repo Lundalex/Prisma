@@ -1,0 +1,60 @@
+-- Available variables --
+
+TargetDensity
+MaxInfluenceRadius
+Pressure
+NearPressure
+Viscosity
+Elasticity
+Plasticity
+Stickyness
+Temperature
+Gravity
+
+(Damping)
+
+-- Liquids --
+
+MaxInfluenceRadius is set LOW
+Temperature(dynamic) - Temperature has a small impact on the TargetDensity
+TargetDensity - Pressure, NearPressure -> attractive AND repulsive forces
+Viscosity
+Elasticity, Plasticity
+Stickyness - Liquids stick to rigid bodies
+
+-- Gases --
+
+MaxInfluenceRadius is set HIGH
+Temperature(dynamic) - Temperature has an impact on the Pressure accoding to the IDEAL GAS LAW
+Temperature(dynamic) - As temperature increases, particle friction (Viscosity) also increases
+Pressure -> repulsive forces ONLY
+Viscosity
+
+-- Solids --
+
+MaxInfluenceRadius is set VERY LOW
+Temperature(dynamic) - Temperature has many effects, such as on Viscosity, Elasticity, Plasticity
+Viscosity is set VERY HIGH
+Elasticity and Plasticity vary from material to material
+
+-- State changes --
+
+State changes happen if abs(Temperature - StateChangeTemperatureThreshold) > StateChangePadding
+StateChangePadding hinders particles from switching state multiple times in quick succession due to being right at the threshold
+
+
+
+
+--- TEMPORARY NOTE: --- !!!!!
+
+public enum RigidBodySensorType
+{
+    Mass,
+    Velocity, // old
+    Velocity_X,
+    Velocity_Y,
+    RotationalVelocity, // old
+    Position_X,
+    Position_Y,
+    SpringForce // old
+}

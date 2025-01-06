@@ -1,0 +1,35 @@
+--- Project / Editor ---
+
+1. Open the project files -> ProjectSettings -> ProjectSettings.asset -> Add "webGLEnableWebGPU: 1" anywhere in the file (and save)
+2. Use unity editor version 6
+3. Open "File" -> "Build Profiles" -> "Web" -> "Switch Profile" (if currently not using the web build target)
+4. Still in "Web" -> "Player Settings" -> "Other Settings" -> "Graphics APIs" -> "+" -> "WebGPU"
+5. Move "WebGPU" to the highest priority (above "WebGL" / "WebGL2")
+
+--- Compute shaders / c# ---
+
+1. Make sure to use:
+ - c#:
+    RenderTexture rt = new RenderTexture(screenResolution.x, screenResolution.y, 0, GraphicsFormat.R8G8B8A8_UNorm)
+    {
+        dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
+        enableRandomWrite = true,
+        wrapMode = TextureWrapMode.Clamp,
+        filterMode = FilterMode.Bilinear
+    };
+ - HLSL:
+    RWTexture2D<unorm float4> Result;
+
+--- Debug ---
+
+Press f12 (inspect) in the unity web application to see potential errors.
+If there are any, these might relate to some RenderTexture type mismatch between c# and HLSL
+
+Use google chrome version 119 (or later)
+
+--- Debug (the following steps might not be necessary) ---
+
+Browser WebGPU status:
+ - Navigate to "chrome://gpu" in the address bar.
+ - Scroll down to the WebGPU section.
+ - Verify that WebGPU status is enabled.

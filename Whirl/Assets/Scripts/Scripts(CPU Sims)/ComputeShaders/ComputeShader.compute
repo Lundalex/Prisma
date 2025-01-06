@@ -1,0 +1,56 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+RWTexture2D<float4> Result;
+
+int ResolutionWidth;
+int ResolutionHeight;
+int MaxW;
+int MaxH;
+
+StructuredBuffer<float2> Positions;
+StructuredBuffer<int> Chunks;
+int ParticlesNum;
+float Radius;
+
+int ChunkCapacity;
+int ChunkNumX;
+int ChunkNumY;
+int ChunkDims;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // world coordinates
+    float x = (float)id.x * (float)MaxW / (float)ResolutionWidth;
+    float y = (float)id.y * (float)MaxH / (float)ResolutionHeight;
+    float2 pixelPos = float2(x, y);
+
+    int in_chunk_x = int(floor(x / ChunkDims));
+    int in_chunk_y = int(floor(y / ChunkDims));
+
+    for (int offset_x = -0; offset_x <= 0; offset_x++)
+    {
+        for (int offset_y = -0; offset_y <= 0; offset_y++)
+        {
+            int cur_chunk_x = in_chunk_x + offset_x;
+            int cur_chunk_y = in_chunk_y + offset_y;
+
+            if (cur_chunk_x >= 0 && cur_chunk_x < ChunkNumX && cur_chunk_y >= 0 && cur_chunk_y < ChunkNumY)
+            {
+                int start_i = cur_chunk_x * ChunkNumY * ChunkCapacity + cur_chunk_y * ChunkCapacity;
+                int end_i = start_i + ChunkCapacity;
+
+                for (int i = start_i; i < end_i; i++)
+                {
+                    if (length(pixelPos - Positions[Chunks[i]]) <= Radius)
+                    {
+                        Result[id.xy] = float4(x, y, 0.0, 0.0);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    Result[id.xy] = float4(0, 0, 0, 0); // Background color
+}
