@@ -107,7 +107,8 @@ public class SceneManager : MonoBehaviour
         Rect[] rects = new Rect[0];
         if (textures.Count > 0) rects = atlas.PackTextures(textures.ToArray(), 1, MaxAtlasDims);
 
-        StringUtils.LogIfInEditor("Texture atlas: " + rects.Length + " textures. " + atlas.width + "x" + atlas.height);
+        float sizeMB = (atlas.width * atlas.height * 8f) / (1024f * 1024f);
+        StringUtils.LogIfInEditor("Texture atlas constructed with " + rects.Length + " textures and a size of " + sizeMB + " MB");
 
         int2 GetTexLoc(Rect rect) => new((int)(rect.x * atlas.width), (int)(rect.y * atlas.height));
         int2 GetTexDims(Rect rect) => new((int)(rect.width * atlas.width), (int)(rect.height * atlas.height));

@@ -244,7 +244,7 @@ MonoBehaviour:
   MaxRBVel: 999999
   MinRBVelForMovement: 0.1
   SimUnitToMetersFactor: 0.005
-  VolumeFactor: 40
+  ZDepthMeters: 0.1
   PressureFactor: 1.77
   LookAheadTime: 0.017
   StateThresholdPadding: 0.36
@@ -281,9 +281,10 @@ MonoBehaviour:
   RB_InteractionDampening: 0.5
   FluidRenderMethod: 0
   SampleMethod: 1
+  CausticsTypeEditor: 1
+  CausticsTypeBuild: 1
   DoDrawFluidOutlines: 1
   DoDisplayFluidVelocities: 1
-  DoUseCaustics: 1
   DoDrawUnoccupiedFluidSensorArea: 1
   DoDrawRBOutlines: 1
   DoDrawRBCentroids: 0
@@ -302,6 +303,10 @@ MonoBehaviour:
   Saturation: 1
   Gamma: 1
   SettingsViewDarkTintPercent: 0.8
+  PrecomputedCausticsFPS: 30
+  PrecomputedCausticsScaleFactor: 0.1
+  DynamicCausticsScaleFactor: 1
+  PrecomputedCausticsZBlurFactor: 1
   SpringRenderWidth: 20
   SpringRenderMatWidth: 2
   SpringRenderRodLength: 3
@@ -398,7 +403,8 @@ MonoBehaviour:
   BackgroundUpScaleFactor: 1
   MirrorRepeatBackgroundUV: 0
   uiTexture: {fileID: 8400000, guid: 3f8f5277ec04f5048946bcec7a320ab1, type: 2}
-  causticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
+  dynamicCausticsTexture: {fileID: 0}
+  precomputedCausticsTexture: {fileID: 0}
   materialInput: {fileID: 1325691963}
   pTypeInput: {fileID: 1543420959}
   sceneManager: {fileID: 1751344381}
@@ -2333,6 +2339,9 @@ MonoBehaviour:
   materialInputs:
   - colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
     colorTextureUpScaleFactor: 4
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -2349,6 +2358,9 @@ MonoBehaviour:
       z: 1
   - colorTexture: {fileID: 0}
     colorTextureUpScaleFactor: 1
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 0
     transparentEdges: 1
     baseColor:
@@ -2365,6 +2377,9 @@ MonoBehaviour:
       z: 0
   - colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
     colorTextureUpScaleFactor: 10
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -2381,6 +2396,9 @@ MonoBehaviour:
       z: 1
   - colorTexture: {fileID: 2800000, guid: 088c9683d0588d84eb1c17165c2d629a, type: 3}
     colorTextureUpScaleFactor: 50
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -2397,6 +2415,9 @@ MonoBehaviour:
       z: 1
   - colorTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
     colorTextureUpScaleFactor: 6
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -2413,6 +2434,9 @@ MonoBehaviour:
       z: 1
   - colorTexture: {fileID: 2800000, guid: 088c9683d0588d84eb1c17165c2d629a, type: 3}
     colorTextureUpScaleFactor: 50
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -3145,6 +3169,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cfee41f3424fe434987fa9a1e409e95c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  allowNotifications: 1
   notificationKeyPairs:
   - name: ControlsTip
     notification: {fileID: 553501663}

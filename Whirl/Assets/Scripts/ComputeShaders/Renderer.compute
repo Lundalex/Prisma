@@ -71,7 +71,8 @@ const uint PTypesNum;
 const uint NumRigidBodies;
 const uint NumFluidSensors;
 const int3 PrecomputedCausticsDims;
-const float CausticsScaleFactor;
+const float PrecomputedCausticsScaleFactor;
+const float DynamicCausticsScaleFactor;
 const float PrecomputedCausticsZBlurFactor;
 
 // Global rendering settings
@@ -395,11 +396,11 @@ float3 SampleCaustics(uint2 threadID, float3 sampleColMul)
     #if USE_DYNAMIC_CAUSTICS
         float2 causticsTexDims = GetTexDims(DynamicCaustics);
     
-        uint2 wrappedThreadID = (uint2)(threadID * CausticsScaleFactor * causticsTexDims / referenceCausticsRes) % causticsTexDims;
+        uint2 wrappedThreadID = (uint2)(threadID * DynamicCausticsScaleFactor * causticsTexDims / referenceCausticsRes) % causticsTexDims;
     
         caustics = (float)DynamicCaustics[wrappedThreadID].rgb;
     #else
-        uint2 wrappedThreadID = (uint2)(threadID * CausticsScaleFactor * PrecomputedCausticsDims.xy / referenceCausticsRes) % PrecomputedCausticsDims.xy;
+        uint2 wrappedThreadID = (uint2)(threadID * PrecomputedCausticsScaleFactor * PrecomputedCausticsDims.xy / referenceCausticsRes) % PrecomputedCausticsDims.xy;
 
         uint zDim = PrecomputedCausticsDims.z;
         uint z = PrecomputedCausticsZ;
@@ -584,11 +585,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                         }
                     }
                 #else
-                    // Added precedence check:
-                    if (
-                        (dstSqr < (isGas ? min(minGasRadius, minDstSqr) : min(minLiquidRadiusSqr, minDstSqr))) ||
-                        (dstSqr == minDstSqr && lastChunkKey_PType_POrder < (isGas ? nearestGasLastChunkKey_PType_POrder : nearestNonGasLastChunkKey_PType_POrder))
-                    )
+                    if (dstSqr < (isGas ? min(minGasRadius, minDstSqr) : min(minLiquidRadiusSqr, minDstSqr)))
                     {
                         #if DISPLAY_FLUID_VELOCITIES
                             totVelocities += length(pData.vel);
@@ -700,8 +697,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
             float3 background = BlendWithBackground(0, 0, id.xy);
             result = sensorAreaTint.rgb * sensorAreaTint.a + background * (1.0 - sensorAreaTint.a);
         }
-        else if (doDrawFluid) { }
-        else result = BlendWithBackground(0, 0, id.xy);
+        else if (!doDrawFluid) result = BlendWithBackground(0, 0, id.xy);
 
         if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
 
@@ -937,6 +933,8 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         if (rbIndex >= NumRigidBodies) break;
 
         RigidBody rbA = RigidBodies[rbIndex];
+        if (rbA.springMatIndex == -1) continue;
+        
         float stiffness = rbA.springStiffness;
 
         // Check if:

@@ -130,7 +130,8 @@ void Set_POrder(inout int LastChunkKey_PType_POrder, int NewPOrder)
 float2 CalcDensity(int pIndex) // (density, nearDensity)
 {
     PData pData = PDatas[pIndex];
-    float influenceRadius = PTypes[Extract_PType(pData.lastChunkKey_PType_POrder)].influenceRadius;
+    PType pType = PTypes[Extract_PType(pData.lastChunkKey_PType_POrder)];
+    float influenceRadius = pType.influenceRadius;
 
     if (TransferSpringData)
     {
@@ -143,7 +144,7 @@ float2 CalcDensity(int pIndex) // (density, nearDensity)
     int lastChunkKey = Extract_LastChunkKey(pData.lastChunkKey_PType_POrder);
 
     int2 chunk = GetChunk(lastChunkKey);
-
+    
     float totDensity = 0.0;
     float totNearDensity = 0.0;
     for (int x = -1; x <= 1; x++)
@@ -181,7 +182,7 @@ float2 CalcDensity(int pIndex) // (density, nearDensity)
                 #endif
 
                 // float avgInfluenceRadius = avg(influenceRadius, PType_otherPIndex.influenceRadius);
-                float avgInfluenceRadius = PType_otherPIndex.influenceRadius; // influenceRadius SEEMS UNDEFINED OR SOMETHING
+                float avgInfluenceRadius = PType_otherPIndex.influenceRadius;
 
                 // --- Calculate densities ---
 

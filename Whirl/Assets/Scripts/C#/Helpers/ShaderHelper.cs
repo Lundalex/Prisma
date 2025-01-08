@@ -84,7 +84,7 @@ public class ShaderHelper : MonoBehaviour
 
         renderShader.SetTexture(1, "Result", m.renderTexture);
         renderShader.SetTexture(1, "DynamicCaustics", m.dynamicCausticsTexture);
-        renderShader.SetTexture(1, "PrecomputedCaustics", m.precomputedCausticsTexture);
+        if (m.precomputedCausticsTexture != null) renderShader.SetTexture(1, "PrecomputedCaustics", m.precomputedCausticsTexture);
         renderShader.SetTexture(1, "LiquidVelocityGradient", m.LiquidVelocityGradientTexture);
         renderShader.SetTexture(1, "GasVelocityGradient", m.GasVelocityGradientTexture);
         renderShader.SetTexture(1, "Background", m.backgroundTexture);
@@ -212,7 +212,8 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetInt("NumRigidBodies", m.NumRigidBodies);
         renderShader.SetInt("NumFluidSensors", m.NumFluidSensors);
         renderShader.SetVector("PrecomputedCausticsDims", Utils.Int3ToVector3(m.PrecomputedCausticsDims));
-        renderShader.SetFloat("CausticsScaleFactor", m.CausticsScaleFactor);
+        renderShader.SetFloat("PrecomputedCausticsScaleFactor", m.PrecomputedCausticsScaleFactor);
+        renderShader.SetFloat("DynamicCausticsScaleFactor", m.DynamicCausticsScaleFactor);
         renderShader.SetFloat("PrecomputedCausticsZBlurFactor", m.PrecomputedCausticsZBlurFactor);
 
         renderShader.SetVector("GlobalBrightness", Utils.Float3ToVector3(m.GlobalBrightness));

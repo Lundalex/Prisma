@@ -100,7 +100,8 @@
         <ui:Slider label="Settings View Dark Tint" value="0.4" high-value="1" binding-path="SettingsViewDarkTintPercent" tooltip="Darkness modifier applied to the whole render texture whenever a sensor settings view is active." show-input-field="true" fill="true" name="Slider" />
         <ui:Foldout text="Caustics" name="Caustics" value="true" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="PrecomputedCausticsFPS" label="Precomputed FPS" tooltip="Frames of the precomputed caustics texture scrolled through per second. This directly influences the scroll speed" />
-            <uie:PropertyField binding-path="CausticsScaleFactor" label="Scale Factor" tooltip="Scale factor applied to each pixel&apos;s position value before sampling the caustics texture" />
+            <uie:PropertyField binding-path="PrecomputedCausticsScaleFactor" label="Precomputed Scale" tooltip="Scale factor applied to each pixel&apos;s position value before sampling the precomputed caustics texture" enabled="true" />
+            <uie:PropertyField binding-path="DynamicCausticsScaleFactor" label="Dynamic Scale" tooltip="Scale factor applied to each pixel&apos;s position value before sampling the dynamic caustics texture" />
             <ui:Slider label="Precomputed Z Blur" value="1" high-value="1" binding-path="PrecomputedCausticsZBlurFactor" tooltip="How much to blur the samples from neighbouring frames of the caustics texture. 0: Only sample the current frame in the sequence. 1: Give equal weights to the current, previous, and next frames in the sequence" show-input-field="true" fill="true" name="Slider" />
         </ui:Foldout>
         <ui:Foldout text="Fluids" name="Fluids" value="true" style="-unity-font-style: bold;">

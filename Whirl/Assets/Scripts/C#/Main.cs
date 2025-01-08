@@ -7,6 +7,7 @@ using Resources2;
 using System.Collections.Generic;
 using PM = ProgramManager;
 using Debug = UnityEngine.Debug;
+using Unity.Burst.Intrinsics;
 
 public class Main : MonoBehaviour
 {
@@ -125,7 +126,8 @@ public class Main : MonoBehaviour
     public float Gamma;
     public float SettingsViewDarkTintPercent;
     public float PrecomputedCausticsFPS;
-    public float CausticsScaleFactor;
+    public float PrecomputedCausticsScaleFactor;
+    public float DynamicCausticsScaleFactor;
     public float PrecomputedCausticsZBlurFactor;
 
     // Rigid Body Springs
@@ -577,8 +579,14 @@ public class Main : MonoBehaviour
         ParticlesNum_NextPow2 = Func.NextPow2(MaxParticlesNum);
         ParticlesNum_NextLog2 = (int)Math.Log(ParticlesNum_NextPow2, 2);
         PTypesNum = pTypeInput.particleTypeStates.Length * 3;
+
         CausticsType = Application.isEditor ? CausticsTypeEditor : CausticsTypeBuild;
-        PrecomputedCausticsDims = new(precomputedCausticsTexture.width, precomputedCausticsTexture.height, precomputedCausticsTexture.depth);
+        if (precomputedCausticsTexture == null && CausticsType == CausticsType.Precomputed)
+        {
+            Debug.LogWarning("Precomputed caustics texture 2D array not assigned in inspector. Defaulting to CausticsType.None");
+            CausticsType = CausticsType.None;
+        }
+        if (precomputedCausticsTexture != null) PrecomputedCausticsDims = new(precomputedCausticsTexture.width, precomputedCausticsTexture.height, precomputedCausticsTexture.depth);
     }
 
     private void InitializeBuffers(PData[] PDatas, RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas)
