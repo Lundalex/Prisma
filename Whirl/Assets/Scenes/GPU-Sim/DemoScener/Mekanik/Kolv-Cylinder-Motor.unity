@@ -132,8 +132,6 @@ GameObject:
   - component: {fileID: 486539}
   - component: {fileID: 486544}
   - component: {fileID: 486538}
-  - component: {fileID: 486542}
-  - component: {fileID: 486543}
   m_Layer: 0
   m_Name: Simulation
   m_TagString: MainCamera
@@ -244,7 +242,7 @@ MonoBehaviour:
   MaxRBVel: 999999
   MinRBVelForMovement: 0.1
   SimUnitToMetersFactor: 0.005
-  VolumeFactor: 40
+  ZDepthMeters: 0.1
   PressureFactor: 1.77
   LookAheadTime: 0.017
   StateThresholdPadding: 0.36
@@ -281,9 +279,10 @@ MonoBehaviour:
   RB_InteractionDampening: 0.7
   FluidRenderMethod: 0
   SampleMethod: 1
+  CausticsTypeEditor: 0
+  CausticsTypeBuild: 0
   DoDrawFluidOutlines: 1
   DoDisplayFluidVelocities: 1
-  DoUseCaustics: 1
   DoDrawUnoccupiedFluidSensorArea: 1
   DoDrawRBOutlines: 1
   DoDrawRBCentroids: 0
@@ -302,6 +301,10 @@ MonoBehaviour:
   Saturation: 1
   Gamma: 1
   SettingsViewDarkTintPercent: 0.8
+  PrecomputedCausticsFPS: 30
+  PrecomputedCausticsScaleFactor: 0.6
+  DynamicCausticsScaleFactor: 1
+  PrecomputedCausticsZBlurFactor: 0
   SpringRenderWidth: 20
   SpringRenderMatWidth: 2
   SpringRenderRodLength: 3
@@ -398,7 +401,8 @@ MonoBehaviour:
   BackgroundUpScaleFactor: 1
   MirrorRepeatBackgroundUV: 0
   uiTexture: {fileID: 8400000, guid: 3f8f5277ec04f5048946bcec7a320ab1, type: 2}
-  causticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
+  dynamicCausticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
+  precomputedCausticsTexture: {fileID: 18700000, guid: fd236c79f064f4d4c81170507d2e62d2, type: 2}
   materialInput: {fileID: 1325691963}
   pTypeInput: {fileID: 1543420959}
   sceneManager: {fileID: 1751344381}
@@ -408,59 +412,6 @@ MonoBehaviour:
   rbSimShader: {fileID: 7200000, guid: 262942b13b71cb34685c0e9873f5a06c, type: 3}
   sortShader: {fileID: 7200000, guid: 3758f915db2f95643b063d688e601ef2, type: 3}
   debugShader: {fileID: 7200000, guid: edb6c9c322a48a74e8d30bb0c1a89728, type: 3}
---- !u!33 &486542
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 486536}
-  m_Mesh: {fileID: 0}
---- !u!23 &486543
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 486536}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
-  m_RayTracingAccelStructBuildFlags: 1
-  m_SmallMeshCulling: 1
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: a0c946359134cf64ebb6ea0f0b504cee, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!114 &486544
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -541,19 +492,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5104144872518511601, guid: f3e58729252ceb446b56910b9706d4b3, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[0].y
-      value: 0.3333333
+      value: 0.33333334
       objectReference: {fileID: 0}
     - target: {fileID: 5104144872518511601, guid: f3e58729252ceb446b56910b9706d4b3, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[1].y
-      value: -0.3333333
+      value: -0.33333334
       objectReference: {fileID: 0}
     - target: {fileID: 5104144872518511601, guid: f3e58729252ceb446b56910b9706d4b3, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[2].y
-      value: -0.3333333
+      value: -0.33333334
       objectReference: {fileID: 0}
     - target: {fileID: 5104144872518511601, guid: f3e58729252ceb446b56910b9706d4b3, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[3].y
-      value: 0.3333333
+      value: 0.33333334
       objectReference: {fileID: 0}
     - target: {fileID: 6274773023306246097, guid: f3e58729252ceb446b56910b9706d4b3, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1304,6 +1255,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cfee41f3424fe434987fa9a1e409e95c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  allowNotifications: 1
   notificationKeyPairs:
   - name: ControlsTip
     notification: {fileID: 891669684}
@@ -1358,6 +1310,9 @@ MonoBehaviour:
   materialInputs:
   - colorTexture: {fileID: 0}
     colorTextureUpScaleFactor: 1
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 0.6
     transparentEdges: 0
     baseColor:
@@ -1374,6 +1329,9 @@ MonoBehaviour:
       z: 1
   - colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
     colorTextureUpScaleFactor: 4
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -1390,6 +1348,9 @@ MonoBehaviour:
       z: 1
   - colorTexture: {fileID: 2800000, guid: d7215cefa2dcd90439e40bf03644d96d, type: 3}
     colorTextureUpScaleFactor: 25
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -1406,6 +1367,9 @@ MonoBehaviour:
       z: 1
   - colorTexture: {fileID: 2800000, guid: 088c9683d0588d84eb1c17165c2d629a, type: 3}
     colorTextureUpScaleFactor: 25
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -1422,6 +1386,9 @@ MonoBehaviour:
       z: 0
   - colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
     colorTextureUpScaleFactor: 10
+    sampleOffset:
+      x: 0
+      y: 0
     opacity: 1
     transparentEdges: 0
     baseColor:
@@ -1502,8 +1469,6 @@ MonoBehaviour:
   darkBackground: {fileID: 1740834273}
   userUI: {fileID: 644664865}
   startConfirmationWindow: {fileID: 4081380684560399344}
-  controlsTip: {fileID: 891669684}
-  slowMotionTip: {fileID: 4275113765020640642}
 --- !u!1 &1543420958
 GameObject:
   m_ObjectHideFlags: 0

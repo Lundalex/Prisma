@@ -35,8 +35,8 @@ public class SensorUI : MonoBehaviour
     [SerializeField] public PointerHoverArea pointerHoverArea;
     [SerializeField] public Transform graphChartContainer;
     [SerializeField] public GameObject positionTitle;
-    [SerializeField] public GameObject positionTypeSelector;
     [SerializeField] public GameObject positionInputFields;
+    [SerializeField] public GameObject positionTypeSelector;
 
     // Events
     public event Action<bool> OnSettingsViewStatusChanged;
@@ -98,7 +98,7 @@ public class SensorUI : MonoBehaviour
             isBeingMoved = true;
 
             // Get mouse position
-            Vector2 mouseSimPos = PM.Instance.main.GetMousePosInSimSpace();
+            Vector2 mouseSimPos = PM.Instance.main.GetMousePosInSimSpace(true);
             Vector2 newPosition = sensor.SimSpaceToCanvasSpace(mouseSimPos);
 
             // Set sensor UI position

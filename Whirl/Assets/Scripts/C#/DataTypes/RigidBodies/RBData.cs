@@ -41,4 +41,7 @@ public struct RBData
     public int renderPriority;
     public int matIndex;
     public int springMatIndex;
+
+    // State flags
+    public int stateFlags;
 };

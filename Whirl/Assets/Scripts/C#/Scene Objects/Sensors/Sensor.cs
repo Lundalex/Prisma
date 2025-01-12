@@ -38,6 +38,9 @@ public abstract class Sensor : MonoBehaviour
     public float valueOffset = 0.0f;
     public float graphPositionOffsetX = 0.0f;
 
+    [Header("Settings View")]
+    public bool doShowSensorTypeSelector = true;
+
     [Header("References")]
     [SerializeField] private GameObject sensorUIPrefab;
     [SerializeField] private GameObject dashedRectanglePrefab;
@@ -90,13 +93,13 @@ public abstract class Sensor : MonoBehaviour
         graphController = gameObject.GetComponent<GraphController>();
     }
 
-    // Warning: Super unreadable code. However, it's only this function.
+    // Warning: Super unreadable code. However, it's centralized to this function only
     private void InitSensorUI()
     {
         GameObject sensorUIObject = Instantiate(sensorUIPrefab, sensorUIContainer);
         sensorUI = sensorUIObject.GetComponent<SensorUI>();
         bool isStandardResolution = PM.Instance.isStandardResolution;
-        if (isStandardResolution)
+        if (isStandardResolution && false)
         {
             GameObject sensorUIOutline = Instantiate(dashedRectanglePrefab, sensorOutlineContainer);
             sensorUIOutline.SetActive(false);
@@ -106,7 +109,7 @@ public abstract class Sensor : MonoBehaviour
         }
         GameObject sensorUIGraphChartObject = Instantiate(graphChartPrefab, sensorUI.graphChartContainer);
         Vector3 curPos = sensorUIGraphChartObject.transform.position;
-        sensorUIGraphChartObject.transform.position = curPos + new Vector3(graphPositionOffsetX + numGraphDecimals * 3.0f, 0, 0);
+        sensorUIGraphChartObject.transform.position = curPos + new Vector3(graphPositionOffsetX + numGraphDecimals * 2.0f, 0, 0);
         graphChart = sensorUIGraphChartObject.GetComponent<GraphChart>();
         itemLabels = sensorUIGraphChartObject.GetComponent<ItemLabels>();
         verticalAxis = sensorUIGraphChartObject.GetComponent<VerticalAxis>();
@@ -117,8 +120,8 @@ public abstract class Sensor : MonoBehaviour
         sensorUI.swayElementC.mainCanvas = mainCanvas;
         sensorUI.swayElementD.mainCanvas = mainCanvas;
         bool isRigidBodySensor = this is RigidBodySensor;
-        sensorUI.rigidBodySensorTypeSelectObject.SetActive(isRigidBodySensor);
-        sensorUI.fluidSensorTypeSelectObject.SetActive(!isRigidBodySensor);
+        sensorUI.rigidBodySensorTypeSelectObject.SetActive(isRigidBodySensor && doShowSensorTypeSelector);
+        sensorUI.fluidSensorTypeSelectObject.SetActive(!isRigidBodySensor && doShowSensorTypeSelector);
         sensorUI.positionTypeSelector.SetActive(isRigidBodySensor);
         sensorUI.positionTitle.SetActive((!isRigidBodySensor && isStandardResolution) || isRigidBodySensor);
         sensorUI.positionInputFields.SetActive(!isRigidBodySensor && isStandardResolution);
@@ -195,7 +198,7 @@ public abstract class Sensor : MonoBehaviour
     public Vector2 CanvasSpaceToSimSpace(Vector2 canvasCoords)
         => (canvasCoords / canvasResolution + new Vector2(0.5f, 0.5f)) * GetBoundaryDims();
 
-    private Vector2 GetBoundaryDims()
+    public Vector2 GetBoundaryDims()
     {
         if (boundaryDims == Vector2.zero)
         {

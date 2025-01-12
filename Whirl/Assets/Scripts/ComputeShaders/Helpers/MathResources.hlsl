@@ -368,3 +368,16 @@ bool isAnyComponentEqualTo(float2 a, float b)
 {
     return a.x == b || a.y == b;
 }
+
+// Bit manipulation helpers
+void SetBit(inout int value, int bitIndex, bool state)
+{
+    if (state)
+        value |= (1 << bitIndex); // Set the bit
+    else
+        value &= ~(1 << bitIndex); // Clear the bit
+}
+bool ReadBit(int value, int bitIndex)
+{
+    return (value & (1 << bitIndex)) != 0;
+}

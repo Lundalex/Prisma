@@ -433,7 +433,15 @@ float2 MirrorRepeatUV(float2 uv)
 
 float2 GetPixelPos(uint2 pixelID)
 {
-    return ((float2)pixelID + 0.5) * ViewScale + ViewOffset;
+    float2 p = (float2)pixelID + 0.5 - (float2)Resolution * 0.5;
+
+    float2 a = 1.0 / ScreenToViewFactor;
+
+    p *= a;
+
+    p += (float2)Resolution * 0.5;
+
+    return p * ViewScale + ViewOffset;
 }
 
 float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos)
@@ -520,7 +528,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
         float minGasRadiusSqr = minGasRadius * minGasRadius;
     #endif
     #if DISPLAY_FLUID_VELOCITIES
-        float totVelocities = 0;
+        float totVelocitiesSummative = 0;
         int numParticles = 0;
     #endif
     for (int x = -1; x <= 1; x++)
@@ -557,7 +565,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                         }
 
                         #if DISPLAY_FLUID_VELOCITIES
-                            totVelocities += length(pData.vel);
+                            totVelocitiesSummative += length(pData.vel);
                             numParticles++;
                         #endif
 
@@ -588,7 +596,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                     if (dstSqr < (isGas ? min(minGasRadius, minDstSqr) : min(minLiquidRadiusSqr, minDstSqr)))
                     {
                         #if DISPLAY_FLUID_VELOCITIES
-                            totVelocities += length(pData.vel);
+                            totVelocitiesSummative += length(pData.vel);
                             numParticles++;
                         #endif
 
@@ -650,7 +658,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
             float3 color;
             float opacity;
             #if DISPLAY_FLUID_VELOCITIES
-                float avgVel = totVelocities / numParticles;
+                float avgVel = totVelocitiesSummative / numParticles;
                 float4 gradientCol;
             #endif
             if (nearestIsNotGas)

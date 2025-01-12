@@ -585,21 +585,32 @@ void GetRBBounds(RigidBody rb,
     }
 }
 
-float2 interactionAcceleration(RigidBody rb)
+float2 interactionAcceleration(inout RigidBody rb)
 {
-    if (!LMousePressed && !RMousePressed) return 0;
-
-    float factor = 0;
-    if (LMousePressed) factor = RB_InteractionAttractionPower;
-    else if (RMousePressed) factor = -RB_InteractionRepulsionPower;
-
     float2 dst = rb.pos - MousePos;
     float absDst = length(dst);
-    if (absDst > RB_MaxInteractionRadius) return 0;
 
-    float absInteractionGradient = RB_MaxInteractionRadius - absDst;
-    float2 interactionGradient = normalize(dst) * absInteractionGradient + RB_InteractionDampening * Int2ToFloat2(rb.vel_AsInt2, INT_FLOAT_PRECISION_RB);
-    float2 interactionAcceleration = interactionGradient * factor - (LMousePressed ? float2(0, rb.gravity) : 0);
+    // Determine if the rigid body is being dragged
+    bool isBeingDragged = LMousePressed && (ReadBit(rb.stateFlags, 0) || absDst < RB_MaxInteractionRadius);
+    bool isBeingRepelled = RMousePressed && absDst < RB_MaxInteractionRadius;
+
+    // Update the dragging flag
+    SetBit(rb.stateFlags, 0, isBeingDragged);
+
+    if (!isBeingDragged && !isBeingRepelled) return 0;
+
+    float factor = RB_InteractionAttractionPower;
+    if (isBeingRepelled) factor *= -1;
+
+    // Modify this function to alter the "feeling" of the dragging / repulsion mechanics
+    float interactionStrengthDragging = 20 * sqrt(absDst);
+    float interactionStrengthRepulsion = 1.5 * (RB_MaxInteractionRadius - absDst);
+
+    float2 normDst = dst / absDst;
+    float2 interactionGradient = isBeingDragged ?
+                                 normDst * interactionStrengthDragging + RB_InteractionDampening * Int2ToFloat2(rb.vel_AsInt2, INT_FLOAT_PRECISION_RB) - float2(0, rb.gravity) :
+                                 normDst * interactionStrengthRepulsion;
+    float2 interactionAcceleration = interactionGradient * factor;
 
     return interactionAcceleration;
 }

@@ -10,7 +10,7 @@ public struct PType
     public float springTolDeformation;
     public float springStiffness;
 
-    [Header("Thermals")]
+    [Header("Thermal Properties")]
     public float thermalConductivity;
     public float specificHeatCapacity;
     public float freezeThreshold;

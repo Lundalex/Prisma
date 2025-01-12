@@ -284,52 +284,52 @@ namespace Resources2
             return normalizedCoords * viewDims + viewMin;
         }
 
-    public static Vector2 ClampToScreenBounds(Vector2 uiPos, RectTransform outerContainerRectTransform, Vector2 scale, Vector3 scaleFactor)
-    {
-        // Apply ScreenToView transform
-        uiPos /= PM.Instance.ScreenToViewFactor;
-
-        Vector2 rectTransformSize = new(outerContainerRectTransform.rect.width, outerContainerRectTransform.rect.height);
-        Vector2 containerSize = scale * scaleFactor * rectTransformSize * 1.4f / PM.Instance.ScreenToViewFactor;
-        Vector2 containerMin = uiPos - 0.5f * containerSize;
-        Vector2 containerMax = uiPos + 0.5f * containerSize;
-
-        Vector2 halfResolution = 0.5f * PM.Instance.Resolution;
-        Vector2 screenMin = -halfResolution + PM.Instance.main.UIPadding;
-        Vector2 screenMax = halfResolution - PM.Instance.main.UIPadding;
-        Vector2 minDiff = containerMin - screenMin;
-        Vector2 maxDiff = containerMax - screenMax;
-
-        Vector2 offset = Vector2.zero;
-
-        // Adjust X axis
-        if (minDiff.x < 0)
+        public static Vector2 ClampToScreenBounds(Vector2 uiPos, RectTransform outerContainerRectTransform, Vector2 scale, Vector3 scaleFactor)
         {
-            offset.x = -minDiff.x;
-        }
-        else if (maxDiff.x > 0)
-        {
-            offset.x = -maxDiff.x;
-        }
+            // Apply ScreenToView transform
+            uiPos /= PM.Instance.ScreenToViewFactorUI;
 
-        // Adjust Y axis
-        if (minDiff.y < 0)
-        {
-            offset.y = -minDiff.y;
-        }
-        else if (maxDiff.y > 0)
-        {
-            offset.y = -maxDiff.y;
-        }
-        
-        // Apply offset
-        uiPos += offset;
+            Vector2 rectTransformSize = new(outerContainerRectTransform.rect.width, outerContainerRectTransform.rect.height);
+            Vector2 containerSize = scale * scaleFactor * rectTransformSize * 1.4f / PM.Instance.ScreenToViewFactorUI;
+            Vector2 containerMin = uiPos - 0.5f * containerSize;
+            Vector2 containerMax = uiPos + 0.5f * containerSize;
 
-        // Revert ScreenToView transform
-        uiPos *= PM.Instance.ScreenToViewFactor;
+            Vector2 halfResolution = 0.5f * PM.Instance.Resolution;
+            Vector2 screenMin = -halfResolution + PM.Instance.main.UIPadding;
+            Vector2 screenMax = halfResolution - PM.Instance.main.UIPadding;
+            Vector2 minDiff = containerMin - screenMin;
+            Vector2 maxDiff = containerMax - screenMax;
 
-        return uiPos;
-    }
+            Vector2 offset = Vector2.zero;
+
+            // Adjust X axis
+            if (minDiff.x < 0)
+            {
+                offset.x = -minDiff.x;
+            }
+            else if (maxDiff.x > 0)
+            {
+                offset.x = -maxDiff.x;
+            }
+
+            // Adjust Y axis
+            if (minDiff.y < 0)
+            {
+                offset.y = -minDiff.y;
+            }
+            else if (maxDiff.y > 0)
+            {
+                offset.y = -maxDiff.y;
+            }
+            
+            // Apply offset
+            uiPos += offset;
+
+            // Revert ScreenToView transform
+            uiPos *= PM.Instance.ScreenToViewFactorUI;
+
+            return uiPos;
+        }
     }
 #endregion
 

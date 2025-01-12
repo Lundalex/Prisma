@@ -78,75 +78,92 @@ public class FluidSensor : Sensor
 
     public override void UpdateSensor()
     {
-        if (sensorUI != null)
+        // Early exit if no UI or invalid measurement zone
+        if (sensorUI == null) return;
+        if (measurementZone.height == 0.0f && measurementZone.width == 0.0f)
         {
-            if (measurementZone.height == 0.0f && measurementZone.width == 0.0f)
-                Debug.Log("Measurement zone has no width or height. It will not be updated. FluidSensor: " + this.name);
-            else
-            {
-                // Collect all data contributions and estimate the liquid depth & width
-                int totChunkDepths = 0;
-                int totColumnsWithLiquid = 0;
-                int totChunksWithLiquid = 0;
-                float numContributions = 0;
-                RecordedFluidData_Translated sumFluidDatas = new();
-                for (int x = minX; x <= maxX; x += SampleSpacing)
-                {
-                    if (0 > x || x >= chunksNum.x) continue;
-
-                    bool anyLiquidInColumn = false;
-                    bool underSurface = true;
-                    int chunkDepth = 0;
-                    int potentialChunkDepth = 0;
-                    for (int y = minY; y <= maxY; y += SampleSpacing)
-                    {
-                        if (0 > y || y >= chunksNum.y) continue;
-                        
-                        int chunkKey = GetChunkKey(x, y);
-
-                        potentialChunkDepth++;
-
-                        RecordedFluidData_Translated fluidData = new(sensorManager.retrievedFluidDatas[chunkKey], main.FloatIntPrecisionP);
-                        if (fluidData.numContributions > 0)
-                        {
-                            // Add recorded fluid data
-                            AddRecordedFluidData(ref sumFluidDatas, fluidData);
-                            numContributions += fluidData.numContributions;
-
-                            if (!anyLiquidInColumn) underSurface = true;
-                            anyLiquidInColumn = true;
-
-                            // Liquid depth & volume check
-                            totChunksWithLiquid++;
-                            if (allowDepthGaps) chunkDepth = potentialChunkDepth;
-                            else if (underSurface) chunkDepth++;
-                        }
-                        else underSurface = false;
-                    }
-
-                    totChunkDepths += chunkDepth;
-                    if (anyLiquidInColumn) totColumnsWithLiquid++;
-                }
-
-                sumFluidDatas.MultiplyAllProperties(sampleDensityCorrection);
-                sumFluidDatas.numContributions = numContributions * sampleDensityCorrection;
-
-                // Final liquid depth, width & volume calculations
-                float chunkSize = main.MaxInfluenceRadius * main.SimUnitToMetersFactor;
-                float avgChunkDepth = totChunkDepths * SampleSpacing / Mathf.Max(totColumnsWithLiquid, 0.1f);
-                float estimatedDepth = avgChunkDepth * chunkSize;
-                float estimatedWidth = totColumnsWithLiquid * SampleSpacing * chunkSize;
-                float estimatedVolume = estimatedDepth * estimatedWidth * main.ZDepthMeters * 1000; // *1000: m^3 -> dl^3
-
-                // Normalize sumFluidDatas values
-                sumFluidDatas.totMass *= 0.001f;
-                sumFluidDatas.totVelAbs *= main.SimUnitToMetersFactor;
-                sumFluidDatas.totVelComponents *= main.SimUnitToMetersFactor;
-                sumFluidDatas.totPressure *= main.PressureFactor;
-
-                UpdateSensorContents(sumFluidDatas, estimatedDepth, estimatedWidth, estimatedVolume);
-            }
+            Debug.Log("Measurement zone has no width or height. It will not be updated. FluidSensor: " + this.name);
+            return;
         }
+
+        // Collect all data contributions and estimate the liquid depth & width
+        int totChunkDepthsAllowGaps = 0;
+        int totChunkDepthsNoGaps = 0;
+        int totColumnsWithLiquid = 0;
+        int totChunksWithLiquid = 0;
+        float numContributions = 0;
+        RecordedFluidData_Translated sumFluidDatas = new();
+
+        for (int x = minX; x <= maxX; x += SampleSpacing)
+        {
+            if (x < 0 || x >= chunksNum.x) continue;
+
+            bool anyLiquidInColumn = false;
+            bool underSurface = true;
+            int chunkDepthAllowGaps = 0;
+            int chunkDepthNoGaps = 0;
+            int potentialChunkDepth = 0;
+
+            for (int y = minY; y <= maxY; y += SampleSpacing)
+            {
+                if (y < 0 || y >= chunksNum.y) continue;
+
+                int chunkKey = GetChunkKey(x, y);
+                potentialChunkDepth++;
+
+                // Retrieve fluid data
+                RecordedFluidData_Translated fluidData = new(sensorManager.retrievedFluidDatas[chunkKey], main.FloatIntPrecisionP);
+                if (fluidData.numContributions > 0)
+                {
+                    // Add recorded fluid data
+                    AddRecordedFluidData(ref sumFluidDatas, fluidData);
+                    numContributions += fluidData.numContributions;
+
+                    if (!anyLiquidInColumn) underSurface = true;
+                    anyLiquidInColumn = true;
+
+                    // Liquid depth & volume check
+                    totChunksWithLiquid++;
+                    chunkDepthAllowGaps = potentialChunkDepth;
+                    if (underSurface) chunkDepthNoGaps++;
+                }
+                else underSurface = false;
+            }
+
+            totChunkDepthsAllowGaps += chunkDepthAllowGaps;
+            totChunkDepthsNoGaps += chunkDepthNoGaps;
+            if (anyLiquidInColumn) totColumnsWithLiquid++;
+        }
+
+        // Apply sample density correction
+        sumFluidDatas.MultiplyAllProperties(sampleDensityCorrection);
+        sumFluidDatas.numContributions = numContributions * sampleDensityCorrection;
+
+        // Final liquid depth, width & volume calculations
+        float chunkSize = main.MaxInfluenceRadius * main.SimUnitToMetersFactor;
+        float width = totColumnsWithLiquid * SampleSpacing * chunkSize;
+
+        // "Allow Gaps" calculations
+        float avgChunkDepthAllowGaps = totChunkDepthsAllowGaps * SampleSpacing / Mathf.Max(totColumnsWithLiquid, 0.1f);
+        float depthAllowGaps = avgChunkDepthAllowGaps * chunkSize;
+        float volumeAllowGaps = depthAllowGaps * width * main.ZDepthMeters * 1000;
+
+        // "No Gaps" calculations
+        float avgChunkDepthNoGaps = totChunkDepthsNoGaps * SampleSpacing / Mathf.Max(totColumnsWithLiquid, 0.1f);
+        float depthNoGaps = avgChunkDepthNoGaps * chunkSize;
+        float volumeNoGaps = depthNoGaps * width * main.ZDepthMeters * 1000;
+
+        // Liquid density is based on the number of liquid chunks
+        float density = 1000f * sumFluidDatas.totMass / (totChunksWithLiquid * Func.Sqr(chunkSize * SampleSpacing));
+
+        // Normalize values
+        sumFluidDatas.totMass *= 0.001f; // g -> kg
+        sumFluidDatas.totVelAbs *= main.SimUnitToMetersFactor;
+        sumFluidDatas.totVelComponents *= main.SimUnitToMetersFactor;
+        sumFluidDatas.totPressure *= main.PressureFactor;
+
+        // Update sensor contents
+        UpdateSensorContents(sumFluidDatas, width, depthAllowGaps, depthNoGaps, volumeAllowGaps, volumeNoGaps, density);
     }
 
     void AddRecordedFluidData(ref RecordedFluidData_Translated a, RecordedFluidData_Translated b)
@@ -159,14 +176,13 @@ public class FluidSensor : Sensor
         a.totMass += b.totMass;
     }
 
-    private void UpdateSensorContents(RecordedFluidData_Translated sumFluidDatas, float estimatedDepth, float estimatedWidth, float estimatedVolume)
+    private void UpdateSensorContents(RecordedFluidData_Translated sumFluidDatas, float width, float depthAllowGaps, float depthNoGaps, float volumeAllowGaps, float volumeNoGaps, float density)
     {
-        float kineticEnergy = sumFluidDatas.totMass * Mathf.Pow(sumFluidDatas.totVelAbs, 2) / 2.0f;
+        float kineticEnergy = sumFluidDatas.totMass * Mathf.Pow(sumFluidDatas.totVelAbs, 2) / 2f;
         float thermalEnergy = sumFluidDatas.totThermalEnergy;
-
         float avgTemperature = sumFluidDatas.totTemp / Mathf.Max(sumFluidDatas.numContributions, 0.1f);
 
-        float value = 0;
+        float value = 0f;
         if (sumFluidDatas.numContributions > 0)
         {
             switch (fluidSensorType)
@@ -174,77 +190,62 @@ public class FluidSensor : Sensor
                 case FluidSensorType.Mass:
                     value = sumFluidDatas.totMass;
                     break;
-
                 case FluidSensorType.Depth:
-                    value = estimatedDepth;
+                    value = allowDepthGaps ? depthAllowGaps : depthNoGaps;
                     break;
-
                 case FluidSensorType.Volume:
-                    value = estimatedVolume;
+                    value = allowDepthGaps ? volumeAllowGaps : volumeNoGaps;
                     break;
-
                 case FluidSensorType.Density:
-                    value = 1000 * sumFluidDatas.totMass / estimatedVolume; // *1000: m^3 -> dm^3
+                    value = density;
                     break;
-
                 case FluidSensorType.Pressure:
                     value = sumFluidDatas.totPressure / sumFluidDatas.numContributions;
                     break;
-
                 case FluidSensorType.Energy_Total_Kinetic:
                     value = kineticEnergy;
                     break;
-
                 case FluidSensorType.Energy_Total_Thermal:
                     value = thermalEnergy;
                     break;
-
                 case FluidSensorType.Energy_Total_Both:
                     value = kineticEnergy + thermalEnergy;
                     break;
-
                 case FluidSensorType.Energy_Average_Kinetic:
                     value = kineticEnergy / sumFluidDatas.numContributions;
                     break;
-
                 case FluidSensorType.Energy_Average_Thermal:
                     value = thermalEnergy / sumFluidDatas.numContributions;
                     break;
-
                 case FluidSensorType.Energy_Average_Both:
                     value = (kineticEnergy + thermalEnergy) / sumFluidDatas.numContributions;
                     break;
-
                 case FluidSensorType.AverageTemperatureCelcius:
                     value = Utils.KelvinToCelcius(avgTemperature);
                     break;
-
                 case FluidSensorType.AverageTemperatureKelvin:
                     value = avgTemperature;
                     break;
-
                 case FluidSensorType.Velocity_Absolute_Destructive:
                     value = Func.Magnitude(sumFluidDatas.totVelComponents) / sumFluidDatas.numContributions;
                     break;
-
                 case FluidSensorType.Velocity_Absolute_Summative:
                     value = sumFluidDatas.totVelAbs / sumFluidDatas.numContributions;
                     break;
-
                 default:
                     Debug.LogWarning("Unrecognised RigidBodySensorType: " + this.name);
                     break;
             }
         }
 
-        if (Mathf.Abs(value * Mathf.Pow(10, 3 * (3 - minPrefixIndex))) < minDisplayValue) value = 0.0f;
-
+        // Apply threshold, multiplier, and offset
+        if (Mathf.Abs(value * Mathf.Pow(10, 3 * (3 - minPrefixIndex))) < minDisplayValue) value = 0f;
         value *= valueMultiplier;
         value += valueOffset;
 
+        // Set UI
         (string prefix, float displayValue) = GetMagnitudePrefix(value, minPrefixIndex);
         bool isNewUnit = SetSensorUnit(prefix);
-
         sensorUI.SetMeasurement(displayValue, numDecimals, isNewUnit);
         AddSensorDataToGraph(value);
     }

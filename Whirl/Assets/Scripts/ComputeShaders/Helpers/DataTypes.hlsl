@@ -120,6 +120,9 @@ struct RigidBody
     int renderPriority;
     int matIndex;
     int springMatIndex;
+
+    // State flags
+    int stateFlags;
 };
 
 struct RBVector 

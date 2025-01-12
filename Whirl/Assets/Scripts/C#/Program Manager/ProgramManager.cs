@@ -43,7 +43,8 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public int2 ResolutionInt2;
     [NonSerialized] public static readonly float MaxDeltaTime = 1 / 30.0f;
     private static readonly float MinTimeScaleForRunningProgram = 0.01f;
-    [NonSerialized] public Vector2 ScreenToViewFactor;
+    [NonSerialized] public Vector2 ScreenToViewFactorUI;
+    [NonSerialized] public Vector2 ScreenToViewFactorScene;
     [NonSerialized] public Vector2 ViewScale;
     [NonSerialized] public Vector2 ViewOffset;
     [NonSerialized] public bool isStandardResolution;
@@ -64,6 +65,7 @@ public class ProgramManager : ScriptableObject
     private Vector2 uiViewMin;
     private Vector2 uiViewDims;
     private bool viewTransformInitiated;
+    private float lastScreenRatio;
     private readonly Vector2 StandardResolution = new(1920, 1080);
 
     // Private - Animated Texture Scrolling
@@ -99,7 +101,9 @@ public class ProgramManager : ScriptableObject
     {
         SetReferences();
         SetResolutionData();
-        ScreenToViewFactor = GetScreenToViewFactor();
+        ScreenToViewFactorUI = GetScreenToViewFactor(Resolution.x / Resolution.y);
+        ScreenToViewFactorScene = GetScreenToViewFactor(Screen.width / (float)Screen.height);
+        main.SetScreenToViewFactor(ScreenToViewFactorScene);
         (ViewScale, ViewOffset) = GetViewTransform();
         SetStaticUIPositions();
     }
@@ -120,7 +124,7 @@ public class ProgramManager : ScriptableObject
         if (sceneIsResetting) return;
         CheckStartConfirmation();
 
-        sceneIsResetting = CheckKeyInputs();
+        sceneIsResetting = CheckInputs();
         if (sceneIsResetting)
         {
             ResetScene();
@@ -202,8 +206,9 @@ public class ProgramManager : ScriptableObject
             startConfirmationStatus = StartConfirmationStatus.None;
         }
     }
-    private bool CheckKeyInputs()
+    private bool CheckInputs()
     {
+        // Key inputs
         bool allowRestart = startConfirmationStatus == StartConfirmationStatus.NotStarted || startConfirmationStatus == StartConfirmationStatus.None;
         if (Input.GetKeyDown(KeyCode.R) && allowRestart)
         {
@@ -231,6 +236,15 @@ public class ProgramManager : ScriptableObject
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
             CloseAllSensorUISettingsPanels();
+        }
+
+        // Screen resizing
+        float screenRatio = Screen.width / (float)Screen.height;
+        if (screenRatio != lastScreenRatio)
+        {
+            ScreenToViewFactorScene = GetScreenToViewFactor(screenRatio);
+            main.SetScreenToViewFactor(ScreenToViewFactorScene);
+            lastScreenRatio = screenRatio;
         }
 
         return false;
@@ -446,10 +460,9 @@ public class ProgramManager : ScriptableObject
         }
     }
 
-    private Vector2 GetScreenToViewFactor() 
+    public Vector2 GetScreenToViewFactor(float resolutionAspect)
     {
         float boundsAspect = main.BoundaryDims.x / (float)main.BoundaryDims.y;
-        float resolutionAspect = Resolution.x / Resolution.y;
 
         float scaleX;
         float scaleY;
@@ -501,12 +514,6 @@ public class ProgramManager : ScriptableObject
         ResolutionInt2 = main.Resolution;
         isStandardResolution = Resolution == StandardResolution;
 
-        // Make sure all resolution settings match
-        int screenWidth = Screen.width;
-        int screenHeight = Screen.height;
-        Vector2 screenResolution = new(screenWidth, screenHeight);
-        if (Resolution != screenResolution) Debug.LogWarning("Screen resolution and resolution setting in Main do not match. Rendering artifacts may appear.");
-
         Vector2 uiCanvasResolution = GameObject.FindGameObjectWithTag("UICanvas").GetComponent<Canvas>().GetComponent<CanvasScaler>().referenceResolution;
         if (Resolution != uiCanvasResolution) Debug.LogWarning("UICanvas reference resolution and resolution setting in Main do not match. Rendering artifacts may appear.");
 
@@ -523,7 +530,7 @@ public class ProgramManager : ScriptableObject
     {
         // Calculate the UI offset
         Vector2 halfResolution = Resolution / 2.0f;
-        Vector2 offset = halfResolution - halfResolution * ScreenToViewFactor;
+        Vector2 offset = halfResolution - halfResolution * ScreenToViewFactorUI;
         
         // Apply the offset to all static UI elements
         if (languageSelectDropdown != null)

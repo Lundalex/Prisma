@@ -275,6 +275,7 @@ public class SceneManager : MonoBehaviour
             // Sensors
             foreach (var sensor in rigidBody.linkedSensors)
             {
+                if (sensor == null) continue;
                 if (!sensor.isActiveAndEnabled) continue;
 
                 if (sensors.Contains(sensor))
@@ -485,6 +486,12 @@ public class SceneManager : MonoBehaviour
         bool isRigidConstraint = rbInput.constraintType == ConstraintType.Rigid;
         bool isSpringConstraint = rbInput.constraintType == ConstraintType.Spring;
 
+        // Bit-packed integer for storing flag values in each bit
+        // Below is a map to each reserved bit's meaning
+        int stateFlags = 0;
+        // bit nr : default : naming
+        // bit 0 : false : isBeingMoved (by the left mouse button)
+
         return new RBData
         {
             pos = pos,
@@ -534,7 +541,27 @@ public class SceneManager : MonoBehaviour
 
             renderPriority = rbInput.disableRender ? -1 : rbInput.renderPriority,
             matIndex = rbInput.matIndex,
-            springMatIndex = rbInput.springMatIndex
+            springMatIndex = rbInput.springMatIndex,
+            stateFlags = stateFlags
         };
     }
 }
+
+// // Determine flag booleans
+// bool canMove = rbInput.canMove && rbInput.constraintType != ConstraintType.LinearMotor;
+// bool isRBCollider = rbInput.colliderType == ColliderType.RigidBody || rbInput.colliderType == ColliderType.All;
+// bool isFluidCollider = rbInput.colliderType == ColliderType.Fluid || rbInput.colliderType == ColliderType.All;
+// bool isLinearMotor = rbInput.constraintType == ConstraintType.LinearMotor;
+// bool doRoundTrip = rbInput.doRoundTrip;
+// bool isRigidConstraint = rbInput.constraintType == ConstraintType.Rigid;
+// bool isSpringConstraint = rbInput.constraintType == ConstraintType.Spring;
+
+// // Prepare bit-packed flags
+// int flags = 0;
+// if (canMove) flags |= 1 << 0;
+// if (isRBCollider) flags |= 1 << 1;
+// if (isFluidCollider) flags |= 1 << 2;
+// if (isLinearMotor) flags |= 1 << 3;
+// if (doRoundTrip) flags |= 1 << 4;
+// if (isRigidConstraint) flags |= 1 << 5;
+// if (isSpringConstraint) flags |= 1 << 6;

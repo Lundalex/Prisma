@@ -198,7 +198,6 @@ public class ShaderHelper : MonoBehaviour
 
         renderShader.SetVector("Resolution", PM.Instance.Resolution);
         renderShader.SetVector("BoundaryDims", Utils.Int2ToVector2(m.BoundaryDims));
-        renderShader.SetVector("ScreenToViewFactor", PM.Instance.ScreenToViewFactor);
         renderShader.SetVector("ViewScale", PM.Instance.ViewScale);
         renderShader.SetVector("ViewOffset", PM.Instance.ViewOffset);
 

@@ -7,7 +7,6 @@ using Resources2;
 using System.Collections.Generic;
 using PM = ProgramManager;
 using Debug = UnityEngine.Debug;
-using Unity.Burst.Intrinsics;
 
 public class Main : MonoBehaviour
 {
@@ -423,7 +422,7 @@ public class Main : MonoBehaviour
     public void UpdateShaderTimeStep()
     {
         // Mouse position
-        Vector2 mouseSimPos = GetMousePosInSimSpace();
+        Vector2 mouseSimPos = GetMousePosInSimSpace(false);
 
         // Mouse button input handling
         bool2 currentMouseInputs = Utils.GetMousePressed();
@@ -456,15 +455,22 @@ public class Main : MonoBehaviour
         pSimShader.SetInt("StepRand", Func.RandInt(0, 99999));
     }
 
-    public Vector2 GetMousePosInSimSpace()
+    Vector2 FactorAtStart = Vector2.positiveInfinity;
+    public Vector2 GetMousePosInSimSpace(bool doApplyUITransform)
     {
+        if (FactorAtStart.x == float.PositiveInfinity) FactorAtStart = PM.Instance.ScreenToViewFactorScene;
+
         Vector3 mousePosVector3 = Camera.main.ScreenToViewportPoint(Input.mousePosition);
         Vector2 mousePos = new(mousePosVector3.x, mousePosVector3.y);
 
-        Vector2 normalisedMousePos = (mousePos - Const.Vector2Half) / PM.Instance.ScreenToViewFactor + Const.Vector2Half;
+        Vector2 normalisedMousePos = (mousePos - Const.Vector2Half) * (doApplyUITransform ? FactorAtStart : Vector2.one) / PM.Instance.ScreenToViewFactorScene + Const.Vector2Half;
         Vector2 simSpacePos = normalisedMousePos * new Vector2(BoundaryDims.x, BoundaryDims.y);
 
         return simSpacePos;
+    }
+    public void SetScreenToViewFactor(Vector2 screenToviewFactor)
+    {
+        renderShader.SetVector("ScreenToViewFactor", screenToviewFactor);
     }
 
     private void SetShaderKeywords()
