@@ -16,8 +16,8 @@ struct PType
     // Inter-Particle Springs
     int fluidSpringGroup;
     float springPlasticity;
-    float springTolDeformation;
     float springStiffness;
+    float springTolDeformation;
 
     // Thermals
     float thermalConductivity;
@@ -25,17 +25,17 @@ struct PType
     float freezeThreshold;
     float vaporizeThreshold;
 
-    // Pressure
+    // Inter-particle Forces
     float pressure;
     float nearPressure;
+    float viscosity;
+    float gravity;
 
-    // Runtime Properties
+    // Particle Properties
     float mass;
     float targetDensity;
     float damping;
     float passiveDamping;
-    float viscosity;
-    float gravity;
 
     // Material
     int matIndex;

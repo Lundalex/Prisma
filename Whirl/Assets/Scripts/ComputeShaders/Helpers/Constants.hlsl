@@ -1,5 +1,5 @@
 static const uint MAX_RIGIDBODIES_NUM = 32;
-static const int MAX_SPATIAL_LOOKUP_RENDER_ITERATIONS = 10;
+static const int MAX_SPATIAL_LOOKUP_RENDER_ITERATIONS = 7;
 
 // --- Thread Nums ---
 
