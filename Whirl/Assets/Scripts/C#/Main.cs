@@ -356,7 +356,7 @@ public class Main : MonoBehaviour
 
                 RunPSimShader(j);
 
-                if (StepCount++ % SubTimeStepsPerRBSimUpdate == 0)
+                if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
                 {
                     rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
                     RunRbSimShader();

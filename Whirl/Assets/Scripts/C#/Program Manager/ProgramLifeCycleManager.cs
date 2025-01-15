@@ -7,12 +7,14 @@ public class ProgramLifeCycleManager : MonoBehaviour
 {
     [Header("Editor Settings")]
     public bool darkMode;
+    public bool doHideUIInSceneView = true;
     public bool showUserUI;
 
     [Header("Serialized Fields")]
     [SerializeField] private Main main;
     [SerializeField] private NotificationManager2 notificationManager;
     [SerializeField] private GameObject darkBackground;
+    [SerializeField] private GameObject uiCanvas;
     [SerializeField] private GameObject userUI;
     [SerializeField] private GameObject startConfirmationWindow;
 
@@ -28,7 +30,8 @@ public class ProgramLifeCycleManager : MonoBehaviour
     {
         PM.Instance.ResetData();
 
-        // Make sure the user UI is shown
+        // Make sure the user UI & canvas are shown
+        uiCanvas.SetActive(true);
         if (!showUserUI) userUI.SetActive(true);
 
         // Show start confirmation (only when starting the program)

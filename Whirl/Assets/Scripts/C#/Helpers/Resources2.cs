@@ -14,6 +14,7 @@ namespace Resources2
         public static readonly Vector2 Vector2Half = new(0.5f, 0.5f);
         public static readonly float Sqrt2Div3 = 0.8165f; // sqrt(2 / 3)
         public static readonly float PI = 3.14159265f;
+        public static readonly float SMALL_FLOAT = 1e-6f;
         public static readonly float LARGE_FLOAT = 1e6f;
         public static readonly Vector2 Vector2Epsilon = new(1e-6f, 1e-6f);
     }

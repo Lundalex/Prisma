@@ -846,11 +846,14 @@ void UpdateRigidBodies(uint3 id : SV_DispatchThreadID)
 
     RigidBody rb = RigidBodies[i];
 
-    // Ensure rotation velocity is within range
-    rb.rotVel_AsInt = SafeAsInt(rb.rotVel_AsInt, MaxRBRotVel);
+    if (rb.inertia > 0)
+    {
+        // Ensure rotation velocity is within range
+        rb.rotVel_AsInt = SafeAsInt(rb.rotVel_AsInt, MaxRBRotVel);
 
-    // Update totRot
-    rb.totRot += IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB) * DeltaTime;
+        // Update totRot
+        rb.totRot += IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB) * DeltaTime;
+    }
     
     bool isLinearMotor = rb.mass < 0;
     bool canMove = rb.mass > 0;

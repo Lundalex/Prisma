@@ -263,6 +263,7 @@ MonoBehaviour:
   RB_RBRigidConstraintCorrectionFactor: 10
   TimeStepsPerFrame: 2
   SubTimeStepsPerFrame: 3
+  SubTimeStepsPerRBSimUpdate: 1
   TimeStepType: 1
   TargetFrameRate: 0
   TimeStep: 0.0025
@@ -1089,7 +1090,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3391644013778691397, guid: 88d8ec9a3e2f244ce9ce508aa4750ea4, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 49.02
       objectReference: {fileID: 0}
     - target: {fileID: 3391644013778691397, guid: 88d8ec9a3e2f244ce9ce508aa4750ea4, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1101,7 +1102,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3391644013778691397, guid: 88d8ec9a3e2f244ce9ce508aa4750ea4, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -74.51
+      value: -50
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2493,7 +2494,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 745302312610524497, guid: 68246a23a9e12463fbebd08b847fc585, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 745302312610524497, guid: 68246a23a9e12463fbebd08b847fc585, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2565,7 +2566,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2195767329999461003, guid: 68246a23a9e12463fbebd08b847fc585, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2195767329999461003, guid: 68246a23a9e12463fbebd08b847fc585, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2701,7 +2702,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3426241708270388801, guid: 68246a23a9e12463fbebd08b847fc585, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3426241708270388801, guid: 68246a23a9e12463fbebd08b847fc585, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2737,7 +2738,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4297352066583392667, guid: 68246a23a9e12463fbebd08b847fc585, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4297352066583392667, guid: 68246a23a9e12463fbebd08b847fc585, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2959,7 +2960,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1093615694
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3130,7 +3131,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   materialInputs:
-  - colorTexture: {fileID: 0}
+  - name: 
+    colorTexture: {fileID: 0}
     colorTextureUpScaleFactor: 1
     sampleOffset:
       x: 0
@@ -3149,7 +3151,8 @@ MonoBehaviour:
       x: 1
       y: 1
       z: 1
-  - colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
+  - name: 
+    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
     colorTextureUpScaleFactor: 2
     sampleOffset:
       x: 0
@@ -3168,7 +3171,8 @@ MonoBehaviour:
       x: 1
       y: 1
       z: 1
-  - colorTexture: {fileID: 2800000, guid: d7215cefa2dcd90439e40bf03644d96d, type: 3}
+  - name: 
+    colorTexture: {fileID: 2800000, guid: d7215cefa2dcd90439e40bf03644d96d, type: 3}
     colorTextureUpScaleFactor: 25
     sampleOffset:
       x: 0
@@ -3187,7 +3191,8 @@ MonoBehaviour:
       x: 1
       y: 1
       z: 1
-  - colorTexture: {fileID: 2800000, guid: 088c9683d0588d84eb1c17165c2d629a, type: 3}
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 088c9683d0588d84eb1c17165c2d629a, type: 3}
     colorTextureUpScaleFactor: 25
     sampleOffset:
       x: 0
@@ -3206,7 +3211,8 @@ MonoBehaviour:
       x: 0
       y: 0
       z: 0
-  - colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
+  - name: 
+    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
     colorTextureUpScaleFactor: 10
     sampleOffset:
       x: 0
@@ -3285,10 +3291,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   darkMode: 0
+  doHideUIInSceneView: 1
   showUserUI: 1
   main: {fileID: 486541}
   notificationManager: {fileID: 116449069}
   darkBackground: {fileID: 1740834273}
+  uiCanvas: {fileID: 1093615693}
   userUI: {fileID: 644664865}
   startConfirmationWindow: {fileID: 4081380684560399344}
 --- !u!1 &1543420958
@@ -3321,61 +3329,62 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   particleTypeStates:
-  - solidState:
+  - name: 
+    solidState:
       fluidSpringGroup: 1
       springPlasticity: 3
-      springTolDeformation: 0
       springStiffness: 5
+      springTolDeformation: 0
       thermalConductivity: 1
       specificHeatCapacity: 10
       freezeThreshold: 0
       vaporizeThreshold: 100
       pressure: 3000
       nearPressure: 5
+      viscosity: 1.5
+      gravity: 9.82
       mass: 1
       targetDensity: 2
       damping: 0.7
       passiveDamping: 0
-      viscosity: 1.5
-      gravity: 9.82
       matIndex: 0
       influenceRadius: 2
     liquidState:
       fluidSpringGroup: 1
       springPlasticity: 1
-      springTolDeformation: 0.5
       springStiffness: 5
+      springTolDeformation: 0.5
       thermalConductivity: 1
       specificHeatCapacity: 10
       freezeThreshold: 0
       vaporizeThreshold: 100
       pressure: 10000
       nearPressure: 5
+      viscosity: 1.5
+      gravity: 9.82
       mass: 24
       targetDensity: 48
       damping: 0.7
       passiveDamping: 0
-      viscosity: 1.5
-      gravity: 9.82
       matIndex: 0
       influenceRadius: 6
     gasState:
       fluidSpringGroup: 0
       springPlasticity: 3
-      springTolDeformation: 0
       springStiffness: 0
+      springTolDeformation: 0
       thermalConductivity: 1
       specificHeatCapacity: 10
       freezeThreshold: 0
       vaporizeThreshold: 100
       pressure: 100
       nearPressure: 0
+      viscosity: 1.5
+      gravity: 0
       mass: 0.3
       targetDensity: 1
       damping: 0.7
       passiveDamping: 0
-      viscosity: 1.5
-      gravity: 0
       matIndex: 3
       influenceRadius: 2
 --- !u!4 &1543420960
@@ -4030,7 +4039,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6934567954574372459, guid: 90bf5cfd9ad5bdc4f85ba9c8c83e501a, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6934567954574372459, guid: 90bf5cfd9ad5bdc4f85ba9c8c83e501a, type: 3}
       propertyPath: m_SizeDelta.y
@@ -4900,7 +4909,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8426906341907823801, guid: 8eebcca8551c27c499b36b2b4c4baccf, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 98.05
       objectReference: {fileID: 0}
     - target: {fileID: 8426906341907823801, guid: 8eebcca8551c27c499b36b2b4c4baccf, type: 3}
       propertyPath: m_LocalPosition.y
@@ -4912,7 +4921,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8426906341907823801, guid: 8eebcca8551c27c499b36b2b4c4baccf, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -99.025
+      value: -50
       objectReference: {fileID: 0}
     - target: {fileID: 8764469720335485590, guid: 8eebcca8551c27c499b36b2b4c4baccf, type: 3}
       propertyPath: timer
@@ -5219,7 +5228,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5892192850743948749, guid: e20b6234d5fb344cd832743abe27866f, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 49.02
       objectReference: {fileID: 0}
     - target: {fileID: 5892192850743948749, guid: e20b6234d5fb344cd832743abe27866f, type: 3}
       propertyPath: m_LocalPosition.y
@@ -5231,7 +5240,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5892192850743948749, guid: e20b6234d5fb344cd832743abe27866f, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -74.51
+      value: -50
       objectReference: {fileID: 0}
     - target: {fileID: 6852032532680148069, guid: e20b6234d5fb344cd832743abe27866f, type: 3}
       propertyPath: timer

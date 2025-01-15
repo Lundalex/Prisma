@@ -544,7 +544,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
             
             int iterationCount = 0;
             int index = startIndex;
-            while (index < ParticlesNum && chunkKey == SpatialLookup[index].y && iterationCount++ < MAX_SPATIAL_LOOKUP_RENDER_ITERATIONS)
+            while (index < ParticlesNum && chunkKey == SpatialLookup[index].y && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
             {
                 int pIndex = SpatialLookup[index].x;
                 PData pData = PDatas[pIndex];

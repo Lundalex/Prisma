@@ -174,7 +174,7 @@ public class SceneManager : MonoBehaviour
 
     public (RBData[], RBVector[], SensorArea[]) CreateRigidBodies(float? rbCalcGridSpacingInput = null)
     {
-        float rbCalcGridSpacing = rbCalcGridSpacingInput ?? 0.2f;
+        float rbCalcGridSpacing = rbCalcGridSpacingInput ?? 1.0f;
         if (!referencesHaveBeenSet) SetReferences();
 
         SceneRigidBody[] allRigidBodies = GetAllSceneRigidBodies();

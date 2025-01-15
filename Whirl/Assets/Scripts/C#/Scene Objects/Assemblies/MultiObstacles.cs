@@ -5,7 +5,7 @@ public class MultiObstacles : Assembly
     [Header("ObstaclesType")]
     public ObstaclesType obstaclesType;
 
-    [Header("References")]
+    [Header("References - ConfigHelper")]
     [SerializeField] private ConfigHelper configHelper;
 
     [Header("References - User Inputs")]

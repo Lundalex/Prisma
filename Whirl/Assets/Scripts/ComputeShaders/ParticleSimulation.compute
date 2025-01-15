@@ -157,9 +157,10 @@ float2 CalcDensity(int pIndex) // (density, nearDensity)
 
             int chunkKey = GetChunkKey(curChunk);
             int startIndex = StartIndices[chunkKey];
-
+            
+            int iterationCount = 0;
             int index = startIndex;
-            while (index < (int)ParticlesNum && chunkKey == SpatialLookup[index].y)
+            while (index < (int)ParticlesNum && chunkKey == SpatialLookup[index].y && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
             {
                 int otherPIndex = SpatialLookup[index].x;
                 PType PType_otherPIndex = PTypes[Extract_PType(PDatas[otherPIndex].lastChunkKey_PType_POrder)];
@@ -515,9 +516,10 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
 
             int chunkKey = GetChunkKey(curChunk);
             int startIndex = StartIndices[chunkKey];
-
+            
+            int iterationCount = 0;
             int index = startIndex;
-            while (index < (int)ParticlesNum && chunkKey == SpatialLookup[index].y)
+            while (index < (int)ParticlesNum && chunkKey == SpatialLookup[index].y && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
             {
                 int otherPIndex = SpatialLookup[index].x;
                 if (i == otherPIndex) { index++; nCount++; continue; }
