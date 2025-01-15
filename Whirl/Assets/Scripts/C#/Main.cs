@@ -70,6 +70,7 @@ public class Main : MonoBehaviour
 #region Simulation Time
     public int TimeStepsPerFrame = 3;
     public int SubTimeStepsPerFrame = 3;
+    public int SubTimeStepsPerRBSimUpdate = 1;
     public TimeStepType TimeStepType;
     public int TargetFrameRate;
     public float TimeStep = 0.02f;
@@ -355,7 +356,11 @@ public class Main : MonoBehaviour
 
                 RunPSimShader(j);
 
-                RunRbSimShader();
+                if (StepCount++ % SubTimeStepsPerRBSimUpdate == 0)
+                {
+                    rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
+                    RunRbSimShader();
+                }
 
                 ComputeHelper.DispatchKernel(pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize1);
 
@@ -440,7 +445,6 @@ public class Main : MonoBehaviour
         pSimShader.SetBool("RMousePressed", MousePressed.y);
 
         // Per-timestep-set variables - rbSimShader
-        rbSimShader.SetFloat("DeltaTime", DeltaTime);
         rbSimShader.SetFloat("SimTimeElapsed", SimTimeElapsed);
         rbSimShader.SetVector("MousePos", mouseSimPos);
         rbSimShader.SetBool("LMousePressed", MousePressed.x);
