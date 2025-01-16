@@ -27,8 +27,7 @@ public class EditorViewHelper : Editor
         if (sceneManagerTransform == null) sceneManagerTransform = GameObject.FindGameObjectWithTag("SceneManager")?.GetComponent<Transform>();
         if (uiCanvasObject == null)
         {
-            GameObject canvasParent = GameObject.Find("UI_Canvas");
-            if (canvasParent != null) uiCanvasObject = canvasParent;
+            uiCanvasObject = lifeCycleManager.uiCanvas;
         }
     }
 

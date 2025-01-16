@@ -14,7 +14,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
     [SerializeField] private Main main;
     [SerializeField] private NotificationManager2 notificationManager;
     [SerializeField] private GameObject darkBackground;
-    [SerializeField] private GameObject uiCanvas;
+    [SerializeField] public GameObject uiCanvas;
     [SerializeField] private GameObject userUI;
     [SerializeField] private GameObject startConfirmationWindow;
 

@@ -317,7 +317,8 @@ float3 InteractionEffects(int pIndex)
 
     float2 interactionGradient = normalize(dst) * absInteractionGradient + 0.1 * InteractionDampening * PDatas[pIndex].vel;
 
-    float2 baseInteractionForce = interactionGradient * InteractionAttractionPower * dir;
+    float interactionPower = LMousePressed ? InteractionAttractionPower : InteractionRepulsionPower;
+    float2 baseInteractionForce = interactionGradient * interactionPower * dir;
     float fountainInteractionForce = 0;
     if (dir == -1)
     {
