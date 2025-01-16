@@ -38,6 +38,7 @@ const float RB_InteractionRepulsionPower;
 const float RB_InteractionDampening;
 
 const float DeltaTime;
+const float RLDeltaTime;
 const float SimTimeElapsed;
 const float2 MousePos;
 const bool LMousePressed;
@@ -612,7 +613,7 @@ float2 interactionAcceleration(inout RigidBody rb)
                                  normDst * interactionStrengthRepulsion;
     float2 interactionAcceleration = interactionGradient * factor;
 
-    return interactionAcceleration;
+    return -interactionAcceleration;
 }
 
 [numthreads(TN_RBS3,1,1)]
@@ -932,13 +933,12 @@ void UpdateRigidBodies(uint3 id : SV_DispatchThreadID)
         // Apply acceleration
         float2 totAcceleration = float2(0, -rb.gravity);
         bool isInteractable = (rb.maxRadiusSqr > 0);
-        if (isInteractable) totAcceleration += -interactionAcceleration(rb);
 
         // Update pos
         float2 vel = Int2ToFloat2(rb.vel_AsInt2, INT_FLOAT_PRECISION_RB);
         if (length(vel) > MinRBVelForMovement) rb.pos += vel * DeltaTime;
 
-        rb.vel_AsInt2 += Float2AsInt2(totAcceleration * DeltaTime, INT_FLOAT_PRECISION_RB);
+        rb.vel_AsInt2 += Float2AsInt2(totAcceleration * DeltaTime + interactionAcceleration(rb) * RLDeltaTime, INT_FLOAT_PRECISION_RB);
 
         // Velocity clamp
         rb.vel_AsInt2 = SafeAsInt2(rb.vel_AsInt2, MaxRBVel);

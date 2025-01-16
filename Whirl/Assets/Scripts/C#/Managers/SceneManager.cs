@@ -541,7 +541,7 @@ public class SceneManager : MonoBehaviour
 
             renderPriority = rbInput.disableRender ? -1 : rbInput.renderPriority,
             matIndex = rbInput.matIndex,
-            springMatIndex = rbInput.springMatIndex,
+            springMatIndex = rbInput.disableSpringRender ? -1 : rbInput.springMatIndex,
             stateFlags = stateFlags
         };
     }

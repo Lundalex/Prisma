@@ -55,8 +55,8 @@ public class MultiFluidScene : Assembly
                 configHelper.SetActiveConfigByName("Scenes", "Water");
                 break;
 
-            case FluidSceneType.Honey:
-                configHelper.SetActiveConfigByName("Scenes", "Honey");
+            case FluidSceneType.Syrup:
+                configHelper.SetActiveConfigByName("Scenes", "Syrup");
                 break;
 
             case FluidSceneType.Slime:
@@ -78,16 +78,19 @@ public class MultiFluidScene : Assembly
     }
 
     private void ModifyFields()
-    {   
+    {
+        // 'Intro' scene
+        multiFieldModifier.ModifyFieldByFieldName("SubTimeStepsPerRBSimUpdate", fluidSceneType == FluidSceneType.Intro ? 1 : 2);
+
         // 'Water' scene
         multiFieldModifier.ModifyFieldByFieldName("DoDisplayFluidVelocities", fluidSceneType == FluidSceneType.Water);
+        multiFieldModifier.ModifyFieldByFieldName("MaxInteractionRadius", fluidSceneType == FluidSceneType.Water? 80 : 60);
 
-        // 'Honey' scene
-        int influenceRadius = fluidSceneType == FluidSceneType.Honey ? 3 : 2;
+        // 'Syrup' scene
+        int influenceRadius = fluidSceneType == FluidSceneType.Syrup ? 3 : 2;
         multiFieldModifier.ModifyFieldByFieldName("MaxInfluenceRadius", influenceRadius);
 
-        // 'Water' & 'Honey' scenes
-        multiFieldModifier.ModifyFieldByFieldName("DoSimulateParticleSprings", fluidSceneType != FluidSceneType.Water && fluidSceneType != FluidSceneType.Honey);
-
+        // 'Water' & 'Syrup' scenes
+        multiFieldModifier.ModifyFieldByFieldName("DoSimulateParticleSprings", fluidSceneType != FluidSceneType.Water && fluidSceneType != FluidSceneType.Syrup);
     }
 }

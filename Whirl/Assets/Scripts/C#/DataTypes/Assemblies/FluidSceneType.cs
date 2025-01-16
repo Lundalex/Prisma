@@ -2,7 +2,7 @@ public enum FluidSceneType
 {
     Intro,
     Water,
-    Honey,
+    Syrup,
     Slime,
     Gel
 }

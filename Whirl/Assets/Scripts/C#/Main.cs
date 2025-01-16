@@ -20,7 +20,7 @@ public class Main : MonoBehaviour
     public int renderShaderThreadSize = 32; // /32, AxA thread groups
     public int pSimShaderThreadSize1 = 512; // /1024
     public int pSimShaderThreadSize2 = 512; // /1024
-    public int sortShaderThreadSize = 512; // /1024
+    public int sortShaderThreadSize = 512; // /1024F
     public int rbSimShaderThreadSize1 = 64; // Rigid Body Simulation
     public int rbSimShaderThreadSize2 = 32; // Rigid Body Simulation
     public int rbSimShaderThreadSize3 = 512; // Rigid Body Simulation
@@ -262,6 +262,7 @@ public class Main : MonoBehaviour
 
     // Other
     private float DeltaTime;
+    private float RLDeltaTime;
     private float SimTimeElapsed;
     private int StepCount = 0;
     private int timeSetRand;
@@ -339,7 +340,8 @@ public class Main : MonoBehaviour
     {
         UpdateSimulationPDatas();
 
-        DeltaTime = GetDeltaTime();
+        DeltaTime = GetDeltaTime(PM.Instance.clampedDeltaTime, true);
+        RLDeltaTime = GetDeltaTime(Time.deltaTime, false);
 
         for (int i = 0; i < TimeStepsPerFrame; i++)
         {
@@ -359,6 +361,7 @@ public class Main : MonoBehaviour
                 if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
                 {
                     rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
+                    rbSimShader.SetFloat("RLDeltaTime", RLDeltaTime * SubTimeStepsPerRBSimUpdate);
                     RunRbSimShader();
                 }
 
@@ -440,6 +443,7 @@ public class Main : MonoBehaviour
 
         // Per-timestep-set variables - pSimShader
         pSimShader.SetFloat("DeltaTime", DeltaTime);
+        pSimShader.SetFloat("RLDeltaTime", RLDeltaTime);
         pSimShader.SetVector("MousePos", mouseSimPos);
         pSimShader.SetBool("LMousePressed", MousePressed.x);
         pSimShader.SetBool("RMousePressed", MousePressed.y);
@@ -561,7 +565,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    private float GetDeltaTime()
+    private float GetDeltaTime(float totalFrameTime, bool doClamp)
     {
         float stepsPerFrame = TimeStepsPerFrame * SubTimeStepsPerFrame;
         float deltaTime;
@@ -572,8 +576,8 @@ public class Main : MonoBehaviour
         }
         else // TimeStepType == TimeStepType.Dynamic
         {
-            float calculatedDelta = PM.Instance.clampedDeltaTime / stepsPerFrame;
-            deltaTime = Mathf.Min(calculatedDelta, TimeStep);
+            deltaTime = totalFrameTime / stepsPerFrame;
+            if (doClamp) deltaTime = Mathf.Min(deltaTime, TimeStep);
         }
 
         deltaTime *= PM.Instance.timeScale * ProgramSpeed;
