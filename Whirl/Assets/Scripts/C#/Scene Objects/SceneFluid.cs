@@ -17,7 +17,7 @@ public class SceneFluid : Polygon
     [Range(0.05f, 2.0f)] public float editorPointRadius = 0.05f;
 
     [Header("Simulation Object Settings")]
-    [Range(0.1f, 4.0f)] public float defaultGridSpacing = 2.0f;
+    [Range(0.1f, 10.0f)] public float defaultGridSpacing = 2.0f;
     [SerializeField] private float particleTemperatureCelcius = 20.0f;
     [SerializeField] private int pTypeIndex = 0;
 
@@ -27,11 +27,11 @@ public class SceneFluid : Polygon
     private PTypeInput pTypeInput;
     private Main main;
 
+#if UNITY_EDITOR
     // Editor
     private int framesSinceLastPositionChange = 0;
     private Vector2 lastFramePosition = Vector2.zero;
 
-#if UNITY_EDITOR
     public override void OnEditorUpdate()
     {
         if (Application.isPlaying) return;

@@ -352,15 +352,15 @@ float2 LiquidSpringForce(PType pType, PType PType_otherPIndex, int pIndex, int o
     float plasticity = avg(pType.springPlasticity, PType_otherPIndex.springPlasticity);
     float tolDeformation = avg(pType.springTolDeformation, PType_otherPIndex.springTolDeformation);
 
-    // ∆L = ∆t * α * sign(r − L) * max(0,|r − L| − γL)
-    spring.restLength += LiquidSpringPlasticityModel(plasticity, sgnDiffMng, absDiffMng, tolDeformation, DeltaTime);
-
     // Elasticity calculations
     float stiffness = avg(pType.springStiffness, PType_otherPIndex.springStiffness);
     float absSpringForce = LiquidSpringForceModel(stiffness, spring.restLength, avgInfluenceRadius, absDst);
     float2 springForce = absSpringForce * normDst;
 
     // --- Write new spring data ---
+
+    // ∆L = ∆t * α * sign(r − L) * max(0,|r − L| − γL)
+    spring.restLength += LiquidSpringPlasticityModel(plasticity, sgnDiffMng, absDiffMng, tolDeformation, DeltaTime);
 
     ParticleSpringsCombined[springIndex] = spring;
 

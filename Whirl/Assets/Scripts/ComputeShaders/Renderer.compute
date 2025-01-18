@@ -155,7 +155,7 @@ float3 SampleTextureBilinear(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<u
 
 float3 SampleTexturePoint(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
 {
-    uint2 texelCoord = texLoc + ((2 + (uint2)(uv * float2(texDims.x, texDims.y))) % texDims);
+    uint2 texelCoord = texLoc + ((round(uv * float2(texDims.x, texDims.y))) % texDims);
     float3 sampleCol = tex.Load(int3(texelCoord, 0)).rgb;
  
     return sampleCol;
@@ -433,7 +433,7 @@ float2 MirrorRepeatUV(float2 uv)
 
 float2 GetPixelPos(uint2 pixelID)
 {
-    float2 p = (float2)pixelID + 0.5 - (float2)Resolution * 0.5;
+    float2 p = (float2)pixelID - (float2)Resolution * 0.5;
 
     float2 a = 1.0 / ScreenToViewFactor;
 

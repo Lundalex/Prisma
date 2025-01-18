@@ -228,7 +228,7 @@ MonoBehaviour:
   DoSimulateParticleViscosity: 1
   DoSimulateParticleSprings: 0
   DoSimulateParticleTemperature: 0
-  renderShaderThreadSize: 32
+  renderShaderThreadSize: 16
   pSimShaderThreadSize1: 512
   pSimShaderThreadSize2: 512
   sortShaderThreadSize: 512
@@ -1191,6 +1191,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: rbInput.colliderType
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: rbInput.passiveDamping
       value: 1
       objectReference: {fileID: 0}
@@ -1361,6 +1365,10 @@ PrefabInstance:
     - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: position.y
       value: 128
+      objectReference: {fileID: 0}
+    - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: colliderType
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: doRenderRail
@@ -4367,6 +4375,14 @@ PrefabInstance:
     m_TransformParent: {fileID: 1968073726}
     m_Modifications:
     - target: {fileID: 1227694708897028629, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: rbInput.canMove
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1227694708897028629, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: approximatedVolume
+      value: 8,6152 l
+      objectReference: {fileID: 0}
+    - target: {fileID: 1227694708897028629, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: rbInput.renderPriority
       value: 1
       objectReference: {fileID: 0}
@@ -4637,6 +4653,10 @@ PrefabInstance:
     - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: railPadding
       value: 3.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: colliderType
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: doRenderRail
@@ -5997,6 +6017,10 @@ PrefabInstance:
       value: 100000
       objectReference: {fileID: 0}
     - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: rbInput.colliderType
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: rbInput.passiveDamping
       value: 1
       objectReference: {fileID: 0}
@@ -6159,6 +6183,10 @@ PrefabInstance:
     - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: position.y
       value: 190
+      objectReference: {fileID: 0}
+    - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: colliderType
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: doRenderRail
@@ -6585,6 +6613,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: rbInput.colliderType
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: rbInput.passiveDamping
       value: 1
       objectReference: {fileID: 0}
@@ -6755,6 +6787,10 @@ PrefabInstance:
     - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: position.y
       value: 64
+      objectReference: {fileID: 0}
+    - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: colliderType
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8289308510336658660, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: doRenderRail
@@ -7375,7 +7411,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1245251769558814152, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 49.02
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1245251769558814152, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_LocalPosition.y
@@ -7387,7 +7423,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1245251769558814152, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -50
+      value: -74.51
       objectReference: {fileID: 0}
     - target: {fileID: 1343865850551191670, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
@@ -7963,7 +7999,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6398436834715329873, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 49.02
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6398436834715329873, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_LocalPosition.y
@@ -7975,7 +8011,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6398436834715329873, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -50
+      value: -74.51
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_AnchorMax.y
@@ -8095,7 +8131,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7820526039010101467, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 98.05
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7820526039010101467, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_LocalPosition.y
@@ -8107,7 +8143,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7820526039010101467, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -50
+      value: -99.025
       objectReference: {fileID: 0}
     - target: {fileID: 7828713011583013177, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_Pivot.x

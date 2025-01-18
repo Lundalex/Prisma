@@ -98,9 +98,9 @@ public class SimpleMechanicalSwitch : Assembly
         // Other properties
         borderCollider.rbInput.mass = mass;
         sceneCollider.rbInput.mass = mass;
-        if (colliderType == ColliderType.Fluid || colliderType == ColliderType.None)
+        if (colliderType == ColliderType.None)
         {
-            Debug.LogWarning("Collider type set to 'Fluid' or 'None'. This is not allowed for mechanical switches. Defaulting to 'All'");
+            Debug.LogWarning("Collider type set to 'None'. This is not allowed for mechanical switches. Defaulting to 'All'");
             colliderType = ColliderType.All;
         }
         sceneCollider.rbInput.colliderType = colliderType;

@@ -41,6 +41,7 @@ public class SceneRigidBody : Polygon
     [NonSerialized] public Vector2 lastLocalLinkPosOtherRB;
     [NonSerialized] public bool lastLinkTypeSet = false;
 
+#if UNITY_EDITOR
     // Editor
     private int frameCount = 0;
     private int framesSinceLastPositionChange = 0;
@@ -51,7 +52,6 @@ public class SceneRigidBody : Polygon
     private bool lastOverrideCentroid = false;
     private bool lastOverrideCentroidSet = false;
 
-#if UNITY_EDITOR
     public override void OnEditorUpdate()
     {
         if (Application.isPlaying || this == null) return;

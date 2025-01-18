@@ -36,13 +36,13 @@ public class ComputeShaderDebugger
     {
         debugShader.SetInt("CS_MAX_RIGIDBODIES_NUM", m.NumRigidBodies);
 
-        debugShader.SetInt("CS_TN_PS", m.pSimShaderThreadSize1);
-        debugShader.SetInt("CS_TN_PS2", m.pSimShaderThreadSize2);
-        debugShader.SetInt("CS_TN_R", m.renderShaderThreadSize);
-        debugShader.SetInt("CS_TN_RBS1", m.rbSimShaderThreadSize1);
-        debugShader.SetInt("CS_TN_RBS2", m.rbSimShaderThreadSize2);
-        debugShader.SetInt("CS_TN_RBS3", m.rbSimShaderThreadSize3);
-        debugShader.SetInt("CS_TN_S", m.sortShaderThreadSize);
+        debugShader.SetInt("CS_TN_PS", Main.pSimShaderThreadSize1);
+        debugShader.SetInt("CS_TN_PS2", Main.pSimShaderThreadSize2);
+        debugShader.SetInt("CS_TN_R", Main.renderShaderThreadSize);
+        debugShader.SetInt("CS_TN_RBS1", Main.rbSimShaderThreadSize1);
+        debugShader.SetInt("CS_TN_RBS2", Main.rbSimShaderThreadSize2);
+        debugShader.SetInt("CS_TN_RBS3", Main.rbSimShaderThreadSize3);
+        debugShader.SetInt("CS_TN_S", Main.sortShaderThreadSize);
 
         debugShader.SetFloat("CS_INT_FLOAT_PRECISION_RB", m.FloatIntPrecisionRB);
         debugShader.SetFloat("CS_INT_FLOAT_PRECISION_P", m.FloatIntPrecisionP);

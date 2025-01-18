@@ -84,7 +84,20 @@ public class MultiFluidScene : Assembly
 
         // 'Water' scene
         multiFieldModifier.ModifyFieldByFieldName("DoDisplayFluidVelocities", fluidSceneType == FluidSceneType.Water);
-        multiFieldModifier.ModifyFieldByFieldName("MaxInteractionRadius", fluidSceneType == FluidSceneType.Water ? 80 : 60);
+        float maxInteractionRadius;
+        switch (fluidSceneType)
+        {
+            case FluidSceneType.Intro:
+                maxInteractionRadius = 60.0f;
+                break;
+            case FluidSceneType.Water:
+                maxInteractionRadius = 80.0f;
+                break;
+            default:
+                maxInteractionRadius = 70.0f;
+                break;
+        }
+        multiFieldModifier.ModifyFieldByFieldName("MaxInteractionRadius", maxInteractionRadius);
 
         // 'Syrup' scene
         int influenceRadius = fluidSceneType == FluidSceneType.Syrup ? 3 : 2;

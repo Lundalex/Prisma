@@ -29,13 +29,6 @@
         </ui:Foldout>
         <ui:Toggle label="Show Advanced" name="ShowAdvanced" tooltip="Recommended: Keep default values. Enables editing of advanced program settings. " style="display: flex;" />
         <ui:Foldout text="Advanced Settings" name="AdvancedSettings" tooltip="Recommended: Keep default values. Advanced program settings. " value="true" toggle-on-label-click="false" style="display: flex;">
-            <uie:PropertyField binding-path="renderShaderThreadSize" label="Render Shader Thread Group Size" tooltip="Number of threads per group during GPU shader processing." />
-            <uie:PropertyField tooltip="Number of threads per group during GPU shader processing." binding-path="pSimShaderThreadSize1" label="Particle Simulation Shader Thread Group Size (kernel group 1)" />
-            <uie:PropertyField tooltip="Number of threads per group during GPU shader processing." binding-path="pSimShaderThreadSize2" label="Particle Simulation Shader Thread Group Size (kernel group 1)" />
-            <uie:PropertyField tooltip="Number of threads per group during GPU shader processing." binding-path="sortShaderThreadSize" label="Sorting Shader Thread Group Size" />
-            <uie:PropertyField tooltip="Number of threads per group during GPU shader processing." label="Rigid Body Simulation Shader Thread Group Size (kernel group 1)" binding-path="rbSimShaderThreadSize1" />
-            <uie:PropertyField tooltip="Number of threads per group during GPU shader processing." label="Rigid Body Simulation Shader Thread Group Size (kernel group 2)" binding-path="rbSimShaderThreadSize2" />
-            <uie:PropertyField tooltip="Number of threads per group during GPU shader processing." label="Rigid Body Simulation Shader Thread Group Size (kernel group 3)" binding-path="rbSimShaderThreadSize3" />
             <uie:PropertyField binding-path="FloatIntPrecisionRB" label="Float-Int Precision RB" tooltip="Precision used for float-to-integer storage solutions." />
             <uie:PropertyField tooltip="Precision used for float-to-integer storage solutions." binding-path="FloatIntPrecisionP" label="Float-Int Precision P" />
         </ui:Foldout>

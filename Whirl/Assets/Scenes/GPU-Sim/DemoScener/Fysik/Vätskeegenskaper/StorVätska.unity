@@ -225,18 +225,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f20c516896de6d941af0611e4bca0081, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DoSimulateParticleViscosity: 1
-  DoSimulateParticleSprings: 0
-  DoSimulateParticleTemperature: 0
-  renderShaderThreadSize: 32
-  pSimShaderThreadSize1: 512
-  pSimShaderThreadSize2: 512
-  sortShaderThreadSize: 512
-  rbSimShaderThreadSize1: 64
-  rbSimShaderThreadSize2: 32
-  rbSimShaderThreadSize3: 512
-  FloatIntPrecisionRB: 50000
-  FloatIntPrecisionP: 5000
   MaxPVel: 999999
   MaxRBRotVel: 999999
   MaxRBVel: 999999
@@ -257,6 +245,11 @@ MonoBehaviour:
   RigidBodyPadding: 0
   BoundaryElasticity: 0.5
   BoundaryFriction: 0
+  DoSimulateParticleViscosity: 1
+  DoSimulateParticleSprings: 0
+  DoSimulateParticleTemperature: 0
+  FloatIntPrecisionRB: 50000
+  FloatIntPrecisionP: 5000
   AllowLinkedRBCollisions: 1
   RB_RBCollisionCorrectionFactor: 1
   RB_RBFixedCollisionCorrection: 0.05
@@ -268,7 +261,7 @@ MonoBehaviour:
   TargetFrameRate: 0
   TimeStep: 0.0015
   ProgramSpeed: 7
-  MaxInteractionRadius: 100
+  MaxInteractionRadius: 120
   InteractionAttractionPower: 5
   InteractionRepulsionPower: 3.5
   InteractionFountainPower: 4

@@ -9,15 +9,19 @@ public class UserURL : MonoBehaviour
     [Header("Refrences")]
     [SerializeField] private Image backgroundImage;
 
-    void Awake()
+    private void OnValidate()
     {
-        MakeTransparent(ref backgroundImage);
+        SetTransparency(ref backgroundImage, (Application.isEditor && !Application.isPlaying) ? 50.0f / 255.0f : 0.0f);
+    }
+    private void OnEnable()
+    {
+        SetTransparency(ref backgroundImage, (Application.isEditor && !Application.isPlaying) ? 50.0f / 255.0f : 0.0f);
     }
 
-    private void MakeTransparent(ref Image image)
+    private void SetTransparency(ref Image image, float opacity)
     {
         Color color = image.color;
-        color.a = 0f;
+        color.a = opacity;
         image.color = color;
     }
 

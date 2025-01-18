@@ -10,26 +10,6 @@ using Debug = UnityEngine.Debug;
 
 public class Main : MonoBehaviour
 {
-#region Shader Compilation - Particle Simulation
-    // Fluids
-    public bool DoSimulateParticleViscosity = true;
-    public bool DoSimulateParticleSprings = true;
-    public bool DoSimulateParticleTemperature = true;
-
-    // Shader Thread Group Sizes
-    public int renderShaderThreadSize = 32; // /32, AxA thread groups
-    public int pSimShaderThreadSize1 = 512; // /1024
-    public int pSimShaderThreadSize2 = 512; // /1024
-    public int sortShaderThreadSize = 512; // /1024F
-    public int rbSimShaderThreadSize1 = 64; // Rigid Body Simulation
-    public int rbSimShaderThreadSize2 = 32; // Rigid Body Simulation
-    public int rbSimShaderThreadSize3 = 512; // Rigid Body Simulation
-
-    // Variable storage precision
-    public float FloatIntPrecisionRB = 20000.0f; // Rigid Body Simulation
-    public float FloatIntPrecisionP = 1000.0f; // Particle Simulation
-#endregion
-
 #region Safety
     public float MaxPVel = 100;
     public float MaxRBRotVel = 100;
@@ -58,6 +38,17 @@ public class Main : MonoBehaviour
     public float RigidBodyPadding = 2.0f;
     public float BoundaryElasticity = 0.2f;
     public float BoundaryFriction = 0.0f;
+#endregion
+
+#region Engine Optimisations
+    // Fluids
+    public bool DoSimulateParticleViscosity = true;
+    public bool DoSimulateParticleSprings = true;
+    public bool DoSimulateParticleTemperature = true;
+
+    // Variable storage precision
+    public float FloatIntPrecisionRB = 20000.0f; // Rigid Body Simulation
+    public float FloatIntPrecisionP = 1000.0f; // Particle Simulation
 #endregion
 
 #region Rigid Body Simulation
@@ -246,6 +237,15 @@ public class Main : MonoBehaviour
     [NonSerialized] public int NumFluidSensors;
     [NonSerialized] public CausticsType CausticsType;
     [NonSerialized] public int3 PrecomputedCausticsDims;
+
+    // Shader Thread Group Sizes
+    public const int renderShaderThreadSize = 16; // /32, AxA thread groups
+    public const int pSimShaderThreadSize1 = 512; // /1024
+    public const int pSimShaderThreadSize2 = 512; // /1024
+    public const int sortShaderThreadSize = 512; // /1024
+    public const int rbSimShaderThreadSize1 = 64; // Rigid Body Simulation
+    public const int rbSimShaderThreadSize2 = 32; // Rigid Body Simulation
+    public const int rbSimShaderThreadSize3 = 512; // Rigid Body Simulation
 
     // Private references
     [NonSerialized] public RenderTexture renderTexture;
