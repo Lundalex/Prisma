@@ -57,7 +57,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
         PM.Instance.Start();
     }
 
-    private void SetTargetFrameRate()
+    public void SetTargetFrameRate()
     {
         if (main.TargetFrameRate > 0)
         {

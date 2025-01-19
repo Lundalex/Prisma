@@ -144,6 +144,7 @@ public class ProgramManager : ScriptableObject
         if (doOnSettingsChanged && programStarted)
         {
             main.OnSettingsChanged();
+            lifeCycleManager.SetTargetFrameRate();
             doOnSettingsChanged = false;
         }
 

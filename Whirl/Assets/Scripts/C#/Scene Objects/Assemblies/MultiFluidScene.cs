@@ -79,8 +79,7 @@ public class MultiFluidScene : Assembly
 
     private void ModifyFields()
     {
-        // 'Intro' scene
-        multiFieldModifier.ModifyFieldByFieldName("SubTimeStepsPerRBSimUpdate", fluidSceneType == FluidSceneType.Intro ? 1 : 2);
+        multiFieldModifier.ModifyFieldByFieldName("SubTimeStepsPerRBSimUpdate", 2);
 
         // 'Water' scene
         multiFieldModifier.ModifyFieldByFieldName("DoDisplayFluidVelocities", fluidSceneType == FluidSceneType.Water);
