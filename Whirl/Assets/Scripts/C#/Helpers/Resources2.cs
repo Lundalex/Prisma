@@ -249,8 +249,13 @@ namespace Resources2
             return UnityEngine.Random.Range(min, max+1);
         }
 
-        // Function to rotate a 2D point by an angle in radians
-        public static Vector2 RotatePoint(Vector2 point, float angle)
+        public static Vector2 RotateDegrees2D(Vector2 point, float angleDegrees)
+        {
+            float rad = angleDegrees * Mathf.Deg2Rad;
+            return RotateRadians2D(point, rad);
+        }
+        
+        public static Vector2 RotateRadians2D(Vector2 point, float angle)
         {
             float cosTheta = Mathf.Cos(angle);
             float sinTheta = Mathf.Sin(angle);
