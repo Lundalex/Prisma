@@ -41,6 +41,44 @@ public class SceneRigidBody : Polygon
     [NonSerialized] public Vector2 lastLocalLinkPosOtherRB;
     [NonSerialized] public bool lastLinkTypeSet = false;
 
+#region GatherContainedParticles
+    public Main main;
+
+    [ContextMenu("Gather Contained Particles")]
+    public void GatherContainedParticles()
+    {
+        GameObject[] gos = GameObject.FindGameObjectsWithTag("RigidBody");
+        SceneRigidBody[] rbs = new SceneRigidBody[gos.Length];
+        for (int i = 0; i < gos.Length; i++)
+        {
+            rbs[i] = gos[i].GetComponent<SceneRigidBody>();
+        }
+        
+        PData[] particles = new PData[500000];
+        main.PDataBuffer.GetData(particles);
+
+        if (ParticleBoolData.Instance.containedFlags.Count != particles.Length)
+            ParticleBoolData.Instance.containedFlags = new List<bool>(new bool[particles.Length]);
+
+        int numInside = 0;
+        for (int i = 0; i < particles.Length; i++)
+        {
+            bool inside = false;
+            foreach (var rb in rbs)
+            {
+                if (rb.IsPointInsidePolygon(particles[i].pos))
+                {
+                    inside = true;
+                }
+            }
+            ParticleBoolData.Instance.containedFlags[i] = inside;
+            if (inside) numInside++;
+        }
+
+        Debug.Log("Number of particles inside rigid body: " + numInside);
+    }
+#endregion
+
 #if UNITY_EDITOR
     // Editor
     private int frameCount = 0;

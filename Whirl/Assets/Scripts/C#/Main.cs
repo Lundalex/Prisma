@@ -281,9 +281,25 @@ public class Main : MonoBehaviour
         ChunksNum = BoundaryDims / MaxInfluenceRadius;
         ChunksNumAll = ChunksNum.x * ChunksNum.y;
 
-        // Particles
-        PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
+        // Store a copy (not just a reference)
+        if (ParticleBoolData.Instance.PDatas.Length == 0)
+        {
+            Debug.Log("NEW PARTICLE DATA GENERATED");
+            ParticleBoolData.Instance.PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
+        }
+
+        // Retrieve a new copy when needed
+        PData[] PDatas = (PData[])ParticleBoolData.Instance.PDatas.Clone();
         ParticlesNum = PDatas.Length;
+
+        for (int i = 0; i < ParticlesNum; i++)
+        {
+            if (i >= ParticleBoolData.Instance.containedFlags.Count) continue;
+            if (ParticleBoolData.Instance.containedFlags[i])
+            {
+                PDatas[i].lastChunkKey_PType_POrder += 3 * ChunksNumAll;
+            }
+        }
 
         // Rigid bodies & sensor areas
         (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
@@ -341,7 +357,7 @@ public class Main : MonoBehaviour
         UpdateSimulationPDatas();
 
         DeltaTime = GetDeltaTime(PM.Instance.clampedDeltaTime, true);
-        RLDeltaTime = GetDeltaTime(Time.deltaTime, false);
+        RLDeltaTime = 0.001f;
 
         for (int i = 0; i < TimeStepsPerFrame; i++)
         {
@@ -358,12 +374,12 @@ public class Main : MonoBehaviour
 
                 RunPSimShader(j);
 
-                if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
-                {
-                    rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
-                    rbSimShader.SetFloat("RLDeltaTime", RLDeltaTime * SubTimeStepsPerRBSimUpdate);
-                    RunRbSimShader();
-                }
+                // if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
+                // {
+                //     rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
+                //     rbSimShader.SetFloat("RLDeltaTime", RLDeltaTime * SubTimeStepsPerRBSimUpdate);
+                //     RunRbSimShader();
+                // }
 
                 ComputeHelper.DispatchKernel(pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize1);
 
@@ -580,7 +596,7 @@ public class Main : MonoBehaviour
             if (doClamp) deltaTime = Mathf.Min(deltaTime, TimeStep);
         }
 
-        deltaTime *= PM.Instance.timeScale * ProgramSpeed;
+        deltaTime *= ProgramSpeed;
 
         return deltaTime;
     }

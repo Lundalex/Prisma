@@ -110,7 +110,7 @@ public class SceneFluid : Polygon
             for (float y = min.y; y <= max.y; y += gridSpacing)
             {
                 // Offset the spawning of each particle slightly to avoid visual rendering artifacts the first few frames
-                Vector2 point = new Vector2(x, y) + SmallRandVector2(0.1f * gridSpacing);
+                Vector2 point = new Vector2(x, y);
 
                 if (IsPointInsidePolygon(point) &&
                     sceneManager.IsPointInsideBounds(point) &&

@@ -1,5 +1,7 @@
+using System;
 using Unity.Mathematics;
 
+[Serializable]
 public struct PData
 {
     public float2 predPos;

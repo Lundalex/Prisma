@@ -4,6 +4,7 @@ using PM = ProgramManager;
 
 public class PTypeInput : MonoBehaviour
 {
+    public bool DoGenerateNewParticles;
     public PTypeState[] particleTypeStates;
 
     public void OnValidate() => PM.Instance.doOnSettingsChanged = true;
