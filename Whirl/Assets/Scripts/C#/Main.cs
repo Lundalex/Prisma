@@ -281,25 +281,9 @@ public class Main : MonoBehaviour
         ChunksNum = BoundaryDims / MaxInfluenceRadius;
         ChunksNumAll = ChunksNum.x * ChunksNum.y;
 
-        // Store a copy (not just a reference)
-        if (ParticleBoolData.Instance.PDatas.Length == 0)
-        {
-            Debug.Log("NEW PARTICLE DATA GENERATED");
-            ParticleBoolData.Instance.PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
-        }
-
-        // Retrieve a new copy when needed
-        PData[] PDatas = (PData[])ParticleBoolData.Instance.PDatas.Clone();
+        // PDatas
+        PData[] PDatas = HandleDeterministicParticleGeneration();
         ParticlesNum = PDatas.Length;
-
-        for (int i = 0; i < ParticlesNum; i++)
-        {
-            if (i >= ParticleBoolData.Instance.containedFlags.Count) continue;
-            if (ParticleBoolData.Instance.containedFlags[i])
-            {
-                PDatas[i].lastChunkKey_PType_POrder += 3 * ChunksNumAll;
-            }
-        }
 
         // Rigid bodies & sensor areas
         (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
@@ -350,6 +334,59 @@ public class Main : MonoBehaviour
         UpdateScript();
 
         StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
+    }
+
+    private PData[] HandleDeterministicParticleGeneration()
+    {
+        bool doGenerateNewParticles = pTypeInput.DoGenerateNewParticles || DeterministicData.Instance.PDatas == null || DeterministicData.Instance.PDatas.Length == 0;
+        if (doGenerateNewParticles)
+        {
+            DeterministicData.Instance.PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
+            Debug.Log("New particle data generated");
+        }
+
+        return DeterministicData.Instance.PDatas;
+    }
+
+    private int markPTypeIndex = 1;
+    private int markCount = 0;
+    [ContextMenu("Mark Contained PDatas")]
+    public void MarkContainedPDatas()
+    {
+        markCount++;
+
+        GameObject[] gos = GameObject.FindGameObjectsWithTag("RigidBody");
+        SceneRigidBody[] rbs = new SceneRigidBody[gos.Length];
+        for (int i = 0; i < gos.Length; i++) rbs[i] = gos[i].GetComponent<SceneRigidBody>();
+        
+        PData[] pDatas = new PData[ParticlesNum];
+        PDataBuffer.GetData(pDatas);
+
+        int numInside = 0;
+        for (int i = 0; i < pDatas.Length; i++)
+        {
+            bool inside = false;
+            foreach (var rb in rbs)
+            {
+                if (rb.rbInput.includeInSimulation) continue;
+                if (rb.IsPointInsidePolygon(pDatas[i].pos))
+                {
+                    inside = true;
+                    break;
+                }
+            }
+
+            bool isAlreadyMarked = DeterministicData.Instance.PDatas[i].lastChunkKey_PType_POrder != 1 * ChunksNumAll;
+            if (inside && (isAlreadyMarked || (1.0f / markCount) < UnityEngine.Random.value))
+            {
+                DeterministicData.Instance.PDatas[i].lastChunkKey_PType_POrder = markPTypeIndex * ChunksNumAll; // mark particle
+                numInside++;
+            }
+        }
+
+        markPTypeIndex += 3;
+
+        Debug.Log("Number of marked particles: " + numInside);
     }
     
     public void UpdateScript()
@@ -458,8 +495,8 @@ public class Main : MonoBehaviour
         }
 
         // Per-timestep-set variables - pSimShader
-        pSimShader.SetFloat("DeltaTime", DeltaTime);
-        pSimShader.SetFloat("RLDeltaTime", RLDeltaTime);
+        // pSimShader.SetFloat("DeltaTime", DeltaTime);
+        // pSimShader.SetFloat("RLDeltaTime", RLDeltaTime);
         pSimShader.SetVector("MousePos", mouseSimPos);
         pSimShader.SetBool("LMousePressed", MousePressed.x);
         pSimShader.SetBool("RMousePressed", MousePressed.y);

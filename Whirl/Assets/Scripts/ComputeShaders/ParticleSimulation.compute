@@ -44,10 +44,8 @@ const float InteractionDampening;
 
 // Per-timestep-set variables
 static const float DeltaTime = 0.001;
-static const float RLDeltaTime = 0.001;
 const bool TransferSpringData;
 const int StepCount;
-// const int StepRand;
 
 const float2 MousePos;
 const bool RMousePressed;
@@ -648,12 +646,11 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
         }
     }
 
-    float3 interactionEffects = pType.mass * InteractionEffects(i);
     float2 gravityForce = float2(0, -pType.gravity * pType.mass);
 
     float2 totForce = totPressureForce + totSpringForce + totViscocityForce + gravityForce;
-    PDatas[i].vel += (totForce * DeltaTime + interactionEffects.xy * RLDeltaTime) / pType.mass;
-    PDatas[i].temperatureExchangeBuffer = totTemperatureExchange + interactionEffects.z * RLDeltaTime;
+    PDatas[i].vel += (totForce * DeltaTime) / pType.mass;
+    PDatas[i].temperatureExchangeBuffer = totTemperatureExchange;
 
     // Record data
     PDatas[i].recordedPressure = totAbsPressure / pType.mass;
