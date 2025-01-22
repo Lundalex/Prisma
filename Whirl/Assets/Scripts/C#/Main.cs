@@ -350,7 +350,6 @@ public class Main : MonoBehaviour
 
     private int markPTypeIndex = 1;
     private int markCount = 0;
-    [ContextMenu("Mark Contained PDatas")]
     public void MarkContainedPDatas()
     {
         GameObject[] gos = GameObject.FindGameObjectsWithTag("RigidBody");
