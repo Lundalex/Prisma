@@ -1,5 +1,4 @@
 #if UNITY_EDITOR
-using System;
 using UnityEditor;
 #endif
 using UnityEngine;

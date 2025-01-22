@@ -12,6 +12,7 @@ using PM = ProgramManager;
 [RequireComponent(typeof(PolygonCollider2D)), ExecuteAlways]
 public class SceneRigidBody : Polygon
 {
+    public bool[] particleMarkingLayers;
     public bool doCenterPosition = false;
     public bool doDrawBody = true;
     public float editorLineAnimationSpeed = 10;

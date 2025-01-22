@@ -211,6 +211,11 @@ public class ProgramManager : ScriptableObject
     {
         // Key inputs
         bool allowRestart = startConfirmationStatus == StartConfirmationStatus.NotStarted || startConfirmationStatus == StartConfirmationStatus.None;
+        if (Input.GetKeyDown(KeyCode.M))
+        {
+            main.MarkContainedPDatas();
+            main.MarkContainedPDatas();
+        }
         if (Input.GetKeyDown(KeyCode.R) && allowRestart)
         {
             Debug.Log("'R' key pressed. Scene resetting...");

@@ -353,8 +353,6 @@ public class Main : MonoBehaviour
     [ContextMenu("Mark Contained PDatas")]
     public void MarkContainedPDatas()
     {
-        markCount++;
-
         GameObject[] gos = GameObject.FindGameObjectsWithTag("RigidBody");
         SceneRigidBody[] rbs = new SceneRigidBody[gos.Length];
         for (int i = 0; i < gos.Length; i++) rbs[i] = gos[i].GetComponent<SceneRigidBody>();
@@ -368,7 +366,9 @@ public class Main : MonoBehaviour
             bool inside = false;
             foreach (var rb in rbs)
             {
-                if (rb.rbInput.includeInSimulation) continue;
+                if (rb.rbInput.includeInSimulation || rb.particleMarkingLayers.Length <= markCount) continue;
+                if (!rb.particleMarkingLayers[markCount]) continue;
+
                 if (rb.IsPointInsidePolygon(pDatas[i].pos))
                 {
                     inside = true;
@@ -376,8 +376,7 @@ public class Main : MonoBehaviour
                 }
             }
 
-            bool isAlreadyMarked = DeterministicData.Instance.PDatas[i].lastChunkKey_PType_POrder != 1 * ChunksNumAll;
-            if (inside && (isAlreadyMarked || (1.0f / markCount) < UnityEngine.Random.value))
+            if (inside && !(DeterministicData.Instance.PDatas[i].lastChunkKey_PType_POrder < 7 * ChunksNumAll && UnityEngine.Random.value < 0.5f))
             {
                 DeterministicData.Instance.PDatas[i].lastChunkKey_PType_POrder = markPTypeIndex * ChunksNumAll; // mark particle
                 numInside++;
@@ -385,6 +384,7 @@ public class Main : MonoBehaviour
         }
 
         markPTypeIndex += 3;
+        markCount++;
 
         Debug.Log("Number of marked particles: " + numInside);
     }
@@ -411,12 +411,8 @@ public class Main : MonoBehaviour
 
                 RunPSimShader(j);
 
-                // if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
-                // {
-                //     rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
-                //     rbSimShader.SetFloat("RLDeltaTime", RLDeltaTime * SubTimeStepsPerRBSimUpdate);
-                //     RunRbSimShader();
-                // }
+                // rbSimShader.SetFloat("SimTimeElapsed", 0.001f * StepCount);
+                // RunRbSimShader();
 
                 ComputeHelper.DispatchKernel(pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize1);
 
@@ -502,7 +498,6 @@ public class Main : MonoBehaviour
         pSimShader.SetBool("RMousePressed", MousePressed.y);
 
         // Per-timestep-set variables - rbSimShader
-        rbSimShader.SetFloat("SimTimeElapsed", SimTimeElapsed);
         rbSimShader.SetVector("MousePos", mouseSimPos);
         rbSimShader.SetBool("LMousePressed", MousePressed.x);
         rbSimShader.SetBool("RMousePressed", MousePressed.y);

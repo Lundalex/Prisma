@@ -1,3 +1,5 @@
+static const float DeltaTime = 0.00015;
+
 static const uint MAX_RIGIDBODIES_NUM = 32;
 static const int MAX_SPATIAL_LOOKUP_ITERATIONS = 10;
 
