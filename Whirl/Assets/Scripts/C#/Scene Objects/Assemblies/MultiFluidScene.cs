@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class MultiFluidScene : Assembly
 {
+    [Header("Scene Variant")]
+    public bool cheapSceneVariant;
+
     [Header("FluidSceneType")]
     public FluidSceneType fluidSceneType;
 
@@ -90,7 +93,7 @@ public class MultiFluidScene : Assembly
                 maxInteractionRadius = 60.0f;
                 break;
             case FluidSceneType.Water:
-                maxInteractionRadius = 80.0f;
+                maxInteractionRadius = 70.0f;
                 break;
             default:
                 maxInteractionRadius = 70.0f;
@@ -99,7 +102,7 @@ public class MultiFluidScene : Assembly
         multiFieldModifier.ModifyFieldByFieldName("MaxInteractionRadius", maxInteractionRadius);
 
         // 'Syrup' scene
-        int influenceRadius = fluidSceneType == FluidSceneType.Syrup ? 3 : 2;
+        int influenceRadius = (fluidSceneType == FluidSceneType.Syrup || cheapSceneVariant) ? 3 : 2;
         multiFieldModifier.ModifyFieldByFieldName("MaxInfluenceRadius", influenceRadius);
 
         // 'Water' & 'Syrup' scenes

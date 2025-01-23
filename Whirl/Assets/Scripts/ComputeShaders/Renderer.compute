@@ -795,14 +795,16 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
         if (drawOutline)
         {
             float3 edgeCol = mat.edgeCol;
-            if (areAllComponentsEqualTo(edgeCol, -1)) return;
+            if (AreAllComponentsEqualTo(edgeCol, -1)) return;
 
             result = edgeCol;
         }
         else
         {
             float2 localPixelPos = rotate2D(pixelPos - transformData.xy, -transformData.z);
-            float2 localUV = MirrorRepeatUV(mat.colTexUpScaleFactor * localPixelPos / min(BoundaryDims.x, BoundaryDims.y) + mat.sampleOffset);
+            bool doMirrorRepeat = mat.colTexUpScaleFactor > 0;
+            float2 localUV = abs(mat.colTexUpScaleFactor) * localPixelPos / min(BoundaryDims.x, BoundaryDims.y) + mat.sampleOffset;
+            localUV = doMirrorRepeat ? MirrorRepeatUV(localUV) : frac(localUV);
 
             float3 color = GetMaterialColor(mat, localUV, Atlas);
 
@@ -996,7 +998,7 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         Mat mat = Materials[matIndex];
         if (mat.opacity <= 0) return;
 
-        float2 uv = MirrorRepeatUV(mat.colTexUpScaleFactor * posNorm / (float2)BoundaryDims + mat.sampleOffset);
+        float2 uv = MirrorRepeatUV(abs(mat.colTexUpScaleFactor) * posNorm / (float2)BoundaryDims + mat.sampleOffset);
         uv *= SpringTextureUVFactor;
 
         float3 result = GetMaterialColor(mat, uv, Atlas) + mat.baseCol;

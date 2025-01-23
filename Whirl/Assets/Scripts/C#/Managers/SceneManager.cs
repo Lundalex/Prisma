@@ -142,7 +142,7 @@ public class SceneManager : MonoBehaviour
             colTexLoc = colTexLoc,
             colTexDims = colTexDims,
             sampleOffset = sampleOffset,
-            colTexUpScaleFactor = matInput.colorTextureUpScaleFactor,
+            colTexUpScaleFactor = matInput.disableMirrorRepeat ? -matInput.colorTextureUpScaleFactor : matInput.colorTextureUpScaleFactor,
             baseCol = baseCol,
             opacity = Mathf.Clamp(matInput.opacity, 0.0f, 1.0f),
             sampleColMul = matInput.sampleColorMultiplier,

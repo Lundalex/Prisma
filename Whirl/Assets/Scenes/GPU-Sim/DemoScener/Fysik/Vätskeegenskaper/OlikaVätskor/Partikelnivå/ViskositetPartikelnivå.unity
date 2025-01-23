@@ -392,8 +392,8 @@ MonoBehaviour:
     x: 1.1
     y: 1
     z: 1
-  BackgroundUpScaleFactor: 3
-  MirrorRepeatBackgroundUV: 1
+  BackgroundUpScaleFactor: 2.5
+  MirrorRepeatBackgroundUV: 0
   uiTexture: {fileID: 8400000, guid: 3f8f5277ec04f5048946bcec7a320ab1, type: 2}
   dynamicCausticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
   precomputedCausticsTexture: {fileID: 18700000, guid: fd236c79f064f4d4c81170507d2e62d2, type: 2}
@@ -3184,7 +3184,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d8909b26b9d4d044bccdefea929ba3b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneName: "OlikaV\xE4tskor"
+  sceneNames:
+  - "Dyr_OlikaV\xE4tskor"
+  - "Billig_OlikaV\xE4tskor"
 --- !u!1 &432692190
 GameObject:
   m_ObjectHideFlags: 0
@@ -4260,8 +4262,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 432.555, y: -26.5}
-  m_SizeDelta: {x: 165.11, y: 43}
+  m_AnchoredPosition: {x: 433.95502, y: -26.5}
+  m_SizeDelta: {x: 167.91, y: 43}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &541708962
 MonoBehaviour:
@@ -6651,8 +6653,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 432.555, y: -26.5}
-  m_SizeDelta: {x: 165.11, y: 43}
+  m_AnchoredPosition: {x: 433.95502, y: -26.5}
+  m_SizeDelta: {x: 167.91, y: 43}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &812739433
 MonoBehaviour:
@@ -7216,8 +7218,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 432.555, y: -26.5}
-  m_SizeDelta: {x: 165.11, y: 43}
+  m_AnchoredPosition: {x: 433.95502, y: -26.5}
+  m_SizeDelta: {x: 167.91, y: 43}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &939200270
 MonoBehaviour:
@@ -9339,7 +9341,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: rbInput.matIndex
-      value: 5
+      value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: rbInput.canRotate
@@ -9351,7 +9353,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: approximatedVolume
-      value: 86,39 l
+      value: 89,49 l
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: defaultGridSpacing
@@ -10385,6 +10387,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0.5
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -10405,6 +10408,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0.7
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.4
@@ -10425,6 +10429,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0.7
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.85
@@ -10445,6 +10450,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0.7
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.97
@@ -10465,6 +10471,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -10485,6 +10492,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -10505,6 +10513,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.05
@@ -10525,6 +10534,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -10545,6 +10555,7 @@ MonoBehaviour:
       x: 0
       y: 0.5
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -10565,6 +10576,7 @@ MonoBehaviour:
       x: 0
       y: 0.5
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -10585,6 +10597,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -10594,6 +10607,48 @@ MonoBehaviour:
       x: 3.2
       y: 5
       z: 5
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 4519f50cafdf74a86967b03e41af569e, type: 3}
+    colorTextureUpScaleFactor: 6
+    sampleOffset:
+      x: 0
+      y: 0.5
+    opacity: 1
+    disableMirrorRepeat: 1
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 1.6
+      y: 1.6
+      z: 1.6
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 6dd2ede64c1ba4970aa0783a6a4bc7e1, type: 3}
+    colorTextureUpScaleFactor: 4
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 1
+    disableMirrorRepeat: 1
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 1.8
+      y: 1.8
+      z: 1.8
     edgeColor:
       x: 1
       y: 1
@@ -13597,8 +13652,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 409.055, y: -27.5}
-  m_SizeDelta: {x: 818.11, y: 55}
+  m_AnchoredPosition: {x: 410.45502, y: -27.5}
+  m_SizeDelta: {x: 820.91003, y: 55}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1772322440
 MonoBehaviour:
@@ -16330,7 +16385,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -16470,7 +16525,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -16582,7 +16637,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -16714,7 +16769,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -16982,7 +17037,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y

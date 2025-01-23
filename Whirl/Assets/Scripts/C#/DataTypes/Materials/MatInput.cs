@@ -10,6 +10,7 @@ public struct MatInput
     public float colorTextureUpScaleFactor;
     public float2 sampleOffset;
     public float opacity;
+    public bool disableMirrorRepeat;
     public bool transparentEdges;
     public float3 baseColor;
     public float3 sampleColorMultiplier;
