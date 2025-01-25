@@ -225,18 +225,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f20c516896de6d941af0611e4bca0081, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DoSimulateParticleViscosity: 1
-  DoSimulateParticleSprings: 1
-  DoSimulateParticleTemperature: 1
-  renderShaderThreadSize: 32
-  pSimShaderThreadSize1: 512
-  pSimShaderThreadSize2: 512
-  sortShaderThreadSize: 512
-  rbSimShaderThreadSize1: 64
-  rbSimShaderThreadSize2: 32
-  rbSimShaderThreadSize3: 512
-  FloatIntPrecisionRB: 50000
-  FloatIntPrecisionP: 5000
   MaxPVel: 999999
   MaxRBRotVel: 999999
   MaxRBVel: 999999
@@ -257,16 +245,21 @@ MonoBehaviour:
   RigidBodyPadding: 2
   BoundaryElasticity: 1
   BoundaryFriction: 0.5
+  DoSimulateParticleViscosity: 1
+  DoSimulateParticleSprings: 1
+  DoSimulateParticleTemperature: 1
+  FloatIntPrecisionRB: 50000
+  FloatIntPrecisionP: 5000
   AllowLinkedRBCollisions: 1
   RB_RBCollisionCorrectionFactor: 1
   RB_RBFixedCollisionCorrection: 0.01
   RB_RBRigidConstraintCorrectionFactor: 5
-  TimeStepsPerFrame: 10
-  SubTimeStepsPerFrame: 1
+  TimeStepsPerFrame: 1
+  SubTimeStepsPerFrame: 20
   SubTimeStepsPerRBSimUpdate: 1
   TimeStepType: 1
-  TargetFrameRate: 120
-  TimeStep: 0.02
+  TargetFrameRate: 0
+  TimeStep: 0.014
   ProgramSpeed: 10
   MaxInteractionRadius: 25
   InteractionAttractionPower: 8
@@ -2197,6 +2190,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2217,6 +2211,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0
+    disableMirrorRepeat: 0
     transparentEdges: 1
     baseColor:
       x: 0
@@ -2237,6 +2232,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.1
@@ -2257,6 +2253,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2277,6 +2274,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0

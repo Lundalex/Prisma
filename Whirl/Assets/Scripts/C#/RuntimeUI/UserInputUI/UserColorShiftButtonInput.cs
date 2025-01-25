@@ -81,6 +81,7 @@ public class UserColorShiftButtonInput : UserButtonInput
     private void HandleTipNotification()
     {
         if (tipNotificationHasTriggered || tipNotification == null) return;
+        if (!tipNotification.isActiveAndEnabled) return;
 
         if (tipNotificationDelayTimer.Check())
         {

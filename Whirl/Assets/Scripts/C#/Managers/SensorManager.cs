@@ -7,11 +7,11 @@ using Resources2;
 
 public class SensorManager : MonoBehaviour
 {
-    [Range(10.0f, 100.0f), SerializeField] private float msRigidBodyDataRetrievalInterval;
-    [Range(10.0f, 100.0f), SerializeField] private float msFluidDataRetrievalInterval;
-    [Range(20.0f, 500.0f)] public float msGraphPointSubmissionFrequency;
+    [Range(5.0f, 100.0f), SerializeField] private float msRigidBodyDataRetrievalInterval;
+    [Range(5.0f, 100.0f), SerializeField] private float msFluidDataRetrievalInterval;
+    [Range(5.0f, 500.0f)] public float msGraphPointSubmissionFrequency;
     [SerializeField] private bool doUpdateGraphsAsync = true;
-    [Range(100.0f, 2000.0f), SerializeField] private float msGraphUpdateFrequency;
+    [Range(10.0f, 2000.0f), SerializeField] private float msGraphUpdateFrequency;
 
     // Retrieved data
     [NonSerialized] public RBData[] retrievedRBDatas;

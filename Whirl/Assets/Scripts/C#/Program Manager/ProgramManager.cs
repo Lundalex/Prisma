@@ -73,11 +73,6 @@ public class ProgramManager : ScriptableObject
     private static readonly float SettingsMaterialScrollSpeed = 1.0f;
     private float offset;
 
-    // Performance test
-    private static readonly int PerformanceTestFrameLength = 1000;
-    private bool performanceTestCompleted;
-    private int performanceMisses;
-
     // Key inputs
     private Timer rapidFrameSteppingTimer;
     private static readonly float rapidFrameSteppingDelay = 0.1f;
@@ -251,22 +246,30 @@ public class ProgramManager : ScriptableObject
         return false;
     }
 
+#region Performance Checking
+    public float InterpolatedFPS;
+    public float InterpolatedSimSpeedPercent;
+    public float FPSLerpsFactor = 0.001f;
+    public float SimSpeedLerpFactor = 0.001f;
+
     private void CheckPerformance()
     {
-        if (performanceTestCompleted) return;
+        // Interpolate currentFPS
+        float currentFPS = 1f / Time.deltaTime;
+        InterpolatedFPS = Mathf.Lerp(InterpolatedFPS, currentFPS, FPSLerpsFactor);
 
-        if (clampedDeltaTime == MaxDeltaTime) performanceMisses++;
-        if (++frameCount == PerformanceTestFrameLength)
-        {
-            int performanceMissesPercent = Mathf.RoundToInt(100 * performanceMisses / (float)PerformanceTestFrameLength);
-            int averageFrameRate = Mathf.RoundToInt(PerformanceTestFrameLength / totalTimeElapsed);
-            string targetFPSText = (QualitySettings.vSyncCount == 1) ? " (using vSync)" : " (Target: " + main.TargetFrameRate + " FPS)";
+        // Interpolate simSpeed
+        float targetFrameTime = Time.deltaTime / main.GetTimeStepsPerFrame();
+        float simSpeed = Mathf.Min(targetFrameTime, main.TimeStep) / targetFrameTime;
 
-            Debug.Log("Performance statistics: Performance misses: " + performanceMissesPercent + "% of frames. Avg FPS: " + averageFrameRate + targetFPSText + ". Total test duration: " + PerformanceTestFrameLength + " frames.");
-        
-            performanceTestCompleted = true;
-        }
+        float simSpeedPercent = simSpeed * 100f;
+        InterpolatedSimSpeedPercent = Mathf.Lerp(
+            InterpolatedSimSpeedPercent,
+            simSpeedPercent,
+            SimSpeedLerpFactor
+        );
     }
+#endregion
 
     private void UpdateSensorScripts()
     {
@@ -320,9 +323,6 @@ public class ProgramManager : ScriptableObject
         totalTimeElapsed = 0;
         frameCount = 0;
         globalBrightnessFactor = -1;
-
-        performanceTestCompleted = false;
-        performanceMisses = 0;
 
         sensorDatas = new();
         userUIElements = new();

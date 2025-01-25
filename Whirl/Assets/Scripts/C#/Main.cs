@@ -463,15 +463,15 @@ public class Main : MonoBehaviour
         pSimShader.SetInt("StepRand", Func.RandInt(0, 99999));
     }
 
-    Vector2 FactorAtStart = Vector2.positiveInfinity;
+    Vector2 factorAtStart = Vector2.positiveInfinity;
     public Vector2 GetMousePosInSimSpace(bool doApplyUITransform)
     {
-        if (FactorAtStart.x == float.PositiveInfinity) FactorAtStart = PM.Instance.ScreenToViewFactorScene;
+        if (factorAtStart.x == float.PositiveInfinity) factorAtStart = PM.Instance.ScreenToViewFactorScene;
 
         Vector3 mousePosVector3 = Camera.main.ScreenToViewportPoint(Input.mousePosition);
         Vector2 mousePos = new(mousePosVector3.x, mousePosVector3.y);
 
-        Vector2 normalisedMousePos = (mousePos - Const.Vector2Half) * (doApplyUITransform ? FactorAtStart : Vector2.one) / PM.Instance.ScreenToViewFactorScene + Const.Vector2Half;
+        Vector2 normalisedMousePos = (mousePos - Const.Vector2Half) * (doApplyUITransform ? factorAtStart : Vector2.one) / PM.Instance.ScreenToViewFactorScene + Const.Vector2Half;
         Vector2 simSpacePos = normalisedMousePos * new Vector2(BoundaryDims.x, BoundaryDims.y);
 
         return simSpacePos;
@@ -567,7 +567,7 @@ public class Main : MonoBehaviour
 
     private float GetDeltaTime(float totalFrameTime, bool doClamp)
     {
-        float stepsPerFrame = TimeStepsPerFrame * SubTimeStepsPerFrame;
+        int stepsPerFrame = GetTimeStepsPerFrame();
         float deltaTime;
 
         if (TimeStepType == TimeStepType.Fixed)
@@ -577,13 +577,14 @@ public class Main : MonoBehaviour
         else // TimeStepType == TimeStepType.Dynamic
         {
             deltaTime = totalFrameTime / stepsPerFrame;
+            deltaTime *= PM.Instance.timeScale * ProgramSpeed;
             if (doClamp) deltaTime = Mathf.Min(deltaTime, TimeStep);
         }
 
-        deltaTime *= PM.Instance.timeScale * ProgramSpeed;
-
         return deltaTime;
     }
+
+    public int GetTimeStepsPerFrame() => TimeStepsPerFrame * SubTimeStepsPerFrame;
 
     private void SetConstants()
     {

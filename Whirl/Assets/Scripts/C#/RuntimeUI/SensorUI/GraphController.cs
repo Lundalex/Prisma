@@ -54,7 +54,7 @@ public class GraphController : MonoBehaviour
         }
 
         float pointSubmissionFrequency = Func.MsToSeconds(PM.Instance.sensorManager.msGraphPointSubmissionFrequency);
-        pointSubmissionTimer = new Timer(pointSubmissionFrequency, TimeType.Clamped, false);
+        pointSubmissionTimer = new Timer(pointSubmissionFrequency, TimeType.Scaled, false);
         
         horizontalAxis.MainDivisions.Total = HorizontalViewSize; // Each division is seperated by 1 second
 

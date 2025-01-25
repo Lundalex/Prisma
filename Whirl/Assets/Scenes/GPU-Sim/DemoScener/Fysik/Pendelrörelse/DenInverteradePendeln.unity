@@ -254,13 +254,13 @@ MonoBehaviour:
   RB_RBCollisionCorrectionFactor: 1
   RB_RBFixedCollisionCorrection: 0.05
   RB_RBRigidConstraintCorrectionFactor: 5
-  TimeStepsPerFrame: 10
-  SubTimeStepsPerFrame: 1
+  TimeStepsPerFrame: 1
+  SubTimeStepsPerFrame: 5
   SubTimeStepsPerRBSimUpdate: 1
   TimeStepType: 1
-  TargetFrameRate: 120
-  TimeStep: 0.02
-  ProgramSpeed: 10
+  TargetFrameRate: 0
+  TimeStep: 0.004
+  ProgramSpeed: 8
   MaxInteractionRadius: 25
   InteractionAttractionPower: 8
   InteractionRepulsionPower: 3.5
@@ -497,7 +497,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   msRigidBodyDataRetrievalInterval: 40
   msFluidDataRetrievalInterval: 40
-  msGraphPointSubmissionFrequency: 50
+  msGraphPointSubmissionFrequency: 20
   doUpdateGraphsAsync: 1
   msGraphUpdateFrequency: 1000
 --- !u!1001 &277376300
@@ -1753,7 +1753,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: minValue
-      value: 5
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: titleText
@@ -2283,6 +2283,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2303,6 +2304,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0
+    disableMirrorRepeat: 0
     transparentEdges: 1
     baseColor:
       x: 0
@@ -2318,16 +2320,17 @@ MonoBehaviour:
       z: 0
   - name: 
     colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
-    colorTextureUpScaleFactor: 10
+    colorTextureUpScaleFactor: 5
     sampleOffset:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
-      x: 0.1
-      y: 0.1
-      z: 0.1
+      x: 0.05
+      y: 0.05
+      z: 0.05
     sampleColorMultiplier:
       x: 1
       y: 1.7
@@ -2343,6 +2346,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2363,6 +2367,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2383,6 +2388,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -4107,6 +4113,10 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1023477759102473719, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
+      propertyPath: rbInput.gravity
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1023477759102473719, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: snapPointToGrid
       value: 0
       objectReference: {fileID: 0}
@@ -4128,7 +4138,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1042140269648478111, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 33
+      value: 35
       objectReference: {fileID: 0}
     - target: {fileID: 1701464921377200380, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: main
@@ -4136,7 +4146,7 @@ PrefabInstance:
       objectReference: {fileID: 486541}
     - target: {fileID: 1701464921377200380, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: tilt
-      value: -30
+      value: -40
       objectReference: {fileID: 0}
     - target: {fileID: 1701464921377200380, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: damping
@@ -4144,11 +4154,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1701464921377200380, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: gravity
-      value: 9.82
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 1701464921377200380, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: frequency
-      value: 20
+      value: 16
       objectReference: {fileID: 0}
     - target: {fileID: 1701464921377200380, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: stiffness
@@ -4164,7 +4174,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3221672305244535003, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[0].y
-      value: -14
+      value: -12
       objectReference: {fileID: 0}
     - target: {fileID: 3221672305244535003, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[1].x
@@ -4172,7 +4182,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3221672305244535003, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[1].y
-      value: 14
+      value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 3221672305244535003, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[2].x
@@ -4180,7 +4190,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3221672305244535003, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[2].y
-      value: 14
+      value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 3221672305244535003, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[3].x
@@ -4188,7 +4198,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3221672305244535003, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[3].y
-      value: -14
+      value: -12
       objectReference: {fileID: 0}
     - target: {fileID: 3442514797073409805, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: rbInput.matIndex
@@ -4200,7 +4210,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3442514797073409805, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: rbInput.startPos.y
-      value: 25
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 4471552795213120878, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Name
@@ -4208,11 +4218,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5526252423089074569, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 185
+      value: 194.99513
       objectReference: {fileID: 0}
     - target: {fileID: 5526252423089074569, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 100.62178
+      value: 93.62311
       objectReference: {fileID: 0}
     - target: {fileID: 5544850161232747489, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: snapPointToGrid
@@ -4220,11 +4230,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5544850161232747489, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: rbInput.matIndex
-      value: 4
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5544850161232747489, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
+      propertyPath: approximatedVolume
+      value: 0,84 l
       objectReference: {fileID: 0}
     - target: {fileID: 5544850161232747489, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: rbInput.startPos.y
-      value: 33
+      value: 35
+      objectReference: {fileID: 0}
+    - target: {fileID: 7873253268877165427, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 7958689182808487629, guid: eef413e48f5f84d7ebd80d22b90f4cdf, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[0].x

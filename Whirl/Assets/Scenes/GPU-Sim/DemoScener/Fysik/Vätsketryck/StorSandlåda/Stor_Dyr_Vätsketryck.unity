@@ -225,18 +225,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f20c516896de6d941af0611e4bca0081, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DoSimulateParticleViscosity: 1
-  DoSimulateParticleSprings: 0
-  DoSimulateParticleTemperature: 0
-  renderShaderThreadSize: 16
-  pSimShaderThreadSize1: 512
-  pSimShaderThreadSize2: 512
-  sortShaderThreadSize: 512
-  rbSimShaderThreadSize1: 64
-  rbSimShaderThreadSize2: 32
-  rbSimShaderThreadSize3: 512
-  FloatIntPrecisionRB: 50000
-  FloatIntPrecisionP: 5000
   MaxPVel: 999999
   MaxRBRotVel: 999999
   MaxRBVel: 999999
@@ -257,16 +245,21 @@ MonoBehaviour:
   RigidBodyPadding: 0
   BoundaryElasticity: 0.5
   BoundaryFriction: 0
+  DoSimulateParticleViscosity: 1
+  DoSimulateParticleSprings: 0
+  DoSimulateParticleTemperature: 0
+  FloatIntPrecisionRB: 50000
+  FloatIntPrecisionP: 5000
   AllowLinkedRBCollisions: 1
   RB_RBCollisionCorrectionFactor: 1
   RB_RBFixedCollisionCorrection: 0.05
   RB_RBRigidConstraintCorrectionFactor: 10
-  TimeStepsPerFrame: 3
-  SubTimeStepsPerFrame: 4
+  TimeStepsPerFrame: 2
+  SubTimeStepsPerFrame: 6
   SubTimeStepsPerRBSimUpdate: 1
   TimeStepType: 1
   TargetFrameRate: 0
-  TimeStep: 0.0015
+  TimeStep: 0.014
   ProgramSpeed: 7
   MaxInteractionRadius: 60
   InteractionAttractionPower: 5
@@ -3603,7 +3596,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1093615694
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4039,6 +4032,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0.6
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -4059,6 +4053,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -4079,6 +4074,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.05
@@ -4099,6 +4095,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -4119,6 +4116,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.1
@@ -4139,6 +4137,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.1
@@ -4469,6 +4468,10 @@ PrefabInstance:
     - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: addInBetweenPoints
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
+      propertyPath: rbInput.colliderType
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3627676980895701930, guid: 5531f8177f4284259a0158e9e59fdc36, type: 3}
       propertyPath: rbInput.passiveDamping
