@@ -25,7 +25,7 @@ public class EditorViewHelper : Editor
         if (main == null) main = GameObject.FindGameObjectWithTag("MainCamera")?.GetComponent<Main>();
         if (lifeCycleManager == null) lifeCycleManager = GameObject.FindGameObjectWithTag("LifeCycleManager")?.GetComponent<ProgramLifeCycleManager>();
         if (sceneManagerTransform == null) sceneManagerTransform = GameObject.FindGameObjectWithTag("SceneManager")?.GetComponent<Transform>();
-        if (uiCanvasObject == null)
+        if (uiCanvasObject == null && lifeCycleManager != null)
         {
             uiCanvasObject = lifeCycleManager.uiCanvas;
         }

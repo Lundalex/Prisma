@@ -96,5 +96,5 @@ public class ProgramLifeCycleManager : MonoBehaviour
         notificationManager.OpenNotification("ControlsTip");
     }
 
-    private void OnDestroy() => PM.Instance.UnsubscribeFromActions();
+    private void OnDestroy() => PM.Instance.OnDestroy();
 }

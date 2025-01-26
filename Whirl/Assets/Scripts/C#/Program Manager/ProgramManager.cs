@@ -48,6 +48,7 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public Vector2 ViewScale;
     [NonSerialized] public Vector2 ViewOffset;
     [NonSerialized] public bool isStandardResolution;
+    [NonSerialized] public string lastOpenedScene;
     public event Action<bool> OnProgramUpdate;
     public event Action OnNewLanguageSelected;
     public event Action OnPreStart;
@@ -205,8 +206,7 @@ public class ProgramManager : ScriptableObject
     private bool CheckInputs()
     {
         // Key inputs
-        bool allowRestart = startConfirmationStatus == StartConfirmationStatus.NotStarted || startConfirmationStatus == StartConfirmationStatus.None;
-        if (Input.GetKeyDown(KeyCode.R) && allowRestart)
+        if (Input.GetKeyDown(KeyCode.R) && CheckAllowRestart())
         {
             Debug.Log("'R' key pressed. Scene resetting...");
             return true;
@@ -246,28 +246,24 @@ public class ProgramManager : ScriptableObject
         return false;
     }
 
+    public bool CheckAllowRestart() => startConfirmationStatus == StartConfirmationStatus.Complete || startConfirmationStatus == StartConfirmationStatus.None;
+
 #region Performance Checking
-    public float InterpolatedFPS;
-    public float InterpolatedSimSpeedPercent;
-    public float FPSLerpsFactor = 0.001f;
-    public float SimSpeedLerpFactor = 0.001f;
+    public float InterpolatedFPS = 120.0f;
+    public float InterpolatedSimSpeed = 2.0f;
+    private const float FPSLerpsFactor = 1.0f;
+    private const float SimSpeedLerpFactor = 1.0f;
 
     private void CheckPerformance()
     {
-        // Interpolate currentFPS
+        // Calculate currentFPS and simSpeed
         float currentFPS = 1f / Time.deltaTime;
-        InterpolatedFPS = Mathf.Lerp(InterpolatedFPS, currentFPS, FPSLerpsFactor);
-
-        // Interpolate simSpeed
         float targetFrameTime = Time.deltaTime / main.GetTimeStepsPerFrame();
         float simSpeed = Mathf.Min(targetFrameTime, main.TimeStep) / targetFrameTime;
 
-        float simSpeedPercent = simSpeed * 100f;
-        InterpolatedSimSpeedPercent = Mathf.Lerp(
-            InterpolatedSimSpeedPercent,
-            simSpeedPercent,
-            SimSpeedLerpFactor
-        );
+        // Interpolate currentFPS and simSpeed
+        InterpolatedFPS = Mathf.Lerp(InterpolatedFPS, currentFPS, FPSLerpsFactor * Time.deltaTime);
+        InterpolatedSimSpeed = Mathf.Lerp(InterpolatedSimSpeed, simSpeed, SimSpeedLerpFactor * Time.deltaTime);
     }
 #endregion
 
@@ -327,6 +323,9 @@ public class ProgramManager : ScriptableObject
         sensorDatas = new();
         userUIElements = new();
         rapidFrameSteppingTimer = new(rapidFrameSteppingDelay, TimeType.NonClamped, true, rapidFrameSteppingDelay);
+
+        InterpolatedFPS = 120.0f;
+        InterpolatedSimSpeed = 2.0f;
     }
 
     public void AddSensor(SensorUI sensorUI, Sensor sensor)
@@ -551,11 +550,19 @@ public class ProgramManager : ScriptableObject
         OnSetNewSlowMotionState += OnNewSlowMotionState;
     }
 
+    public void OnDestroy()
+    {
+        UnsubscribeFromActions();
+        SetLastOpenedScene();
+    }
+
     public void UnsubscribeFromActions()
     {
         OnSetNewPauseState -= OnNewPauseState;
         OnSetNewSlowMotionState -= OnNewSlowMotionState;
     }
+
+    private void SetLastOpenedScene() => lastOpenedScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
     private void OnNewPauseState(bool state)
     {
