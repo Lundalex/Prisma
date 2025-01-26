@@ -21,9 +21,9 @@ public class UserColorShiftButtonInput : UserButtonInput
     [ContextMenu("Start Color Shift")]
     public void StartColorShift()
     {
-        ResetDelayTimer();
         if (!colorShiftCoroutineStarted)
         {
+            ResetDelayTimer();
             StartCoroutine(ColorShiftCoroutine());
             colorShiftCoroutineStarted = true;
         }
