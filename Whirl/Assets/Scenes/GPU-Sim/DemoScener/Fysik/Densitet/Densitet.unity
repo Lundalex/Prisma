@@ -225,18 +225,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f20c516896de6d941af0611e4bca0081, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DoSimulateParticleViscosity: 1
-  DoSimulateParticleSprings: 0
-  DoSimulateParticleTemperature: 0
-  renderShaderThreadSize: 32
-  pSimShaderThreadSize1: 512
-  pSimShaderThreadSize2: 512
-  sortShaderThreadSize: 512
-  rbSimShaderThreadSize1: 64
-  rbSimShaderThreadSize2: 32
-  rbSimShaderThreadSize3: 512
-  FloatIntPrecisionRB: 50000
-  FloatIntPrecisionP: 5000
   MaxPVel: 999999
   MaxRBRotVel: 999999
   MaxRBVel: 999999
@@ -257,6 +245,11 @@ MonoBehaviour:
   RigidBodyPadding: 0
   BoundaryElasticity: 0.2
   BoundaryFriction: 1
+  DoSimulateParticleViscosity: 1
+  DoSimulateParticleSprings: 0
+  DoSimulateParticleTemperature: 0
+  FloatIntPrecisionRB: 50000
+  FloatIntPrecisionP: 5000
   AllowLinkedRBCollisions: 1
   RB_RBCollisionCorrectionFactor: 0.5
   RB_RBFixedCollisionCorrection: 0
@@ -266,7 +259,7 @@ MonoBehaviour:
   SubTimeStepsPerRBSimUpdate: 1
   TimeStepType: 1
   TargetFrameRate: 0
-  TimeStep: 0.0015
+  TimeStep: 0.0105
   ProgramSpeed: 7
   MaxInteractionRadius: 0
   InteractionAttractionPower: 8
@@ -390,7 +383,7 @@ MonoBehaviour:
     m_NumAlphaKeys: 2
   GasVelocityGradientResolution: 256
   GasVelocityGradientMaxValue: 25
-  RBEdgeWidth: 0.6
+  RBEdgeWidth: 0.35
   FluidSensorEdgeWidth: 1
   SensorAreaAnimationSpeed: 10
   GlobalSettingsViewChangeSpeed: 10
@@ -2307,6 +2300,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 0.6
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2327,6 +2321,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2347,6 +2342,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.05
@@ -2367,6 +2363,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2387,6 +2384,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.1
@@ -2407,6 +2405,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2427,6 +2426,7 @@ MonoBehaviour:
       x: 0.42
       y: 0.5
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2447,6 +2447,7 @@ MonoBehaviour:
       x: 0.42
       y: 0.5
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -2467,6 +2468,7 @@ MonoBehaviour:
       x: 0
       y: 0
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0.1
@@ -2487,6 +2489,7 @@ MonoBehaviour:
       x: 0.5
       y: 0.5
     opacity: 1
+    disableMirrorRepeat: 0
     transparentEdges: 0
     baseColor:
       x: 0
@@ -6077,7 +6080,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8164099255059512354, guid: 4f231bc4239e6f442a36fa0d9a225722, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9058606896333537449, guid: 4f231bc4239e6f442a36fa0d9a225722, type: 3}
       propertyPath: customUnit
@@ -9291,7 +9294,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1 &7912453915844888736
 GameObject:
   m_ObjectHideFlags: 0
