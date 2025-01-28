@@ -272,14 +272,14 @@ public class Main : MonoBehaviour
 
     public void StartScript()
     {
-        CameraSetup();
-
         SimTimeElapsed = 0;
 
         // Boundary
         BoundaryDims = sceneManager.GetBounds(MaxInfluenceRadius);
         ChunksNum = BoundaryDims / MaxInfluenceRadius;
         ChunksNumAll = ChunksNum.x * ChunksNum.y;
+
+        CameraSetup();
 
         // Particles
         PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
@@ -560,7 +560,7 @@ public class Main : MonoBehaviour
                 SettingsViewDarkTintPercent = 0.8f;
                 break;
             default:
-                Debug.LogError("RuntimePlatform not recognised. Will default to using custom values");
+                Debug.LogError("RuntimePlatform not recognised. Will default to using custom preset");
                 break;
         }
     }
@@ -616,7 +616,18 @@ public class Main : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbA, ChunksNumAll);
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbB, ChunksNumAll);
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbC, ChunksNumAll);
-        ComputeHelper.CreateStructuredBuffer<Spring>(ref ParticleSpringsCombinedBuffer, MaxParticlesNum * MaxSpringsPerParticle);
+
+        Spring[] springs = new Spring[MaxParticlesNum * MaxSpringsPerParticle];
+        for (int i = 0; i < springs.Length; i++)
+        {
+            springs[i] = new Spring
+            {
+                pLinkedA = -1,
+                pLinkedB = -1,
+                restLength = 1
+            };
+        }
+        ComputeHelper.CreateStructuredBuffer<Spring>(ref ParticleSpringsCombinedBuffer, springs);
 
         ComputeHelper.CreateStructuredBuffer<RBData>(ref RBDataBuffer, RBDatas);
         ComputeHelper.CreateStructuredBuffer<RBVector>(ref RBVectorBuffer, RBVectors);

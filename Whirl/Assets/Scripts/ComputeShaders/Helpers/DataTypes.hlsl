@@ -164,6 +164,16 @@ struct ImpulseData
     int rbIndex;
 };
 
+Spring InitSpring(int pLinkedA, int pLinkedB, float restLength)
+{
+    Spring spring;
+    spring.pLinkedA = pLinkedA;
+    spring.pLinkedB = pLinkedB;
+    spring.restLength = restLength;
+
+    return spring;
+}
+
 RecordedFluidData InitRecordedFluidData()
 {
     RecordedFluidData recordedFluidData;

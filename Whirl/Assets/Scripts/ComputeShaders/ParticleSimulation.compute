@@ -161,8 +161,10 @@ float2 CalcDensity(int pIndex) // (density, nearDensity)
             
             int iterationCount = 0;
             int index = startIndex;
-            while (index < (int)ParticlesNum && chunkKey == SpatialLookup[index].y && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
+            while (index < (int)ParticlesNum && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
             {
+                if (chunkKey != SpatialLookup[index].y) break;
+
                 int otherPIndex = SpatialLookup[index].x;
                 PType PType_otherPIndex = PTypes[Extract_PType(PDatas[otherPIndex].lastChunkKey_PType_POrder)];
 
@@ -211,24 +213,24 @@ float4 BoundraryCheck(float2 pos, float2 vel, float damping)
     if (pos.x > BoundaryDims.x - FluidPadding)
     {
         vel.x = -abs(vel.x) * (1 - damping);
-        pos.x = BoundaryDims.x - FluidPadding;
+        pos.x = BoundaryDims.x - FluidPadding - EPSILON;
     }
     else if (pos.x < FluidPadding)
     {
         vel.x = abs(vel.x) * (1 - damping);
-        pos.x = FluidPadding;
+        pos.x = FluidPadding + EPSILON;
     }
 
     // Y-axis
     if (pos.y > BoundaryDims.y - FluidPadding)
     {
         vel.y = -abs(vel.y) * (1 - damping);
-        pos.y = BoundaryDims.y - FluidPadding;
+        pos.y = BoundaryDims.y - FluidPadding - EPSILON;
     }
     else if (pos.y < FluidPadding)
     {
         vel.y = abs(vel.y) * (1 - damping);
-        pos.y = FluidPadding;
+        pos.y = FluidPadding + EPSILON;
     }
     
     return float4(pos.x, pos.y, vel.x, vel.y);
@@ -335,7 +337,7 @@ float2 LiquidSpringForce(PType pType, PType PType_otherPIndex, int pIndex, int o
 {
     Spring spring = ParticleSpringsCombined[springIndex];
 
-    // if spring is not already initialized, initialize a new one
+    // Initialize if needed
     if (spring.pLinkedA == -1)
     {
         spring.pLinkedA = pIndex;
@@ -343,30 +345,28 @@ float2 LiquidSpringForce(PType pType, PType PType_otherPIndex, int pIndex, int o
         spring.restLength = avgInfluenceRadius - 0.1;
     }
 
-    // --- Modify spring and perform force calculations (plasticity, elasticity) ---
-
     // Plasticity calculations
     float diffMng = absDst - spring.restLength;
     float absDiffMng = abs(diffMng);
-    int sgnDiffMng = sign(diffMng);
     float plasticity = avg(pType.springPlasticity, PType_otherPIndex.springPlasticity);
     float tolDeformation = avg(pType.springTolDeformation, PType_otherPIndex.springTolDeformation);
+    int sgnDiffMng = sign(diffMng);
 
     // Elasticity calculations
     float stiffness = avg(pType.springStiffness, PType_otherPIndex.springStiffness);
     float absSpringForce = LiquidSpringForceModel(stiffness, spring.restLength, avgInfluenceRadius, absDst);
     float2 springForce = absSpringForce * normDst;
-
-    // --- Write new spring data ---
-
-    // ∆L = ∆t * α * sign(r − L) * max(0,|r − L| − γL)
+    
+    // Plastic update
     spring.restLength += LiquidSpringPlasticityModel(plasticity, sgnDiffMng, absDiffMng, tolDeformation, DeltaTime);
 
+    // Write back only if index was valid
     ParticleSpringsCombined[springIndex] = spring;
 
-    // --- Return calculated force ---
-
-    return (isnan(springForce.x) || isnan(springForce.y)) ? 0 : -springForce;
+    // Final safety checks
+    if (isnan(springForce.x) || isnan(springForce.y)) return 0;
+    
+    return -springForce;
 }
 
 float TemperatureExchange(float viscocityLaplacian, float TemperatureA, float TemperatureB, float ThermalConductivityA, float ThermalConductivityB, float absDst, float DeltaTime)
@@ -521,8 +521,10 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
             
             int iterationCount = 0;
             int index = startIndex;
-            while (index < (int)ParticlesNum && chunkKey == SpatialLookup[index].y && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
+            while (index < (int)ParticlesNum && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
             {
+                if (chunkKey != SpatialLookup[index].y) break;
+
                 int otherPIndex = SpatialLookup[index].x;
                 if (i == otherPIndex) { index++; nCount++; continue; }
                 PData PData_otherPIndex = PDatas[otherPIndex];
@@ -552,7 +554,7 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
                     ? SpringStartIndices_dbA[max(baseChunkKey-1, 0)] + pOrder * nearSpringCapacity + nCount + ParticleSpringsCombinedHalfLength
                     : SpringStartIndices_dbB[max(baseChunkKey-1, 0)] + pOrder * nearSpringCapacity + nCount;
 
-                    if (pType.fluidSpringGroup != 0 && pType.fluidSpringGroup == PType_otherPIndex.fluidSpringGroup)
+                    if (pType.fluidSpringGroup != 0 && pType.fluidSpringGroup == PType_otherPIndex.fluidSpringGroup && !((curChunk.x == 0 || curChunk.x == ChunksNum.x-1) && (curChunk.y == 0 || curChunk.y == ChunksNum.y-1)))
                     {
                         totSpringForce += otherPIndex_Mass * LiquidSpringForce(pType, PType_otherPIndex, i, otherPIndex, springIndex, absDst, avgInfluenceRadius, normDst);
                     }

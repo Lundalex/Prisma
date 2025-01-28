@@ -82,8 +82,6 @@ public class MultiFluidScene : Assembly
 
     private void ModifyFields()
     {
-        multiFieldModifier.ModifyFieldByFieldName("SubTimeStepsPerRBSimUpdate", 2);
-
         // 'Water' scene
         multiFieldModifier.ModifyFieldByFieldName("DoDisplayFluidVelocities", fluidSceneType == FluidSceneType.Water);
         float maxInteractionRadius;
