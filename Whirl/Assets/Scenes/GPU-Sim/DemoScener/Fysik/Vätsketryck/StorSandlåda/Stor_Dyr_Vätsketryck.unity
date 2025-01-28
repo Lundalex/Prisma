@@ -227,7 +227,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MaxPVel: 999999
   MaxRBRotVel: 999999
-  MaxRBVel: 999999
+  MaxRBVel: 100
   MinRBVelForMovement: 0.1
   SimUnitToMetersFactor: 0.005
   ZDepthMeters: 0.1
@@ -237,11 +237,11 @@ MonoBehaviour:
   MaxInfluenceRadius: 2
   MaxParticlesNum: 30000
   MaxStartingParticlesNum: 25000
-  MaxSpringsPerParticle: 150
+  MaxSpringsPerParticle: 0
   BoundaryDims:
     x: 426
     y: 320
-  FluidPadding: 1
+  FluidPadding: 0.1
   RigidBodyPadding: 0
   BoundaryElasticity: 0.5
   BoundaryFriction: 0
@@ -3600,7 +3600,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1093615694
 RectTransform:
   m_ObjectHideFlags: 0
