@@ -554,7 +554,7 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
                     ? SpringStartIndices_dbA[max(baseChunkKey-1, 0)] + pOrder * nearSpringCapacity + nCount + ParticleSpringsCombinedHalfLength
                     : SpringStartIndices_dbB[max(baseChunkKey-1, 0)] + pOrder * nearSpringCapacity + nCount;
 
-                    if (pType.fluidSpringGroup != 0 && pType.fluidSpringGroup == PType_otherPIndex.fluidSpringGroup && !((curChunk.x == 0 || curChunk.x == ChunksNum.x-1) && (curChunk.y == 0 || curChunk.y == ChunksNum.y-1)))
+                    if (pType.fluidSpringGroup != 0 && pType.fluidSpringGroup == PType_otherPIndex.fluidSpringGroup)
                     {
                         totSpringForce += otherPIndex_Mass * LiquidSpringForce(pType, PType_otherPIndex, i, otherPIndex, springIndex, absDst, avgInfluenceRadius, normDst);
                     }

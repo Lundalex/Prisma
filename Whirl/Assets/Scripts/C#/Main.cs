@@ -617,17 +617,7 @@ public class Main : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbB, ChunksNumAll);
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbC, ChunksNumAll);
 
-        Spring[] springs = new Spring[MaxParticlesNum * MaxSpringsPerParticle];
-        for (int i = 0; i < springs.Length; i++)
-        {
-            springs[i] = new Spring
-            {
-                pLinkedA = -1,
-                pLinkedB = -1,
-                restLength = 1
-            };
-        }
-        ComputeHelper.CreateStructuredBuffer<Spring>(ref ParticleSpringsCombinedBuffer, springs);
+        ComputeHelper.CreateStructuredBuffer<Spring>(ref ParticleSpringsCombinedBuffer, MaxParticlesNum * MaxSpringsPerParticle);
 
         ComputeHelper.CreateStructuredBuffer<RBData>(ref RBDataBuffer, RBDatas);
         ComputeHelper.CreateStructuredBuffer<RBVector>(ref RBVectorBuffer, RBVectors);

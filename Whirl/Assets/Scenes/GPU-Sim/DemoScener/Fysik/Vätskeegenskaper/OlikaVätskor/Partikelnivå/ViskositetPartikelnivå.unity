@@ -397,7 +397,7 @@ MonoBehaviour:
   uiTexture: {fileID: 8400000, guid: 3f8f5277ec04f5048946bcec7a320ab1, type: 2}
   dynamicCausticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
   precomputedCausticsTexture: {fileID: 18700000, guid: fd236c79f064f4d4c81170507d2e62d2, type: 2}
-  materialInput: {fileID: 937596463}
+  materialInput: {fileID: 35081642}
   pTypeInput: {fileID: 1543420959}
   sceneManager: {fileID: 1751344381}
   shaderHelper: {fileID: 486544}
@@ -570,6 +570,324 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 27480765}
   m_CullTransparentMesh: 0
+--- !u!1 &35081641
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 35081643}
+  - component: {fileID: 35081642}
+  m_Layer: 0
+  m_Name: MaterialInput
+  m_TagString: MaterialInput
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &35081642
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 35081641}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6219053cb0e554d1fba2890751e08a65, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  materialInputs:
+  - name: LowElasticity
+    colorTexture: {fileID: 0}
+    colorTextureUpScaleFactor: 1
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 0.5
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0.8
+    sampleColorMultiplier:
+      x: 0
+      y: 0
+      z: 2
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: MediumElasticity
+    colorTexture: {fileID: 0}
+    colorTextureUpScaleFactor: 1
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 0.7
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0.4
+      y: 0.9
+      z: 0
+    sampleColorMultiplier:
+      x: 0.15
+      y: 0.25
+      z: 0
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: HighElasticity
+    colorTexture: {fileID: 0}
+    colorTextureUpScaleFactor: 1
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 0.7
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0.85
+      y: 0.4
+      z: 0
+    sampleColorMultiplier:
+      x: 0.25
+      y: 0.15
+      z: 0
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: VeryHighElasticity
+    colorTexture: {fileID: 0}
+    colorTextureUpScaleFactor: 1
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 0.7
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0.97
+      y: 0.05
+      z: 0
+    sampleColorMultiplier:
+      x: 0.3
+      y: 0.05
+      z: 0
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
+    colorTextureUpScaleFactor: 3
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 1
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 1
+      y: 1.7
+      z: 1.7
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
+    colorTextureUpScaleFactor: 3
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 1
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 1
+      y: 1.7
+      z: 1.7
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: d7215cefa2dcd90439e40bf03644d96d, type: 3}
+    colorTextureUpScaleFactor: 25
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 1
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0.05
+      y: 0.05
+      z: 0.05
+    sampleColorMultiplier:
+      x: 1.6
+      y: 1.3
+      z: 1.6
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 74378026f0ba74aada3804247d938d0b, type: 3}
+    colorTextureUpScaleFactor: 4
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 1
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 2.3
+      y: 2.3
+      z: 2.3
+    edgeColor:
+      x: 0
+      y: 0
+      z: 0
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
+    colorTextureUpScaleFactor: 6
+    sampleOffset:
+      x: 0
+      y: 0.5
+    opacity: 1
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 1.3
+      y: 1.8
+      z: 1.8
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
+    colorTextureUpScaleFactor: 6
+    sampleOffset:
+      x: 0
+      y: 0.5
+    opacity: 1
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 1.7
+      y: 2.6
+      z: 2.6
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
+    colorTextureUpScaleFactor: 10
+    sampleOffset:
+      x: 0
+      y: 0
+    opacity: 1
+    disableMirrorRepeat: 0
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 3.2
+      y: 5
+      z: 5
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 4519f50cafdf74a86967b03e41af569e, type: 3}
+    colorTextureUpScaleFactor: 6
+    sampleOffset:
+      x: 0
+      y: 0.5
+    opacity: 1
+    disableMirrorRepeat: 1
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 1.6
+      y: 1.6
+      z: 1.6
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+  - name: 
+    colorTexture: {fileID: 2800000, guid: 68dbe4778a0df41f1821f84ff877273c, type: 3}
+    colorTextureUpScaleFactor: 2.925
+    sampleOffset:
+      x: 0.2
+      y: 0
+    opacity: 1
+    disableMirrorRepeat: 1
+    transparentEdges: 0
+    baseColor:
+      x: 0
+      y: 0
+      z: 0
+    sampleColorMultiplier:
+      x: 3.6
+      y: 4
+      z: 4
+    edgeColor:
+      x: 1
+      y: 1
+      z: 1
+--- !u!4 &35081643
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 35081641}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &58836361
 GameObject:
   m_ObjectHideFlags: 0
@@ -1608,7 +1926,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 311516177099007755, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 167.91
+      value: 165.11
       objectReference: {fileID: 0}
     - target: {fileID: 311516177099007755, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1624,7 +1942,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 311516177099007755, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 433.95502
+      value: 432.555
       objectReference: {fileID: 0}
     - target: {fileID: 311516177099007755, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -1640,7 +1958,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 557459904967810244, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 167.91
+      value: 165.11
       objectReference: {fileID: 0}
     - target: {fileID: 557459904967810244, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1656,7 +1974,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 557459904967810244, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 433.95502
+      value: 432.555
       objectReference: {fileID: 0}
     - target: {fileID: 557459904967810244, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -1672,7 +1990,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 976570156315123881, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 821.91003
+      value: 819.11
       objectReference: {fileID: 0}
     - target: {fileID: 976570156315123881, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1680,7 +1998,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 976570156315123881, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 410.95502
+      value: 409.555
       objectReference: {fileID: 0}
     - target: {fileID: 976570156315123881, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -1812,15 +2130,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4462755542187415994, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4462755542187415994, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4462755542187415994, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 43
       objectReference: {fileID: 0}
     - target: {fileID: 4462755542187415994, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1832,11 +2150,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4462755542187415994, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0
+      value: 315.5
       objectReference: {fileID: 0}
     - target: {fileID: 4462755542187415994, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -26.5
       objectReference: {fileID: 0}
     - target: {fileID: 6810578330576712824, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: onValueChanged.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -1852,7 +2170,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7052656548491409898, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 167.91
+      value: 165.11
       objectReference: {fileID: 0}
     - target: {fileID: 7052656548491409898, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1868,7 +2186,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7052656548491409898, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 433.95502
+      value: 432.555
       objectReference: {fileID: 0}
     - target: {fileID: 7052656548491409898, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -1876,15 +2194,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8612152337549966462, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8612152337549966462, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8612152337549966462, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 43
       objectReference: {fileID: 0}
     - target: {fileID: 8612152337549966462, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1896,11 +2214,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8612152337549966462, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0
+      value: 315.5
       objectReference: {fileID: 0}
     - target: {fileID: 8612152337549966462, guid: 579472d01bad74245a8eaa386520ca43, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -26.5
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1943,10 +2261,10 @@ RectTransform:
   - {fileID: 475218241}
   m_Father: {fileID: 537481530}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 25, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 322.5, y: -26.5}
+  m_SizeDelta: {x: 25, y: 43}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &475218240
 GameObject:
@@ -3832,324 +4150,6 @@ Transform:
   - {fileID: 1219069161}
   m_Father: {fileID: 4409041864190835300}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &937596462
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 937596464}
-  - component: {fileID: 937596463}
-  m_Layer: 0
-  m_Name: MaterialInput
-  m_TagString: MaterialInput
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &937596463
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 937596462}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6219053cb0e554d1fba2890751e08a65, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  materialInputs:
-  - name: LowElasticity
-    colorTexture: {fileID: 0}
-    colorTextureUpScaleFactor: 1
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 0.5
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0.8
-    sampleColorMultiplier:
-      x: 0
-      y: 0
-      z: 2
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: MediumElasticity
-    colorTexture: {fileID: 0}
-    colorTextureUpScaleFactor: 1
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 0.7
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0.4
-      y: 0.9
-      z: 0
-    sampleColorMultiplier:
-      x: 0.15
-      y: 0.25
-      z: 0
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: HighElasticity
-    colorTexture: {fileID: 0}
-    colorTextureUpScaleFactor: 1
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 0.7
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0.85
-      y: 0.4
-      z: 0
-    sampleColorMultiplier:
-      x: 0.25
-      y: 0.15
-      z: 0
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: VeryHighElasticity
-    colorTexture: {fileID: 0}
-    colorTextureUpScaleFactor: 1
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 0.7
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0.97
-      y: 0.05
-      z: 0
-    sampleColorMultiplier:
-      x: 0.3
-      y: 0.05
-      z: 0
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
-    colorTextureUpScaleFactor: 3
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 1
-      y: 1.7
-      z: 1.7
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
-    colorTextureUpScaleFactor: 3
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 1
-      y: 1.7
-      z: 1.7
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: d7215cefa2dcd90439e40bf03644d96d, type: 3}
-    colorTextureUpScaleFactor: 25
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0.05
-      y: 0.05
-      z: 0.05
-    sampleColorMultiplier:
-      x: 1.6
-      y: 1.3
-      z: 1.6
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: 74378026f0ba74aada3804247d938d0b, type: 3}
-    colorTextureUpScaleFactor: 4
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 2.3
-      y: 2.3
-      z: 2.3
-    edgeColor:
-      x: 0
-      y: 0
-      z: 0
-  - name: 
-    colorTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
-    colorTextureUpScaleFactor: 6
-    sampleOffset:
-      x: 0
-      y: 0.5
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 1.3
-      y: 1.8
-      z: 1.8
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
-    colorTextureUpScaleFactor: 6
-    sampleOffset:
-      x: 0
-      y: 0.5
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 1.7
-      y: 2.6
-      z: 2.6
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
-    colorTextureUpScaleFactor: 10
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 3.2
-      y: 5
-      z: 5
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: 4519f50cafdf74a86967b03e41af569e, type: 3}
-    colorTextureUpScaleFactor: 6
-    sampleOffset:
-      x: 0
-      y: 0.5
-    opacity: 1
-    disableMirrorRepeat: 1
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 1.6
-      y: 1.6
-      z: 1.6
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: 68dbe4778a0df41f1821f84ff877273c, type: 3}
-    colorTextureUpScaleFactor: 2
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 1
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 4
-      y: 4
-      z: 4
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
---- !u!4 &937596464
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 937596462}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &942307212
 GameObject:
   m_ObjectHideFlags: 0
@@ -4212,10 +4212,10 @@ RectTransform:
   - {fileID: 1976086226}
   m_Father: {fileID: 1186336404}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 25, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 322.5, y: -26.5}
+  m_SizeDelta: {x: 25, y: 43}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &958384779
 GameObject:
@@ -5134,7 +5134,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1093615694
 RectTransform:
   m_ObjectHideFlags: 0
@@ -9060,10 +9060,10 @@ RectTransform:
   - {fileID: 577281669}
   m_Father: {fileID: 442354322}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 25, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 322.5, y: -26.5}
+  m_SizeDelta: {x: 25, y: 43}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1976086225
 GameObject:
@@ -9183,7 +9183,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 28.11, y: -83.75}
-  m_SizeDelta: {x: 0, y: 55}
+  m_SizeDelta: {x: 817.29, y: 55}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1991810740
 MonoBehaviour:
@@ -10413,7 +10413,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -10553,7 +10553,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -10665,7 +10665,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -10797,7 +10797,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -11065,7 +11065,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -12995,4 +12995,4 @@ SceneRoots:
   - {fileID: 415270256}
   - {fileID: 4409041864190835300}
   - {fileID: 1543420960}
-  - {fileID: 937596464}
+  - {fileID: 35081643}
