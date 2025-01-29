@@ -4,6 +4,7 @@ using Unity.Mathematics;
 using ChartAndGraph;
 using PM = ProgramManager;
 using Michsky.MUIP;
+using Resources2;
 
 public abstract class Sensor : MonoBehaviour
 {
@@ -82,13 +83,13 @@ public abstract class Sensor : MonoBehaviour
         PM.Instance.AddSensor(sensorUI, this);
     }
 
-    public void SetReferences(Transform sensorUIContainer, Transform sensorOutlineContainer, Main main, SensorManager sensorManager, Vector2 canvasResolution)
+    public void SetReferences(Transform sensorUIContainer, Transform sensorOutlineContainer, Main main, SensorManager sensorManager)
     {
         this.sensorUIContainer = sensorUIContainer;
         this.sensorOutlineContainer = sensorOutlineContainer;
         this.main = main;
         this.sensorManager = sensorManager;
-        this.canvasResolution = canvasResolution;
+        this.canvasResolution = Func.Int2ToVector2(main.Resolution);
 
         graphController = gameObject.GetComponent<GraphController>();
     }

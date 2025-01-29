@@ -221,6 +221,11 @@ namespace Resources2
             return new float2(IntToFloat(a.x, precision), IntToFloat(a.y, precision));
         }
 
+        public static Vector2 Int2ToVector2(int2 a)
+        {
+            return new Vector2(a.x, a.y);
+        }
+
         public static float3 ColorToFloat3(Color color)
         {
             return new float3(color.r, color.g, color.b);
