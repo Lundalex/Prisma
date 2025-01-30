@@ -274,12 +274,12 @@ public class Main : MonoBehaviour
     {
         SimTimeElapsed = 0;
 
+        CameraSetup();
+
         // Boundary
         BoundaryDims = sceneManager.GetBounds(MaxInfluenceRadius);
         ChunksNum = BoundaryDims / MaxInfluenceRadius;
         ChunksNumAll = ChunksNum.x * ChunksNum.y;
-
-        CameraSetup();
 
         // Particles
         PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
