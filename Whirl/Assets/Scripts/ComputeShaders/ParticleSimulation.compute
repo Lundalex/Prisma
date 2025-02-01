@@ -167,6 +167,7 @@ float2 CalcDensity(int pIndex) // (density, nearDensity)
 
                 int otherPIndex = SpatialLookup[index].x;
                 PType PType_otherPIndex = PTypes[Extract_PType(PDatas[otherPIndex].lastChunkKey_PType_POrder)];
+                float massRatio = PType_otherPIndex.mass / pType.mass;
 
                 // --- Spring handling ---
                 
@@ -191,8 +192,8 @@ float2 CalcDensity(int pIndex) // (density, nearDensity)
                 // --- Calculate densities ---
 
                 float dst = length(pData.predPos - PDatas[otherPIndex].predPos);
-                totDensity += PType_otherPIndex.mass * SmoothLiquid_optimised(dst, avgInfluenceRadius);
-                totNearDensity += PType_otherPIndex.mass * SmoothLiquidNear_optimised(dst, avgInfluenceRadius);
+                totDensity += massRatio * SmoothLiquid_optimised(dst, avgInfluenceRadius);
+                totNearDensity += massRatio * SmoothLiquidNear_optimised(dst, avgInfluenceRadius);
 
                 // --- Increment index each iteration - Chunk particle search algorithm ---
 
@@ -503,9 +504,9 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
     #endif
 
     int nCount = 0;
-    float2 totPressureForce = 0;
-    float2 totViscocityForce = 0;
-    float2 totSpringForce = 0;
+    float2 totPressureAcc = 0;
+    float2 totViscocityAcc = 0;
+    float2 totSpringAcc = 0;
     float totTemperatureExchange = 0;
     float totAbsPressure = 0;
     for (int x = -1; x <= 1; x++)
@@ -529,7 +530,7 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
                 if (i == otherPIndex) { index++; nCount++; continue; }
                 PData PData_otherPIndex = PDatas[otherPIndex];
                 PType PType_otherPIndex = PTypes[Extract_PType(PData_otherPIndex.lastChunkKey_PType_POrder)];
-                float otherPIndex_Mass = PType_otherPIndex.mass;
+                float massRatio = PType_otherPIndex.mass / pType.mass;
 
                 float2 dst = PData_otherPIndex.pos - pData.pos;
                 float sqrDst = dot(dst, dst);
@@ -541,12 +542,12 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
 
                 float viscocityLaplacian = SmoothViscosityLaplacian_optimised(absDst, avgInfluenceRadius);
                 
-                float2 pressureForce = otherPIndex_Mass * PressureForce(pData.density, PData_otherPIndex.density, pData.nearDensity, PData_otherPIndex.nearDensity, pType, PType_otherPIndex, absDst, avgInfluenceRadius, normDst, state);
-                totPressureForce += pressureForce;
+                float2 pressureForce = massRatio * PressureForce(pData.density, PData_otherPIndex.density, pData.nearDensity, PData_otherPIndex.nearDensity, pType, PType_otherPIndex, absDst, avgInfluenceRadius, normDst, state);
+                totPressureAcc += pressureForce;
                 totAbsPressure += length(pressureForce);
 
                 #if SIMULATE_PARTICLE_VISCOSITY
-                    totViscocityForce += otherPIndex_Mass * ViscocityForce(pData.lastVel, PData_otherPIndex.lastVel, pType, PType_otherPIndex, viscocityLaplacian);
+                    totViscocityAcc += massRatio * ViscocityForce(pData.lastVel, PData_otherPIndex.lastVel, pType, PType_otherPIndex, viscocityLaplacian);
                 #endif
 
                 #if SIMULATE_PARTICLE_SPRINGS
@@ -556,7 +557,7 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
 
                     if (pType.fluidSpringGroup != 0 && pType.fluidSpringGroup == PType_otherPIndex.fluidSpringGroup)
                     {
-                        totSpringForce += otherPIndex_Mass * LiquidSpringForce(pType, PType_otherPIndex, i, otherPIndex, springIndex, absDst, avgInfluenceRadius, normDst);
+                        totSpringAcc += massRatio * LiquidSpringForce(pType, PType_otherPIndex, i, otherPIndex, springIndex, absDst, avgInfluenceRadius, normDst);
                     }
                 #endif
                 
@@ -572,15 +573,15 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
         }
     }
     
-    float3 interactionEffects = pType.mass * InteractionEffects(i);
-    float2 gravityForce = float2(0, -pType.gravity * pType.mass);
+    float3 interactionEffects = InteractionEffects(i);
+    float2 gravityAcc = float2(0, -pType.gravity);
 
-    float2 totForce = totPressureForce + totSpringForce + totViscocityForce + gravityForce;
-    PDatas[i].vel += (totForce * DeltaTime + interactionEffects.xy * RLDeltaTime) / pType.mass;
+    float2 totForce = totPressureAcc + totSpringAcc + totViscocityAcc + gravityAcc;
+    PDatas[i].vel += totForce * DeltaTime + interactionEffects.xy * RLDeltaTime;
     PDatas[i].temperatureExchangeBuffer = totTemperatureExchange + interactionEffects.z * RLDeltaTime;
 
     // Record data
-    PDatas[i].recordedPressure = totAbsPressure / pType.mass;
+    PDatas[i].recordedPressure = totAbsPressure;
 }
 
 float2 SafeFloat2(float2 value, float max)

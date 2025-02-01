@@ -89,8 +89,8 @@ public class FluidSensor : Sensor
         // Collect all data contributions and estimate the liquid depth & width
         int totChunkDepthsAllowGaps = 0;
         int totChunkDepthsNoGaps = 0;
-        int totColumnsWithLiquid = 0;
         int totChunksWithLiquid = 0;
+        float totColumnsWithLiquid = 0;
         float numContributions = 0;
         RecordedFluidData_Translated sumFluidDatas = new();
 
@@ -135,29 +135,32 @@ public class FluidSensor : Sensor
             if (anyLiquidInColumn) totColumnsWithLiquid++;
         }
 
+        // Clamp totColumnsWithLiquid to avoid dividing by 0
+        totColumnsWithLiquid = Mathf.Max(totColumnsWithLiquid, 0.1f);
+
         // Apply sample density correction
         sumFluidDatas.MultiplyAllProperties(sampleDensityCorrection);
         sumFluidDatas.numContributions = numContributions * sampleDensityCorrection;
+        sumFluidDatas.totMass *= 0.001f; // g -> kg
 
         // Final liquid depth, width & volume calculations
         float chunkSize = main.MaxInfluenceRadius * main.SimUnitToMetersFactor;
         float width = totColumnsWithLiquid * SampleSpacing * chunkSize;
 
         // "Allow Gaps" calculations
-        float avgChunkDepthAllowGaps = totChunkDepthsAllowGaps * SampleSpacing / Mathf.Max(totColumnsWithLiquid, 0.1f);
+        float avgChunkDepthAllowGaps = totChunkDepthsAllowGaps * SampleSpacing / totColumnsWithLiquid;
         float depthAllowGaps = avgChunkDepthAllowGaps * chunkSize;
         float volumeAllowGaps = depthAllowGaps * width * main.ZDepthMeters * 1000;
 
         // "No Gaps" calculations
-        float avgChunkDepthNoGaps = totChunkDepthsNoGaps * SampleSpacing / Mathf.Max(totColumnsWithLiquid, 0.1f);
+        float avgChunkDepthNoGaps = totChunkDepthsNoGaps * SampleSpacing / totColumnsWithLiquid;
         float depthNoGaps = avgChunkDepthNoGaps * chunkSize;
         float volumeNoGaps = depthNoGaps * width * main.ZDepthMeters * 1000;
 
         // Liquid density is based on the number of liquid chunks
-        float density = 1000f * sumFluidDatas.totMass / (totChunksWithLiquid * Func.Sqr(chunkSize * SampleSpacing));
+        float density = 1000f * sumFluidDatas.totMass / volumeAllowGaps;
 
         // Normalize values
-        sumFluidDatas.totMass *= 0.001f; // g -> kg
         sumFluidDatas.totVelAbs *= main.SimUnitToMetersFactor;
         sumFluidDatas.totVelComponents *= main.SimUnitToMetersFactor;
         sumFluidDatas.totPressure *= main.PressureFactor;

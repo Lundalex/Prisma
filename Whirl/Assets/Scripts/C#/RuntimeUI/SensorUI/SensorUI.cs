@@ -40,6 +40,7 @@ public class SensorUI : MonoBehaviour
 
     // Events
     public event Action<bool> OnSettingsViewStatusChanged;
+    public event Action OnIsBeingDragged;
 
     // NonSerialized
     [NonSerialized] public Sensor sensor;
@@ -96,6 +97,7 @@ public class SensorUI : MonoBehaviour
         {
             if (!pointerMoveTimer.Check(false) || (!pointerHoverArea.CheckIfHovering() && !isBeingMoved)) return;
             isBeingMoved = true;
+            OnIsBeingDragged?.Invoke();
 
             // Get mouse position
             Vector2 mouseSimPos = PM.Instance.main.GetMousePosInSimSpace(true);

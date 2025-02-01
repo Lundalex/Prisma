@@ -335,23 +335,28 @@ public class ProgramManager : ScriptableObject
         sensorDatas.Add(new SensorData(sensor, sensorUI, sensorUI.gameObject, false));
 
         sensorUI.OnSettingsViewStatusChanged += (isActive) => SetSensorSettingsViewStatus(sensorIndex, isActive);
+        sensorUI.OnIsBeingDragged += () => MoveSensorToFront(sensorIndex);
     }
 
     public void AddUserInput(UserUIElement userUIElement) => userUIElements.Add(userUIElement);
 
-    public void SetSensorSettingsViewStatus(int sensorIndex, bool isSettingsViewActive)
+    private void SetSensorSettingsViewStatus(int sensorIndex, bool isSettingsViewActive)
     {
         sensorDatas[sensorIndex].isSettingsViewActive = isSettingsViewActive;
 
-        // Move the sensor UI to either the front or the back by setting the sibling index
-        int frontIndex = sensorDatas.Count;
-        int backIndex = 0;
-        sensorDatas[sensorIndex].sensorUIObject.transform.SetSiblingIndex(isSettingsViewActive ? frontIndex : backIndex);
+        if (isSettingsViewActive) MoveSensorToFront(sensorIndex);
 
         isAnySensorSettingsViewActive = CheckAnySensorSettingsViewActive();
     }
 
-    public bool CheckAnySensorSettingsViewActive()
+    private void MoveSensorToFront(int sensorIndex)
+    {
+        // Move the sensor UI to either the front by setting the sibling index
+        int frontIndex = sensorDatas.Count;
+        sensorDatas[sensorIndex].sensorUIObject.transform.SetSiblingIndex(frontIndex);
+    }
+
+    private bool CheckAnySensorSettingsViewActive()
     {
         foreach (SensorData sensorData in sensorDatas)
         {
