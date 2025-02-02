@@ -25,20 +25,11 @@ const int ParticlesNum;
 const int ParticlesNum_NextPow2;
 
 // Per-iteration-set variables
-const bool BrownPinkSort; // True -> BrownSort, False -> PinkSort
 const int SpatialLookupLog2Length;
-const int BlockLen;
-
-const int SortedStickyRequestsLength;
-const int SortedStickyRequestsLog2Length;
-
-const bool SRBrownPinkSort; // True -> BrownSort, False -> PinkSort
-const int SRBlockLen;
-const int SRblocksNum;
+const int BlockLen_BrownPinkSort; // True -> BrownSort, False -> PinkSort
 
 const bool FrameBufferCycle;
-const bool StepBufferCycle;
-const int Offset2;
+const int Offset2_StepBufferCycle;
 
 RWStructuredBuffer<int2> SpatialLookup; // [ParticlesNum](particleIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
@@ -117,14 +108,17 @@ void SortIteration (uint3 id : SV_DispatchThreadID)
     int lowRef = id.x;
     if (lowRef >= ParticlesNum) return;
 
+    int BlockLen = abs(BlockLen_BrownPinkSort);
+    bool BrownPinkSort = BlockLen_BrownPinkSort >= 0;
+
     int relBlock = (int)(2 * lowRef / (uint)BlockLen);
-    int relPos = lowRef % (0.5 * BlockLen);
+    int relPos = lowRef % (BlockLen / (uint)2);
 
     int lowIndex = relBlock * BlockLen + relPos;
 
     int highIndex = BrownPinkSort
     ? relBlock * BlockLen + BlockLen - 1 - relPos
-    :relBlock * BlockLen + relPos + (int)(BlockLen * 0.5);
+    : relBlock * BlockLen + relPos + (int)(BlockLen / (uint)2);
 
     int2 lowValue = SpatialLookup[lowIndex];
     int2 highValue = SpatialLookup[highIndex];
@@ -216,6 +210,10 @@ void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
 {
     int i = id.x;
     if (i >= ChunksNumAll) return;
+
+    int Offset2 = abs(Offset2_StepBufferCycle);
+    bool StepBufferCycle = Offset2_StepBufferCycle >= 0;
+
     // A <-> C
     if (FrameBufferCycle)
     {

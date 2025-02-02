@@ -638,7 +638,8 @@ public class Main : MonoBehaviour
         ComputeHelper.DispatchKernel(sortShader, "CalculateChunkKeys", threadGroupsNum);
 
         int len = ParticlesNum_NextPow2;
-
+        int sortIterationKernelIndex = sortShader.FindKernel("SortIteration");
+        
         int basebBlockLen = 2;
         while (basebBlockLen != 2 * len) // basebBlockLen == len is the last outer iteration
         {
@@ -647,10 +648,9 @@ public class Main : MonoBehaviour
             {
                 bool BrownPinkSort = blockLen == basebBlockLen;
 
-                sortShader.SetInt("BlockLen", blockLen);
-                sortShader.SetBool("BrownPinkSort", BrownPinkSort);
+                sortShader.SetInt("BlockLen_BrownPinkSort", blockLen * (BrownPinkSort ? 1 : -1));
 
-                ComputeHelper.DispatchKernel(sortShader, "SortIteration", threadGroupsNumHalfCeil);
+                sortShader.Dispatch(sortIterationKernelIndex, threadGroupsNumHalfCeil, 1, 1);
 
                 blockLen /= 2;
             }
@@ -671,19 +671,20 @@ public class Main : MonoBehaviour
             ComputeHelper.DispatchKernel(sortShader, "PopulateSpringCapacities", threadGroupsNum);
             ComputeHelper.DispatchKernel(sortShader, "CopySpringCapacities", threadGroupsNum);
 
+            int ppssKernelIndex = sortShader.FindKernel("ParallelPrefixSumScan");
+
             // Calculate prefix sums (SpringStartIndices)
             bool StepBufferCycle = false;
             for (int offset = 1; offset < ChunksNumAll; offset *= 2)
             {
                 StepBufferCycle = !StepBufferCycle;
 
-                sortShader.SetBool("StepBufferCycle", StepBufferCycle);
-                sortShader.SetInt("Offset2", offset);
+                sortShader.SetInt("Offset2_StepBufferCycle", offset * (StepBufferCycle ? 1 : -1));
 
-                ComputeHelper.DispatchKernel(sortShader, "ParallelPrefixSumScan", threadGroupsNum);
+                sortShader.Dispatch(ppssKernelIndex, threadGroupsNum, 1, 1);
             }
 
-            if (StepBufferCycle == true) { ComputeHelper.DispatchKernel(sortShader, "CopySpringStartIndicesBuffer", threadGroupsNum); } // copy to result buffer if necessary
+            if (StepBufferCycle == true) ComputeHelper.DispatchKernel(sortShader, "CopySpringStartIndicesBuffer", threadGroupsNum); // copy to result buffer
         }
     }
 
