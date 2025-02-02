@@ -573,6 +573,8 @@ public class Main : MonoBehaviour
         if (TimeStepType == TimeStepType.Fixed)
         {
             deltaTime = TimeStep / stepsPerFrame;
+            deltaTime *= PM.Instance.timeScale * ProgramSpeed;
+
         }
         else // TimeStepType == TimeStepType.Dynamic
         {
@@ -641,6 +643,7 @@ public class Main : MonoBehaviour
         int sortIterationKernelIndex = sortShader.FindKernel("SortIteration");
         
         int basebBlockLen = 2;
+        if (threadGroupsNumHalfCeil > 0)
         while (basebBlockLen != 2 * len) // basebBlockLen == len is the last outer iteration
         {
             int blockLen = basebBlockLen;
@@ -675,6 +678,7 @@ public class Main : MonoBehaviour
 
             // Calculate prefix sums (SpringStartIndices)
             bool StepBufferCycle = false;
+            if (threadGroupsNum > 0)
             for (int offset = 1; offset < ChunksNumAll; offset *= 2)
             {
                 StepBufferCycle = !StepBufferCycle;

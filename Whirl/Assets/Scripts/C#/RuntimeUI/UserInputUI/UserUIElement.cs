@@ -7,7 +7,6 @@ using PM = ProgramManager;
 [ExecuteAlways]
 public abstract class UserUIElement : EditorLifeCycle
 {
-    
     public PointerHoverArea pointerHoverArea;
     public Image containerTrimImage;
     [SerializeField] private TMP_Text title;

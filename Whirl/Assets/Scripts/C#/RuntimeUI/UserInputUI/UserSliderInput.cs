@@ -4,6 +4,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using PM = ProgramManager;
+using UnityEngine.Events;
+using System.Collections;
+
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -25,6 +28,9 @@ public class UserSliderInput : UserUIElement
     [SerializeField] private bool doUseDataStorage;
     [SerializeField] private DataStorage dataStorage;
 
+    [Header("Unity Event")]
+    public UnityEvent onValueChangeDone;
+
     [Header("References")]
     [SerializeField] private Slider slider;
     [SerializeField] private SliderInput sliderInput;
@@ -34,6 +40,7 @@ public class UserSliderInput : UserUIElement
     // Private
     private float lastValue;
     private Timer updateTimer;
+    private bool isMonitoringValueChange;
 
     public override void InitDisplay()
     {
@@ -96,6 +103,27 @@ public class UserSliderInput : UserUIElement
                 #endif
             }
         }
+    }
+
+    public void StartMonitoringValueChange()
+    {
+        if (!isMonitoringValueChange && PM.Instance.totalTimeElapsed > 0.5f) StartCoroutine(WaitForMouseRelease());
+    }
+
+    private IEnumerator WaitForMouseRelease()
+    {
+        isMonitoringValueChange = true;
+
+        // Wait until the left mouse button is released
+        while (Input.GetMouseButton(0))
+        {
+            yield return null;
+        }
+
+        // Once mouse is no longer held down, invoke the event
+        onValueChangeDone.Invoke();
+
+        isMonitoringValueChange = false;
     }
 
     private void OnEnable()

@@ -378,7 +378,19 @@ MonoBehaviour:
       m_Calls: []
   sliderEvent:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 6990916900791070344}
+        m_TargetAssemblyTypeName: UserSliderInput, Assembly-CSharp
+        m_MethodName: StartMonitoringValueChange
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   sliderAnimator: {fileID: 0}
   saveValue: 0
 --- !u!114 &1715760548889725599
@@ -918,6 +930,11 @@ MonoBehaviour:
   maxValue: 10
   useInnerField: 0
   innerFieldName: No Inner Field
+  doUseDataStorage: 0
+  dataStorage: {fileID: 0}
+  onValueChangeDone:
+    m_PersistentCalls:
+      m_Calls: []
   slider: {fileID: 1715760548889725599}
   sliderInput: {fileID: 1187082468179453712}
   sliderInputField: {fileID: 1279538033677037847}
