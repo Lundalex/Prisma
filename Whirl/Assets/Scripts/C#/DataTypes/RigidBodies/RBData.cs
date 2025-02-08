@@ -34,8 +34,9 @@ public struct RBData
     // Heating
     public float heatingStrength;
     
-    // Recorded spring force
-    public float recordedSpringForce;
+    // Recorded forces
+    public float2 recordedSpringForce;
+    public float2 recordedFrictionForce;
 
     // Display
     public int renderPriority;

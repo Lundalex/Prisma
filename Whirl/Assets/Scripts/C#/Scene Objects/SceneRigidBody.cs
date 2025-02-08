@@ -22,7 +22,7 @@ public class SceneRigidBody : Polygon
     public bool addInBetweenPoints = true;
     public bool doRecursiveSubdivisison = false;
     [Range(0.5f, 10.0f)] public float minDstForSubDivision = 0;
-    public Sensor[] linkedSensors;
+    public SensorBase[] linkedSensors;
     public RBInput rbInput;
 
     [Header("Approximated Starting Values")]

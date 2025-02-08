@@ -21,6 +21,7 @@ public class ProgramManager : ScriptableObject
 
     // UI elements
     [NonSerialized] public List<SensorData> sensorDatas = new();
+    [NonSerialized] public List<RigidBodyArrow> rigidBodyArrows = new();
     [NonSerialized] public List<UserUIElement> userUIElements = new();
 
     // Globally accessed variables
@@ -161,8 +162,9 @@ public class ProgramManager : ScriptableObject
             fluidSpawnerManager.UpdateScript();
             main.UpdateScript();
 
-            // Update sensors
+            // Update sensors & arrows
             UpdateSensorScripts();
+            UpdateArrowScripts();
 
             // Update the total time elapsed
             totalTimeElapsed += clampedDeltaTime;
@@ -174,6 +176,7 @@ public class ProgramManager : ScriptableObject
         else
         {
             main.RunRenderShader();
+            UpdateArrowScripts();
             TriggerProgramUpdate(false);
         }
     }
@@ -272,6 +275,11 @@ public class ProgramManager : ScriptableObject
         foreach (SensorData sensorData in sensorDatas) sensorData.sensor.UpdateScript();
     }
 
+    private void UpdateArrowScripts()
+    {
+        foreach (RigidBodyArrow rigidBodyArrow in rigidBodyArrows) rigidBodyArrow.UpdateScript();
+    }
+
     private void CloseAllSensorUISettingsPanels()
     {
         foreach (SensorData sensorData in sensorDatas)
@@ -321,6 +329,7 @@ public class ProgramManager : ScriptableObject
         globalBrightnessFactor = -1;
 
         sensorDatas = new();
+        rigidBodyArrows = new();
         userUIElements = new();
         rapidFrameSteppingTimer = new(rapidFrameSteppingDelay, TimeType.NonClamped, true, rapidFrameSteppingDelay);
 
@@ -336,6 +345,11 @@ public class ProgramManager : ScriptableObject
 
         sensorUI.OnSettingsViewStatusChanged += (isActive) => SetSensorSettingsViewStatus(sensorIndex, isActive);
         sensorUI.OnIsBeingDragged += () => MoveSensorToFront(sensorIndex);
+    }
+
+    public void AddRigidBodyArrow(RigidBodyArrow rigidBodyArrow)
+    {
+        rigidBodyArrows.Add(rigidBodyArrow);
     }
 
     public void AddUserInput(UserUIElement userUIElement) => userUIElements.Add(userUIElement);

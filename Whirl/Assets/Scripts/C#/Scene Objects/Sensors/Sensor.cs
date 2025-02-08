@@ -6,7 +6,7 @@ using PM = ProgramManager;
 using Michsky.MUIP;
 using Resources2;
 
-public abstract class Sensor : MonoBehaviour
+public abstract class Sensor : SensorBase
 {
     [Header("Display")]
     [SerializeField] private DataView defaultDataView;
@@ -139,7 +139,7 @@ public abstract class Sensor : MonoBehaviour
 
     public abstract void InitSensor(Vector2 pos);
     public abstract void UpdatePosition();
-    public abstract void UpdateSensor();
+    public override abstract void UpdateSensor();
     public abstract void UpdateSensorTypeDropdown();
     public abstract void SetSensorTitle();
     public abstract bool SetSensorUnit(string unit = "");

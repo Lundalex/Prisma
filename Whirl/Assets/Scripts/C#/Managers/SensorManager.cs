@@ -7,8 +7,8 @@ using Resources2;
 
 public class SensorManager : MonoBehaviour
 {
-    [Range(5.0f, 100.0f), SerializeField] private float msRigidBodyDataRetrievalInterval;
-    [Range(5.0f, 100.0f), SerializeField] private float msFluidDataRetrievalInterval;
+    [Range(5.0f, 100.0f), SerializeField] public float msRigidBodyDataRetrievalInterval;
+    [Range(5.0f, 100.0f), SerializeField] public float msFluidDataRetrievalInterval;
     [Range(5.0f, 500.0f)] public float msGraphPointSubmissionFrequency;
     [SerializeField] private bool doUpdateGraphsAsync = true;
     [Range(10.0f, 2000.0f), SerializeField] private float msGraphUpdateFrequency;
@@ -21,7 +21,7 @@ public class SensorManager : MonoBehaviour
     private List<GraphController> graphControllers = new();
 
     // References
-    [NonSerialized] public List<Sensor> sensors;
+    [NonSerialized] public List<SensorBase> sensors;
     private Main main;
 
     private bool programRunning;
@@ -44,17 +44,21 @@ public class SensorManager : MonoBehaviour
             // Retrieve rigid body data buffer asynchronously
             if (main.RBDataBuffer != null && sensors != null)
             {
-                bool hasRigidBodySensor = sensors.OfType<RigidBodySensor>().Any();
+                bool hasRigidBodySensor = sensors.OfType<RigidBodySensor>().Any() || sensors.OfType<RigidBodyArrow>().Any();
                 if (hasRigidBodySensor)
                 {
                     ComputeHelper.GetBufferContentsAsync<RBData>(main.RBDataBuffer, contents => 
                     {
                         retrievedRBDatas = contents;
-                        foreach (Sensor sensor in sensors)
+                        foreach (SensorBase sensor in sensors)
                         {
                             if (sensor is RigidBodySensor rigidBodySensor)
                             {
                                 rigidBodySensor.UpdateSensor();
+                            }
+                            else if (sensor is RigidBodyArrow rigidBodyArrow)
+                            {
+                                rigidBodyArrow.UpdateSensor();
                             }
                         }
                     });
@@ -78,7 +82,7 @@ public class SensorManager : MonoBehaviour
                     ComputeHelper.GetBufferContentsAsync<RecordedFluidData>(main.RecordedFluidDataBuffer, contents => 
                     {
                         retrievedFluidDatas = contents;
-                        foreach (Sensor sensor in sensors)
+                        foreach (SensorBase sensor in sensors)
                         {
                             if (sensor is FluidSensor fluidSensor)
                             {

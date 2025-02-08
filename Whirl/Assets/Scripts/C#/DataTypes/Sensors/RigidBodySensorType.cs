@@ -7,5 +7,6 @@ public enum RigidBodySensorType
     RotationalVelocity,
     Position_X,
     Position_Y,
+    FrictionForce,
     SpringForce
 }

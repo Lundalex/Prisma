@@ -19,17 +19,17 @@ public class SceneManager : MonoBehaviour
     private Transform sensorUIContainer;
     private Transform sensorOutlineContainer;
     private Main main;
+    private ArrowManager arrowManager;
     private SensorManager sensorManager;
-    private Vector2 canvasResolution;
+    
 
     private void SetReferences()
     {
         sensorUIContainer = GameObject.FindGameObjectWithTag("SensorUIContainer").GetComponent<Transform>();
         sensorOutlineContainer = GameObject.FindGameObjectWithTag("SensorOutlineContainer").GetComponent<Transform>();
         main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
+        arrowManager = GameObject.FindGameObjectWithTag("ArrowManager")?.GetComponent<ArrowManager>();
         sensorManager = GameObject.FindGameObjectWithTag("SensorManager").GetComponent<SensorManager>();
-        Rect uiCanvasRect = GameObject.FindGameObjectWithTag("UICanvas").GetComponent<RectTransform>().rect;
-        canvasResolution = new Vector2(uiCanvasRect.width, uiCanvasRect.height);
 
         referencesHaveBeenSet = true;
     }
@@ -207,7 +207,7 @@ public class SceneManager : MonoBehaviour
         // Final data
         List<RBData> allRBData = new();
         List<RBVector> allRBVectors = new();
-        List<Sensor> sensors = new();
+        List<SensorBase> sensors = new();
 
         for (int i = 0; i < allRigidBodies.Length; i++)
         {
@@ -273,7 +273,7 @@ public class SceneManager : MonoBehaviour
             ));
 
             // Sensors
-            foreach (var sensor in rigidBody.linkedSensors)
+            foreach (SensorBase sensor in rigidBody.linkedSensors)
             {
                 if (sensor == null) continue;
                 if (!sensor.isActiveAndEnabled) continue;
@@ -289,8 +289,16 @@ public class SceneManager : MonoBehaviour
                         rigidBodySensor.linkedRBIndex = i;
                         sensors.Add(sensor);
 
-                        sensor.SetReferences(sensorUIContainer, sensorOutlineContainer, main, sensorManager);
-                        sensor.Initialize(transformedRBPos);
+                        rigidBodySensor.SetReferences(sensorUIContainer, sensorOutlineContainer, main, sensorManager);
+                        rigidBodySensor.Initialize(transformedRBPos);
+                    }
+                    else if (sensor is RigidBodyArrow rigidBodyArrow && rigidBodyArrow != null)
+                    {
+                        rigidBodyArrow.linkedRBIndex = i;
+                        sensors.Add(sensor);
+
+                        rigidBodyArrow.SetReferences(arrowManager, main, sensorManager);
+                        rigidBodyArrow.Initialize();
                     }
                 }
             }
@@ -538,6 +546,7 @@ public class SceneManager : MonoBehaviour
 
             heatingStrength = rbInput.heatingStrength,
             recordedSpringForce = 0,
+            recordedFrictionForce = 0,
 
             renderPriority = rbInput.disableRender ? -1 : rbInput.renderPriority,
             matIndex = rbInput.matIndex,

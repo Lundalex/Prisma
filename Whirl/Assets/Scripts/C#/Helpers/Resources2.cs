@@ -276,7 +276,14 @@ namespace Resources2
             return (a + b) * 0.5f;
         }
 
+        public static bool IsBitSet(int value, int bitIndex)
+        {
+            return (value & (1 << bitIndex)) != 0;
+        }
+
         public static float SinOscillation(float t0) => (Mathf.Sin((t0 + 0.75f) * Mathf.PI * 2.0f) + 1.0f) * 0.5f;
+
+        public static float AngleFromDir(Vector2 dir) => dir == Vector2.zero ? 0 : Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
     }
 #endregion
 

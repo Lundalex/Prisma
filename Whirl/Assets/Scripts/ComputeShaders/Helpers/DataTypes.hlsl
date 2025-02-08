@@ -114,7 +114,8 @@ struct RigidBody
     float heatingStrength;
 
     // Recorded spring force
-    float recordedSpringForce;
+    float2 recordedSpringForce;
+    float2 recordedFrictionForce;
 
     // Display
     int renderPriority;
@@ -146,7 +147,8 @@ struct RBAdjustment
     int2 deltaVel_Int2;
     int deltaRotVel_Int;
 
-    int recordedSpringForce_Int;
+    int2 recordedSpringForce_Int2;
+    int2 recordedFrictionForce_Int2;
 };
 
 struct RBHitInfo
@@ -194,7 +196,8 @@ RBAdjustment InitRBAdjustment()
     rbAdjustment.deltaPos_Int2 = 0;
     rbAdjustment.deltaVel_Int2 = 0;
     rbAdjustment.deltaRotVel_Int = 0;
-    rbAdjustment.recordedSpringForce_Int = 0;
+    rbAdjustment.recordedSpringForce_Int2 = 0;
+    rbAdjustment.recordedFrictionForce_Int2 = 0;
 
     return rbAdjustment;
 }

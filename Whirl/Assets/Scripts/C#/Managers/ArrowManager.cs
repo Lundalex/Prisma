@@ -4,7 +4,7 @@ using UnityEngine;
 public class ArrowManager : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField] private GameObject arrowPrefab;
+    [SerializeField] private GameObject uiArrowPrefab;
     [SerializeField] private Transform arrowContainerTransform;
 
     // Private
@@ -12,26 +12,43 @@ public class ArrowManager : MonoBehaviour
 
     private void Awake() => arrowObjects = new GameObject[0];
 
-    public GameObject CreateArrow(
+    public UIArrow CreateArrow(
         Vector2 center,
         float radius,
+        float displayBoxScale,
+        float value,
+        int numDecimals,
         float rotation,
+        string unit,
         float baseWidth,
         float baseLength,
         float hatSize,
         float outlineGap,
-        Color outlineColor,
-        Color bodyColor)
+        Color minOutlineColor,
+        Color maxOutlineColor,
+        Color minBodyColor,
+        Color maxBodyColor,
+        Color displayBoxColor)
     {
-        GameObject arrowObject = Instantiate(arrowPrefab, this.transform, false);
+        GameObject arrowObject = Instantiate(uiArrowPrefab, this.transform, false);
         arrowObject.transform.SetParent(arrowContainerTransform, false);
 
-        UIArrow uiArrow = arrowObject.AddComponent<UIArrow>();
-        uiArrow.SetConfig(center, radius, rotation, baseWidth, baseLength, hatSize, outlineGap, outlineColor, bodyColor);
+        UIArrow uiArrow = arrowObject.GetComponent<UIArrow>();
+        uiArrow.SetConfig(center, radius, displayBoxScale, value, numDecimals, rotation, unit, baseWidth, baseLength, hatSize, outlineGap, minOutlineColor, maxOutlineColor, minBodyColor, maxBodyColor, displayBoxColor);
 
         AddArrowObject(arrowObject);
 
-        return arrowObject;
+        return uiArrow;
+    }
+
+    public UIArrow CreateArrow(GameObject uiArrowPrefab)
+    {
+        GameObject arrowObject = Instantiate(uiArrowPrefab, this.transform, false);
+        arrowObject.transform.SetParent(arrowContainerTransform, false);
+
+        AddArrowObject(arrowObject);
+
+        return arrowObject.GetComponent<UIArrow>();
     }
 
     public void RemoveArrow(int index)
@@ -47,19 +64,26 @@ public class ArrowManager : MonoBehaviour
         int index,
         Vector2 center,
         float radius,
+        float displayBoxScale,
+        float value,
+        int numDecimals,
         float rotation,
+        string unit,
         float baseWidth,
         float baseLength,
         float hatSize,
         float outlineGap,
-        Color outlineColor,
-        Color bodyColor)
+        Color minOutlineColor,
+        Color maxOutlineColor,
+        Color minBodyColor,
+        Color maxBodyColor,
+        Color displayBoxColor)
     {
         if (arrowObjects == null || index < 0 || index >= arrowObjects.Length) return;
 
         if (arrowObjects[index].TryGetComponent<UIArrow>(out var uiArrow))
         {
-            uiArrow.SetConfig(center, radius, rotation, baseWidth, baseLength, hatSize, outlineGap, outlineColor, bodyColor);
+            uiArrow.SetConfig(center, radius, displayBoxScale, value, numDecimals, rotation, unit, baseWidth, baseLength, hatSize, outlineGap, minOutlineColor, maxOutlineColor, minBodyColor, maxBodyColor, displayBoxColor);
         }
     }
 

@@ -98,8 +98,12 @@ public class RigidBodySensor : Sensor
                 value = pos.y;
                 break;
 
+            case RigidBodySensorType.FrictionForce:
+                value = ((Vector2)rbData.recordedFrictionForce).magnitude;
+                break;
+
             case RigidBodySensorType.SpringForce:
-                value = rbData.recordedSpringForce;
+                value = ((Vector2)rbData.recordedSpringForce).magnitude;
                 break;
 
             default:
@@ -145,6 +149,7 @@ public class RigidBodySensor : Sensor
                 baseUnit = "m";
                 break;
 
+            case RigidBodySensorType.FrictionForce:
             case RigidBodySensorType.SpringForce:
                 baseUnit = "N";
                 break;
@@ -201,6 +206,10 @@ public class RigidBodySensor : Sensor
                 title = "Position Y";
                 break;
 
+            case RigidBodySensorType.FrictionForce:
+                title = "Friktion";
+                break;
+
             case RigidBodySensorType.SpringForce:
                 title = "Dragkraft";
                 break;
@@ -246,8 +255,12 @@ public class RigidBodySensor : Sensor
                 itemIndex = 6;
                 break;
 
-            case RigidBodySensorType.SpringForce:
+            case RigidBodySensorType.FrictionForce:
                 itemIndex = 7;
+                break;
+
+            case RigidBodySensorType.SpringForce:
+                itemIndex = 8;
                 break;
 
             default:
