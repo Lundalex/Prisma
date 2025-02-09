@@ -284,6 +284,14 @@ namespace Resources2
         public static float SinOscillation(float t0) => (Mathf.Sin((t0 + 0.75f) * Mathf.PI * 2.0f) + 1.0f) * 0.5f;
 
         public static float AngleFromDir(Vector2 dir) => dir == Vector2.zero ? 0 : Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+
+        public static float ConvertRange(float value, float minOriginalRange, float maxOriginalRange, float minNewRange, float maxNewRange)
+        {
+            float factor = Mathf.Clamp01((value - minOriginalRange) / Mathf.Max(maxOriginalRange - minOriginalRange, 0.001f));
+            float convertedValue = Mathf.Lerp(minNewRange, maxNewRange, factor);
+
+            return convertedValue;
+        }
     }
 #endregion
 

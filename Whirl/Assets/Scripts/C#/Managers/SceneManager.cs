@@ -284,7 +284,7 @@ public class SceneManager : MonoBehaviour
                 }
                 else
                 {
-                    if (sensor is RigidBodySensor rigidBodySensor && rigidBodySensor != null)
+                    if (sensor is RigidBodySensor rigidBodySensor)
                     {
                         rigidBodySensor.linkedRBIndex = i;
                         sensors.Add(sensor);
@@ -292,7 +292,7 @@ public class SceneManager : MonoBehaviour
                         rigidBodySensor.SetReferences(sensorUIContainer, sensorOutlineContainer, main, sensorManager);
                         rigidBodySensor.Initialize(transformedRBPos);
                     }
-                    else if (sensor is RigidBodyArrow rigidBodyArrow && rigidBodyArrow != null)
+                    else if (sensor is RigidBodyArrow rigidBodyArrow)
                     {
                         rigidBodyArrow.linkedRBIndex = i;
                         sensors.Add(sensor);
@@ -304,8 +304,9 @@ public class SceneManager : MonoBehaviour
             }
         }
 
-        // Fluid sensors
         List<SensorArea> sensorAreas = new();
+
+        // Fluid sensors
         GameObject[] fluidSensorObjects = GameObject.FindGameObjectsWithTag("FluidSensor");
         FluidSensor[] fluidSensors = Array.ConvertAll(fluidSensorObjects, obj => obj.GetComponent<FluidSensor>());
         foreach (FluidSensor fluidSensor in fluidSensors)
@@ -317,6 +318,20 @@ public class SceneManager : MonoBehaviour
             fluidSensor.Initialize(Vector2.zero);
 
             sensorAreas.Add(fluidSensor.GetSensorAreaData());
+        }
+
+        // Fluid arrow fields
+        GameObject[] fluidArrowFieldObjects = GameObject.FindGameObjectsWithTag("FluidArrowField");
+        FluidArrowField[] fluidArrowFields = Array.ConvertAll(fluidArrowFieldObjects, obj => obj.GetComponent<FluidArrowField>());
+        foreach (FluidArrowField fluidArrowField in fluidArrowFields)
+        {
+            if (fluidArrowField == null) continue;
+            sensors.Add(fluidArrowField);
+
+            fluidArrowField.SetReferences(arrowManager, main, sensorManager);
+            fluidArrowField.Initialize();
+
+            if (fluidArrowField.doRenderMeasurementZone) sensorAreas.Add(fluidArrowField.GetSensorAreaData());
         }
 
         // Assign

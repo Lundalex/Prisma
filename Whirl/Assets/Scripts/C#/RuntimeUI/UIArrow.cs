@@ -1,15 +1,16 @@
 using Resources2;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
+using Image = UnityEngine.UI.Image;
 using PM = ProgramManager;
 
 [ExecuteInEditMode]
 public class UIArrow : EditorLifeCycle
 {
-    [Header("Arrow Position")]
+    [Header("Arrow Transform")]
     [SerializeField] private Vector2 center = Vector2.zero;
     [SerializeField] private float radius = 20f;
+    [SerializeField] private float scale = 1f;
 
     [Header("Value Display")]
     [SerializeField] private float displayBoxScale = 1f;
@@ -103,11 +104,12 @@ public class UIArrow : EditorLifeCycle
         UpdateSprites();
     }
 
-    public void UpdateArrow(float val, string unit, float baseLength, float colorLerpFactor)
+    public void UpdateArrow(float val, string unit, float baseLength, float colorLerpFactor, float scale = float.PositiveInfinity)
     {
         SetDisplayValue(val, unit);
         this.baseLength = baseLength;
         this.colorLerpFactor = colorLerpFactor;
+        this.scale = scale == float.PositiveInfinity ? this.scale : scale;
         SetArrowVisibility(colorLerpFactor > 0);
         UpdateSprites();
     }
@@ -117,6 +119,14 @@ public class UIArrow : EditorLifeCycle
         this.rotation = rotation;
         this.center = center;
         UpdateSprites();
+    }
+    public void SetPosition(float rotation)
+    {
+        SetPosition(this.center, rotation);
+    }
+    public void SetPosition(Vector2 center)
+    {
+        SetPosition(center, this.rotation);
     }
 
     public void SetValueBoxVisibility(bool setVisible)
@@ -128,7 +138,7 @@ public class UIArrow : EditorLifeCycle
     {
         if (Application.isPlaying)
         {
-            rotationJointRect.gameObject.SetActive(setVisible);
+            gameObject.SetActive(setVisible);
         }
     }
 
@@ -140,6 +150,7 @@ public class UIArrow : EditorLifeCycle
         rotationJointRect.localRotation = Quaternion.Euler(0f, 0f, rotation);
         float oscillation = Func.SinOscillation(PM.Instance.totalScaledTimeElapsed * radiusOscillationSpeed) * radiusOscillationRadius;
         positionJointRect.localPosition = new(radius + oscillation, 0);
+        positionJointRect.localScale = new(scale, scale);
         transform.localPosition = center;
 
         // Sprite container

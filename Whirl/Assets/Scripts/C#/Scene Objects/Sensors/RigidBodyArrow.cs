@@ -28,7 +28,10 @@ public class RigidBodyArrow : SensorBase
     [Header("Starting Values")]
     [SerializeField, Range(0.0f, 360.0f)] private float startRotation;
 
+    [Header("Prefab reference")]
     [SerializeField] private GameObject uiArrowPrefab;
+
+    // UIArrow
     private UIArrow uiArrow;
 
     // Private references
@@ -56,9 +59,11 @@ public class RigidBodyArrow : SensorBase
     {
         uiArrow = arrowManager.CreateArrow(uiArrowPrefab);
         uiArrow.UpdateArrow(0f, "", 0, 0f);
-        uiArrow.SetPosition(new(-Const.LARGE_FLOAT, -Const.LARGE_FLOAT), 0f);
+        uiArrow.SetArrowVisibility(false);
         uiArrow.SetValueBoxVisibility(doDisplayValueBox);
         firstDataRecieved = false;
+
+        SetConstants();
 
         PM.Instance.AddRigidBodyArrow(this);
     }
@@ -69,6 +74,11 @@ public class RigidBodyArrow : SensorBase
         this.main = main;
         this.sensorManager = sensorManager;
         this.canvasResolution = Func.Int2ToVector2(main.Resolution);
+    }
+
+    private void SetConstants()
+    {
+        
     }
 
     public void UpdateScript()

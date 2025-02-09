@@ -7,14 +7,20 @@ using Debug = UnityEngine.Debug;
 
 public class FluidSensor : Sensor
 {
+    [Header("Primary Customizations")]
     [SerializeField] private FluidSensorType fluidSensorType;
+
+    [Header("Measurement Zone")]
     public Color lineColor;
     public Color areaColor;
     public Rect measurementZone;
     [SerializeField] private float patternModulo;
+
+    [Header("Fluid Sampling")]
     [Range(1, 20), SerializeField] private int SampleSpacing;
     [SerializeField] private bool allowDepthGaps;
 
+    // Private
     private int minX, maxX, minY, maxY;
     private float sampleDensityCorrection;
     private int2 chunksNum;
@@ -47,10 +53,9 @@ public class FluidSensor : Sensor
         int numY = ((maxY - minY) / SampleSpacing) + 1;
         int numberOfIterations = numX * numY;
 
-        if (numberOfIterations > 0)
-            sampleDensityCorrection = (maxX - minX) * (maxY - minY) / (float)numberOfIterations;
-        else
-            sampleDensityCorrection = 1.0f;
+        sampleDensityCorrection = numberOfIterations > 0
+                                  ? (maxX - minX) * (maxY - minY) / (float)numberOfIterations
+                                  : 1.0f;
     }
 
     public SensorArea GetSensorAreaData()
@@ -78,11 +83,11 @@ public class FluidSensor : Sensor
 
     public override void UpdateSensor()
     {
-        // Early exit if no UI or invalid measurement zone
+        // Early exit
         if (sensorUI == null) return;
         if (measurementZone.height == 0.0f && measurementZone.width == 0.0f)
         {
-            Debug.Log("Measurement zone has no width or height. It will not be updated. FluidSensor: " + this.name);
+            Debug.Log("Measurement zone has either no width or no height. It will not be updated. FluidSensor: " + this.name);
             return;
         }
 
@@ -174,6 +179,7 @@ public class FluidSensor : Sensor
         a.totTemp += b.totTemp;
         a.totThermalEnergy += b.totThermalEnergy;
         a.totPressure += b.totPressure;
+        a.totInterParticleAcc += b.totInterParticleAcc;
         a.totVelComponents += b.totVelComponents;
         a.totVelAbs += b.totVelAbs;
         a.totMass += b.totMass;

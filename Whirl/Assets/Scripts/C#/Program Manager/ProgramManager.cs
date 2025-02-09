@@ -22,6 +22,7 @@ public class ProgramManager : ScriptableObject
     // UI elements
     [NonSerialized] public List<SensorData> sensorDatas = new();
     [NonSerialized] public List<RigidBodyArrow> rigidBodyArrows = new();
+    [NonSerialized] public List<FluidArrowField> fluidArrowFields = new();
     [NonSerialized] public List<UserUIElement> userUIElements = new();
 
     // Globally accessed variables
@@ -278,6 +279,7 @@ public class ProgramManager : ScriptableObject
     private void UpdateArrowScripts()
     {
         foreach (RigidBodyArrow rigidBodyArrow in rigidBodyArrows) rigidBodyArrow.UpdateScript();
+        foreach (FluidArrowField fluidArrowField in fluidArrowFields) fluidArrowField.UpdateScript();
     }
 
     private void CloseAllSensorUISettingsPanels()
@@ -330,6 +332,7 @@ public class ProgramManager : ScriptableObject
 
         sensorDatas = new();
         rigidBodyArrows = new();
+        fluidArrowFields = new();
         userUIElements = new();
         rapidFrameSteppingTimer = new(rapidFrameSteppingDelay, TimeType.NonClamped, true, rapidFrameSteppingDelay);
 
@@ -350,6 +353,11 @@ public class ProgramManager : ScriptableObject
     public void AddRigidBodyArrow(RigidBodyArrow rigidBodyArrow)
     {
         rigidBodyArrows.Add(rigidBodyArrow);
+    }
+
+    public void AddFluidArrowField(FluidArrowField fluidArrowField)
+    {
+        fluidArrowFields.Add(fluidArrowField);
     }
 
     public void AddUserInput(UserUIElement userUIElement) => userUIElements.Add(userUIElement);

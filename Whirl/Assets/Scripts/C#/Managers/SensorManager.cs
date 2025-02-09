@@ -49,16 +49,15 @@ public class SensorManager : MonoBehaviour
                 {
                     ComputeHelper.GetBufferContentsAsync<RBData>(main.RBDataBuffer, contents => 
                     {
-                        retrievedRBDatas = contents;
-                        foreach (SensorBase sensor in sensors)
+                        if (programRunning)
                         {
-                            if (sensor is RigidBodySensor rigidBodySensor)
+                            retrievedRBDatas = contents;
+                            foreach (SensorBase sensor in sensors)
                             {
-                                rigidBodySensor.UpdateSensor();
-                            }
-                            else if (sensor is RigidBodyArrow rigidBodyArrow)
-                            {
-                                rigidBodyArrow.UpdateSensor();
+                                if (sensor is RigidBodySensor || sensor is RigidBodyArrow)
+                                {
+                                    sensor.UpdateSensor();
+                                }
                             }
                         }
                     });
@@ -81,12 +80,15 @@ public class SensorManager : MonoBehaviour
                 {
                     ComputeHelper.GetBufferContentsAsync<RecordedFluidData>(main.RecordedFluidDataBuffer, contents => 
                     {
-                        retrievedFluidDatas = contents;
-                        foreach (SensorBase sensor in sensors)
+                        if (programRunning)
                         {
-                            if (sensor is FluidSensor fluidSensor)
+                            retrievedFluidDatas = contents;
+                            foreach (SensorBase sensor in sensors)
                             {
-                                fluidSensor.UpdateSensor();
+                                if (sensor is FluidSensor || sensor is FluidArrowField)
+                                {
+                                    sensor.UpdateSensor();
+                                }
                             }
                         }
                     });

@@ -12,7 +12,7 @@ public struct PData
     public float temperature; // kelvin
     public float temperatureExchangeBuffer;
     public float recordedPressure;
-    public float2 recordedParticleAcc;
+    public float2 recordedInterParticleAcc;
     // POrder; // POrder is dynamic, 
     // LastChunkKey; // 0 <= LastChunkKey <= ChunkNum
     // PType; // 0 <= PType <= PTypesNum
