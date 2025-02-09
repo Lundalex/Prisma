@@ -2,6 +2,7 @@ using Resources2;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using PM = ProgramManager;
 
 [ExecuteInEditMode]
 public class UIArrow : EditorLifeCycle
@@ -13,11 +14,14 @@ public class UIArrow : EditorLifeCycle
     [Header("Value Display")]
     [SerializeField] private float displayBoxScale = 1f;
     [SerializeField] private float value = 0f;
-    [SerializeField] private float minValueForArrow = 0f;
     [SerializeField, Range(1, 2)] private int numDecimals = 2;
     [SerializeField] private float rotation = 0f;
     [SerializeField] private string unit = "m/s";
     [SerializeField, Range(0f, 1f)] private float colorLerpFactor = 0;
+
+    [Header("Radius Oscillation")]
+    [SerializeField] private float radiusOscillationRadius;
+    [SerializeField] private float radiusOscillationSpeed;
 
     [Header("Arrow Dimensions")]
     [SerializeField] private float baseWidth = 20f;
@@ -104,6 +108,7 @@ public class UIArrow : EditorLifeCycle
         SetDisplayValue(val, unit);
         this.baseLength = baseLength;
         this.colorLerpFactor = colorLerpFactor;
+        SetArrowVisibility(colorLerpFactor > 0);
         UpdateSprites();
     }
 
@@ -119,13 +124,22 @@ public class UIArrow : EditorLifeCycle
         displayBoxRect.gameObject.SetActive(setVisible);
     }
 
+    public void SetArrowVisibility(bool setVisible)
+    {
+        if (Application.isPlaying)
+        {
+            rotationJointRect.gameObject.SetActive(setVisible);
+        }
+    }
+
     public (Vector2 center, float rotation) GetPosition() => (this.center, this.rotation);
 
     private void UpdateSprites()
     {
         // Joints
         rotationJointRect.localRotation = Quaternion.Euler(0f, 0f, rotation);
-        positionJointRect.localPosition = new(radius, 0);
+        float oscillation = Func.SinOscillation(PM.Instance.totalScaledTimeElapsed * radiusOscillationSpeed) * radiusOscillationRadius;
+        positionJointRect.localPosition = new(radius + oscillation, 0);
         transform.localPosition = center;
 
         // Sprite container
@@ -172,11 +186,5 @@ public class UIArrow : EditorLifeCycle
         integerText.text = integerPart.ToString();
         decimalText.text = decimalPart.ToString($"D{numDecimals}");
         unitText.text = unit;
-
-        if (Application.isPlaying)
-        {
-            bool isVisible = value >= minValueForArrow;
-            rotationJointRect.gameObject.SetActive(isVisible);
-        }
     }
 }

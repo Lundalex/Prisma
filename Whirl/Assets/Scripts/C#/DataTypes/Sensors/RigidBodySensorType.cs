@@ -4,6 +4,7 @@ public enum RigidBodySensorType
     Velocity,
     Velocity_X,
     Velocity_Y,
+    Momentum,
     RotationalVelocity,
     Position_X,
     Position_Y,

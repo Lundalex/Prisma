@@ -25,10 +25,6 @@ public class RigidBodyArrow : SensorBase
     [SerializeField] private float maxArrowLength;
     [SerializeField] private float minValueChangeForUpdate;
 
-    [Header("Radius Oscillation")]
-    [SerializeField] private float radiusOscillationRadius;
-    [SerializeField] private float radiusOscillationSpeed;
-
     [Header("Starting Values")]
     [SerializeField, Range(0.0f, 360.0f)] private float startRotation;
 
@@ -153,9 +149,8 @@ public class RigidBodyArrow : SensorBase
         else if (Vector2.Distance(lastValue, newValue) < minValueChangeForUpdate) return;
 
         float newValueMgn = newValue == Vector2.zero ? 0.0f : newValue.magnitude;
-        float factor = Mathf.Clamp01((newValueMgn - minArrowValue) / Mathf.Max(maxArrowValue - minArrowValue, 0.1f));
+        float factor = Mathf.Clamp01((newValueMgn - minArrowValue) / Mathf.Max(maxArrowValue - minArrowValue, 0.001f));
         float arrowLength = Mathf.Lerp(minArrowLength, maxArrowLength, factor);
-        arrowLength += Func.SinOscillation(PM.Instance.scaledDeltaTime * radiusOscillationSpeed) * radiusOscillationRadius;
 
         uiArrow.UpdateArrow(newValueMgn, unit, arrowLength, factor);
 
@@ -167,7 +162,11 @@ public class RigidBodyArrow : SensorBase
     {
         RBData rbData = rBDatas[linkedRBIndex];
 
-        Vector2 vel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB);
+        float simUnitToMetersFactor = main.SimUnitToMetersFactor;
+
+        float mass = rbData.mass * 0.001f; // g -> kg
+        Vector2 vel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB) * simUnitToMetersFactor;
+        Vector2 momentum = vel * mass;
         if (programDt != 0) targetAcc = (vel - lastVel) / programDt;
         lastSensorUpdateTime = PM.Instance.totalScaledTimeElapsed;
         lastVel = vel;
@@ -209,6 +208,21 @@ public class RigidBodyArrow : SensorBase
             case RigidBodyArrowType.Acceleration_Y:
                 value = new(0, currentAcc.y);
                 unit = "m/s<sup>2</sup>";
+                break;
+
+            case RigidBodyArrowType.Momentum:
+                value = momentum;
+                unit = "Ns";
+                break;
+
+            case RigidBodyArrowType.Momentum_X:
+                value = new(momentum.x, 0);
+                unit = "Ns";
+                break;
+
+            case RigidBodyArrowType.Momentum_Y:
+                value = new(0, momentum.y);
+                unit = "Ns";
                 break;
 
             case RigidBodyArrowType.TotalForce:

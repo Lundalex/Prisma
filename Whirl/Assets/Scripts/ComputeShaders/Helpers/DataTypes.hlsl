@@ -51,10 +51,11 @@ struct PData
     float2 lastVel;
     float density;
     float nearDensity;
+    int lastChunkKey_PType_POrder; // composed 3 int structure
     float temperature; // kelvin
     float temperatureExchangeBuffer;
-    int lastChunkKey_PType_POrder; // composed 3 int structure
     float recordedPressure;
+    float2 recordedParticleAcc;
     // POrder; // POrder is dynamic, 
     // LastChunkKey; // 0 <= LastChunkKey <= ChunkNum
     // PType; // 0 <= PType <= PTypesNum

@@ -8,10 +8,11 @@ public struct PData
     public float2 lastVel;
     public float density;
     public float nearDensity;
+    public int lastChunkKey_PType_POrder; // composed 3 int structure
     public float temperature; // kelvin
     public float temperatureExchangeBuffer;
-    public int lastChunkKey_PType_POrder; // composed 3 int structure
     public float recordedPressure;
+    public float2 recordedParticleAcc;
     // POrder; // POrder is dynamic, 
     // LastChunkKey; // 0 <= LastChunkKey <= ChunkNum
     // PType; // 0 <= PType <= PTypesNum

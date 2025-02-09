@@ -86,6 +86,10 @@ public class RigidBodySensor : Sensor
                 value = vel.y;
                 break;
 
+            case RigidBodySensorType.Momentum:
+                value = vel.magnitude * rbData.mass * 0.001f;
+                break;
+
             case RigidBodySensorType.RotationalVelocity:
                 value = Func.IntToFloat(rbData.rotVel_AsInt, main.FloatIntPrecisionRB);
                 break;
@@ -138,6 +142,10 @@ public class RigidBodySensor : Sensor
             case RigidBodySensorType.Velocity_X:
             case RigidBodySensorType.Velocity_Y:
                 baseUnit = "m/s";
+                break;
+
+            case RigidBodySensorType.Momentum:
+                baseUnit = "Ns";
                 break;
 
             case RigidBodySensorType.RotationalVelocity:
@@ -194,8 +202,12 @@ public class RigidBodySensor : Sensor
                 title = "Hastighet Y";
                 break;
 
+            case RigidBodySensorType.Momentum:
+                title = "R<b>ö</b>r.m<b>ä</b>ngd";
+                break;
+
             case RigidBodySensorType.RotationalVelocity:
-                title = "Vinkelhastighet";
+                title = "Vkl.hast.";
                 break;
 
             case RigidBodySensorType.Position_X:
@@ -243,24 +255,28 @@ public class RigidBodySensor : Sensor
                 itemIndex = 3;
                 break;
 
-            case RigidBodySensorType.RotationalVelocity:
+            case RigidBodySensorType.Momentum:
                 itemIndex = 4;
                 break;
 
-            case RigidBodySensorType.Position_X:
+            case RigidBodySensorType.RotationalVelocity:
                 itemIndex = 5;
                 break;
 
-            case RigidBodySensorType.Position_Y:
+            case RigidBodySensorType.Position_X:
                 itemIndex = 6;
                 break;
 
-            case RigidBodySensorType.FrictionForce:
+            case RigidBodySensorType.Position_Y:
                 itemIndex = 7;
                 break;
 
-            case RigidBodySensorType.SpringForce:
+            case RigidBodySensorType.FrictionForce:
                 itemIndex = 8;
+                break;
+
+            case RigidBodySensorType.SpringForce:
+                itemIndex = 9;
                 break;
 
             default:

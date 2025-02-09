@@ -87,9 +87,9 @@ public class FluidSpawner : Polygon
             lastVel = new float2(0.0f, 0.0f),
             density = 0.0f,
             nearDensity = 0.0f,
+            lastChunkKey_PType_POrder = pTypeIndex * main.ChunksNumAll,
             temperature = Utils.CelsiusToKelvin(tempCelcius),
-            temperatureExchangeBuffer = 0.0f,
-            lastChunkKey_PType_POrder = pTypeIndex * main.ChunksNumAll
+            temperatureExchangeBuffer = 0.0f
         };
     }
 }

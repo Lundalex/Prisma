@@ -574,14 +574,17 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
     }
     
     float3 interactionEffects = InteractionEffects(i);
-    float2 gravityAcc = float2(0, -pType.gravity);
 
-    float2 totForce = totPressureAcc + totSpringAcc + totViscocityAcc + gravityAcc;
-    PDatas[i].vel += totForce * DeltaTime + interactionEffects.xy * RLDeltaTime;
+    float2 gravityAcc = float2(0, -pType.gravity);
+    float2 totParticleAcc = totPressureAcc + totSpringAcc + totViscocityAcc;
+    float2 totAcc = totParticleAcc + gravityAcc;
+
+    PDatas[i].vel += totAcc * DeltaTime + interactionEffects.xy * RLDeltaTime;
     PDatas[i].temperatureExchangeBuffer = totTemperatureExchange + interactionEffects.z * RLDeltaTime;
 
     // Record data
     PDatas[i].recordedPressure = totAbsPressure;
+    PDatas[i].recordedParticleAcc = totParticleAcc;
 }
 
 float2 SafeFloat2(float2 value, float max)

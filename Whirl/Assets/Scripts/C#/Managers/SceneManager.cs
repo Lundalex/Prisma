@@ -28,7 +28,7 @@ public class SceneManager : MonoBehaviour
         sensorUIContainer = GameObject.FindGameObjectWithTag("SensorUIContainer").GetComponent<Transform>();
         sensorOutlineContainer = GameObject.FindGameObjectWithTag("SensorOutlineContainer").GetComponent<Transform>();
         main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
-        arrowManager = GameObject.FindGameObjectWithTag("ArrowManager")?.GetComponent<ArrowManager>();
+        arrowManager = GameObject.FindGameObjectWithTag("ArrowManager").GetComponent<ArrowManager>();
         sensorManager = GameObject.FindGameObjectWithTag("SensorManager").GetComponent<SensorManager>();
 
         referencesHaveBeenSet = true;
