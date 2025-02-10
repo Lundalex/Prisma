@@ -1,4 +1,4 @@
-using System;
+using System; 
 using Resources2;
 using Unity.Mathematics;
 using UnityEngine;
@@ -98,12 +98,11 @@ public class RigidBodyArrow : SensorBase
                 ? Vector2.Lerp(currentPosition, canvasTargetPosition, PM.Instance.clampedDeltaTime * moveSpeed)
                 : canvasTargetPosition;
 
-            if (angleDiff > rotationLerpSkipThreshold) 
-                currentRotation = currentTargetRotation;
-            else 
-                currentRotation = Mathf.LerpAngle(currentRotation, currentTargetRotation, PM.Instance.clampedDeltaTime * rotationSpeed);
+            currentRotation = angleDiff > rotationLerpSkipThreshold
+                                ? currentTargetRotation
+                                : Mathf.LerpAngle(currentRotation, currentTargetRotation, PM.Instance.clampedDeltaTime * rotationSpeed);
 
-            uiArrow.SetPosition(currentPosition, currentRotation);
+            uiArrow.SetCenterAndRotation(currentPosition, currentRotation);
         }
     }
 
@@ -120,32 +119,16 @@ public class RigidBodyArrow : SensorBase
         RBData[] retrievedRBDatas = sensorManager.retrievedRBDatas;
         RBData rbData = retrievedRBDatas[linkedRBIndex];
 
-        Vector2 vel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB);
+        Vector2 rawVel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB);
+        
+        (float sensorDt, float programDt) = GetDeltaTimeValues();
+        (Vector2 newValue, string unit) = GetDisplayInfo(rbData, rawVel, sensorDt, programDt);
 
-        float sensorDt = sensorManager.msRigidBodyDataRetrievalInterval * 0.001f;
-        float programDt = PM.Instance.totalScaledTimeElapsed - lastSensorUpdateTime;
-        (Vector2 newValue, string unit) = GetDisplayInfo(retrievedRBDatas, linkedRBIndex, sensorDt, programDt);
-
-        // Use current data for position & rotation targets
-        currentTargetRotation = Func.AngleFromDir(newValue);
-        currentTargetPosition = rbData.pos;
-
-        // Prediction of position & rotation
-        if (firstDataRecieved && doPredictTransform)
-        {
-            float oldAngle = Func.AngleFromDir(lastValue);
-            float deltaAngle = Mathf.DeltaAngle(oldAngle, currentTargetRotation);
-
-            // Position
-            currentTargetPosition += sensorDt * vel;
-
-            // Rotation
-            currentTargetRotation += sensorDt * deltaAngle;
-        }
+        UpdateTargetTransform(rbData, rawVel, newValue, sensorDt);
 
         if (!firstDataRecieved)
         {
-            uiArrow.SetPosition(SimSpaceToCanvasSpace(currentTargetPosition), startRotation);
+            uiArrow.SetCenterAndRotation(SimSpaceToCanvasSpace(currentTargetPosition), startRotation);
             firstDataRecieved = true;
         }
         
@@ -158,7 +141,7 @@ public class RigidBodyArrow : SensorBase
         }
         else if (Vector2.Distance(lastValue, newValue) < minValueChangeForUpdate) return;
 
-        float newValueMgn = newValue == Vector2.zero ? 0.0f : newValue.magnitude;
+        float newValueMgn = newValue.magnitude;
         float factor = Mathf.Clamp01((newValueMgn - minArrowValue) / Mathf.Max(maxArrowValue - minArrowValue, 0.001f));
         float arrowLength = Mathf.Lerp(minArrowLength, maxArrowLength, factor);
 
@@ -168,17 +151,43 @@ public class RigidBodyArrow : SensorBase
         lastValue = newValue;
     }
 
-    private (Vector2 newValue, string unit) GetDisplayInfo(RBData[] rBDatas, int linkedRBIndex, float sensorDt, float programDt)
+    private (float sensorDt, float programDt) GetDeltaTimeValues()
     {
-        RBData rbData = rBDatas[linkedRBIndex];
+        float sensorDt = sensorManager.msRigidBodyDataRetrievalInterval * 0.001f;
+        float programDt = PM.Instance.totalScaledTimeElapsed - lastSensorUpdateTime;
+        lastSensorUpdateTime = PM.Instance.totalScaledTimeElapsed;
 
+        return (sensorDt, programDt);
+    }
+
+    private void UpdateTargetTransform(RBData rbData, Vector2 rawVel, Vector2 newValue, float sensorDt)
+    {
+        // Use current data for position & rotation targets
+        currentTargetRotation = Func.AngleFromDir(newValue);
+        currentTargetPosition = rbData.pos;
+
+        // Prediction of position & rotation
+        if (firstDataRecieved && doPredictTransform)
+        {
+            float oldAngle = Func.AngleFromDir(lastValue);
+            float deltaAngle = Mathf.DeltaAngle(oldAngle, currentTargetRotation);
+
+            // Position
+            currentTargetPosition += sensorDt * rawVel;
+
+            // Rotation
+            currentTargetRotation += sensorDt * deltaAngle;
+        }
+    }
+
+    private (Vector2 newValue, string unit) GetDisplayInfo(RBData rbData, Vector2 rawVel, float sensorDt, float programDt)
+    {
         float simUnitToMetersFactor = main.SimUnitToMetersFactor;
 
         float mass = rbData.mass * 0.001f; // g -> kg
-        Vector2 vel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB) * simUnitToMetersFactor;
+        Vector2 vel = rawVel * simUnitToMetersFactor;
         Vector2 momentum = vel * mass;
         if (programDt != 0) targetAcc = (vel - lastVel) / programDt;
-        lastSensorUpdateTime = PM.Instance.totalScaledTimeElapsed;
         lastVel = vel;
         currentAcc = doInterpolation ? Vector2.Lerp(currentAcc, targetAcc, PM.Instance.clampedDeltaTime * valueLerpSpeed) : targetAcc;
 
@@ -186,6 +195,12 @@ public class RigidBodyArrow : SensorBase
         Vector2 springForce = rbData.recordedSpringForce;
         Vector2 frictionForce = rbData.recordedFrictionForce;
 
+        (Vector2 value, string unit) = GetValueForArrowType(vel, currentAcc, momentum, totalForce, springForce, frictionForce, rbData);
+        return (value, unit);
+    }
+
+    private (Vector2 value, string unit) GetValueForArrowType(Vector2 vel, Vector2 currentAcc, Vector2 momentum, Vector2 totalForce, Vector2 springForce, Vector2 frictionForce, RBData rbData)
+    {
         Vector2 value = Vector2.zero;
         string unit = "";
         switch (rigidBodyArrowType)
@@ -196,12 +211,12 @@ public class RigidBodyArrow : SensorBase
                 break;
 
             case RigidBodyArrowType.Velocity_X:
-                value = new(vel.x, 0);
+                value = new Vector2(vel.x, 0);
                 unit = "m/s";
                 break;
 
             case RigidBodyArrowType.Velocity_Y:
-                value = new(0, vel.y);
+                value = new Vector2(0, vel.y);
                 unit = "m/s";
                 break;
 
@@ -211,12 +226,12 @@ public class RigidBodyArrow : SensorBase
                 break;
 
             case RigidBodyArrowType.Acceleration_X:
-                value = new(currentAcc.x, 0);
+                value = new Vector2(currentAcc.x, 0);
                 unit = "m/s<sup>2</sup>";
                 break;
 
             case RigidBodyArrowType.Acceleration_Y:
-                value = new(0, currentAcc.y);
+                value = new Vector2(0, currentAcc.y);
                 unit = "m/s<sup>2</sup>";
                 break;
 
@@ -226,12 +241,12 @@ public class RigidBodyArrow : SensorBase
                 break;
 
             case RigidBodyArrowType.Momentum_X:
-                value = new(momentum.x, 0);
+                value = new Vector2(momentum.x, 0);
                 unit = "Ns";
                 break;
 
             case RigidBodyArrowType.Momentum_Y:
-                value = new(0, momentum.y);
+                value = new Vector2(0, momentum.y);
                 unit = "Ns";
                 break;
 
@@ -241,12 +256,12 @@ public class RigidBodyArrow : SensorBase
                 break;
 
             case RigidBodyArrowType.TotalForce_X:
-                value = new(totalForce.x, 0);
+                value = new Vector2(totalForce.x, 0);
                 unit = "N";
                 break;
 
             case RigidBodyArrowType.TotalForce_Y:
-                value = new(0, totalForce.y);
+                value = new Vector2(0, totalForce.y);
                 unit = "N";
                 break;
 
@@ -256,12 +271,12 @@ public class RigidBodyArrow : SensorBase
                 break;
 
             case RigidBodyArrowType.SpringForce_X:
-                value = new(springForce.x, 0);
+                value = new Vector2(springForce.x, 0);
                 unit = "N";
                 break;
 
             case RigidBodyArrowType.SpringForce_Y:
-                value = new(0, springForce.y);
+                value = new Vector2(0, springForce.y);
                 unit = "N";
                 break;
 
@@ -271,17 +286,17 @@ public class RigidBodyArrow : SensorBase
                 break;
 
             case RigidBodyArrowType.FrictionForce_X:
-                value = new(frictionForce.x, 0);
+                value = new Vector2(frictionForce.x, 0);
                 unit = "N";
                 break;
 
             case RigidBodyArrowType.FrictionForce_Y:
-                value = new(0, frictionForce.y);
+                value = new Vector2(0, frictionForce.y);
                 unit = "N";
                 break;
 
             case RigidBodyArrowType.GravityForce:
-                value = new(0, -rbData.gravity);
+                value = new Vector2(0, -rbData.gravity);
                 unit = "N";
                 break;
 
@@ -289,7 +304,6 @@ public class RigidBodyArrow : SensorBase
                 Debug.LogWarning("Unrecognised RigidBodyArrowType: " + this.name);
                 break;
         }
-
         return (value, unit);
     }
 
@@ -301,7 +315,7 @@ public class RigidBodyArrow : SensorBase
         if (boundaryDims == Vector2.zero)
         {
             int2 boundaryDimsInt2 = PM.Instance.main.BoundaryDims;
-            boundaryDims = new(boundaryDimsInt2.x, boundaryDimsInt2.y);
+            boundaryDims = new Vector2(boundaryDimsInt2.x, boundaryDimsInt2.y);
         }
         return boundaryDims;
     }

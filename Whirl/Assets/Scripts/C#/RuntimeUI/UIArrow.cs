@@ -1,4 +1,4 @@
-using Resources2;
+using Resources2; 
 using TMPro;
 using UnityEngine;
 using Image = UnityEngine.UI.Image;
@@ -8,15 +8,15 @@ using PM = ProgramManager;
 public class UIArrow : EditorLifeCycle
 {
     [Header("Arrow Transform")]
-    [SerializeField] private Vector2 center = Vector2.zero;
-    [SerializeField] private float radius = 20f;
-    [SerializeField] private float scale = 1f;
+    public Vector2 center = Vector2.zero;
+    public float radius = 20f;
+    public float rotation = 0f;
+    public float scale = 1f;
 
     [Header("Value Display")]
     [SerializeField] private float displayBoxScale = 1f;
     [SerializeField] private float value = 0f;
     [SerializeField, Range(1, 2)] private int numDecimals = 2;
-    [SerializeField] private float rotation = 0f;
     [SerializeField] private string unit = "m/s";
     [SerializeField, Range(0f, 1f)] private float colorLerpFactor = 0;
 
@@ -36,6 +36,12 @@ public class UIArrow : EditorLifeCycle
     [SerializeField] private Color minBodyColor;
     [SerializeField] private Color maxBodyColor;
     [SerializeField] private Color displayBoxColor;
+
+    [Header("Update Thresholds")]
+    [SerializeField] private float minValueDeltaForUpdate = 0.01f;
+    [SerializeField] private float minRotationDeltaForUpdate = 1f;
+    [SerializeField] private float minBaseLengthDeltaForUpdate = 1f;
+    [SerializeField] private float minColorLerpFactorDeltaForUpdate = 0.01f;
 
     [Header("References")]
     // Containers
@@ -65,6 +71,12 @@ public class UIArrow : EditorLifeCycle
         if (!Application.isPlaying) UpdateSprites();
     }
 #endif
+
+    private void OnEnable()
+    {
+        displyBoxActive = displayBoxRect.gameObject.activeSelf;
+        arrowActive = gameObject.activeSelf;
+    }
 
     public void SetConfig(
         Vector2 center,
@@ -104,41 +116,70 @@ public class UIArrow : EditorLifeCycle
         UpdateSprites();
     }
 
-    public void UpdateArrow(float val, string unit, float baseLength, float colorLerpFactor, float scale = float.PositiveInfinity)
+    public void UpdateArrow(float val, string unit, float baseLength, float colorLerpFactor)
     {
-        SetDisplayValue(val, unit);
-        this.baseLength = baseLength;
-        this.colorLerpFactor = colorLerpFactor;
-        this.scale = scale == float.PositiveInfinity ? this.scale : scale;
-        SetArrowVisibility(colorLerpFactor > 0);
-        UpdateSprites();
+        // Only update display value if the change is significant
+        if (Mathf.Abs(val - this.value) > minValueDeltaForUpdate)
+        {
+            SetDisplayValue(val, unit);
+            if (displyBoxActive) UpdateDisplayValue();
+        }
+        // Only update geometry (baseLength) if the change is significant
+        if (Mathf.Abs(baseLength - this.baseLength) > minBaseLengthDeltaForUpdate)
+        {
+            this.baseLength = baseLength;
+            UpdateGeometrySprites();
+        }
+        // Always update colorLerpFactor (assumed to be cheaper)
+        if (Mathf.Abs(colorLerpFactor - this.colorLerpFactor) > minColorLerpFactorDeltaForUpdate)
+        {
+            this.colorLerpFactor = colorLerpFactor;
+            UpdateColorAndTextSprites();
+        }
     }
 
-    public void SetPosition(Vector2 center, float rotation)
+    public void SetCenterAndRotation(Vector2 center, float rotation)
     {
-        this.rotation = rotation;
+        SetCenter(center);
+        SetRotation(rotation);
         this.center = center;
-        UpdateSprites();
     }
-    public void SetPosition(float rotation)
+    public void SetCenter(Vector2 center)
     {
-        SetPosition(this.center, rotation);
+        this.center = center;
+        UpdateCenterSprites();
     }
-    public void SetPosition(Vector2 center)
+    public void SetRotation(float newRotation)
     {
-        SetPosition(center, this.rotation);
+        if (Mathf.Abs(newRotation - this.rotation) > minRotationDeltaForUpdate)
+        {
+            this.rotation = newRotation;
+            UpdateRotationSprites();
+        }
+    }
+    public void SetScale(float scale)
+    {
+        this.scale = scale;
+        UpdateScaleSprites();
     }
 
+    private bool displyBoxActive;
     public void SetValueBoxVisibility(bool setVisible)
     {
-        displayBoxRect.gameObject.SetActive(setVisible);
+        if (setVisible != displyBoxActive)
+        {
+            displayBoxRect.gameObject.SetActive(setVisible);
+            displyBoxActive = setVisible;
+        }
     }
 
+    private bool arrowActive;
     public void SetArrowVisibility(bool setVisible)
     {
-        if (Application.isPlaying)
+        if (setVisible != arrowActive)
         {
             gameObject.SetActive(setVisible);
+            arrowActive = setVisible;
         }
     }
 
@@ -146,56 +187,87 @@ public class UIArrow : EditorLifeCycle
 
     private void UpdateSprites()
     {
-        // Joints
+        UpdateTransformSprites();
+        UpdateGeometrySprites();
+        UpdateColorAndTextSprites();
+        if (displyBoxActive) UpdateDisplayValue();
+    }
+
+    private void UpdateTransformSprites()
+    {
+        UpdateCenterSprites();
+        UpdateRotationSprites();
+        UpdateScaleSprites();
+    }
+
+    private void UpdateCenterSprites()
+    {
+        transform.localPosition = center;
+    }
+
+    private void UpdateRotationSprites()
+    {
         rotationJointRect.localRotation = Quaternion.Euler(0f, 0f, rotation);
         float oscillation = Func.SinOscillation(PM.Instance.totalScaledTimeElapsed * radiusOscillationSpeed) * radiusOscillationRadius;
-        positionJointRect.localPosition = new(radius + oscillation, 0);
-        positionJointRect.localScale = new(scale, scale);
-        transform.localPosition = center;
+        positionJointRect.localPosition = new Vector2(radius + oscillation, 0);
+    }
 
+    private void UpdateScaleSprites()
+    {
+        positionJointRect.localScale = new Vector2(scale, scale);
+    }
+
+    private void UpdateGeometrySprites()
+    {
         // Sprite container
-        spriteContainerRect.localPosition = new(baseLength, 0);
+        spriteContainerRect.localPosition = new Vector2(baseLength, 0);
 
         // Base section
-        outlineBaseRect.sizeDelta = new(baseLength, baseWidth);
-        bodyBaseRect.sizeDelta = new(baseLength, baseWidth - 2f*outlineGap);
+        outlineBaseRect.sizeDelta = new Vector2(baseLength, baseWidth);
+        bodyBaseRect.sizeDelta = new Vector2(baseLength, baseWidth - 2f * outlineGap);
         bodyBaseRect.localPosition = outlineBaseRect.localPosition + new Vector3(outlineGap, 0);
 
         // Hat section
         float hatHeight = baseWidth + hatSize;
-        outlineHatRect.sizeDelta = new(0.5f*hatHeight, hatHeight);
-        bodyHatRect.sizeDelta = outlineHatRect.sizeDelta - new Vector2(outlineGap*(7/3f), outlineGap*(14/3f));
+        outlineHatRect.sizeDelta = new Vector2(0.5f * hatHeight, hatHeight);
+        bodyHatRect.sizeDelta = outlineHatRect.sizeDelta - new Vector2(outlineGap * (7/3f), outlineGap * (14/3f));
         bodyHatRect.localPosition = outlineHatRect.localPosition + new Vector3(outlineGap, 0);
+    }
 
+    private void UpdateColorAndTextSprites()
+    {
         // Sprite colors
         outlineBaseImage.color = outlineHatImage.color = Color.Lerp(minOutlineColor, maxOutlineColor, colorLerpFactor);
         bodyBaseImage.color = bodyHatImage.color = Color.Lerp(minBodyColor, maxBodyColor, colorLerpFactor);
 
-        // Unit texts
-        integerText.color = decimalText.color = displayBoxColor;
+        if (displyBoxActive)
+        {
+            // Unit texts
+            integerText.color = decimalText.color = displayBoxColor;
 
-        // Display box
-        displayBoxRect.localScale = new(displayBoxScale, displayBoxScale);
+            // Display box
+            displayBoxRect.localScale = new Vector2(displayBoxScale, displayBoxScale);
+        }
+    }
 
-        SetDisplayValue(value, unit);
+    private void UpdateDisplayValue()
+    {
+        // Update the UI text fields
+        int integerPart = Mathf.Clamp((int)value, -999, 999); // Clamp to max 3 characters
+        int decimalPart = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(value - integerPart) * Mathf.Pow(10, numDecimals)), 0, (int)Mathf.Pow(10, numDecimals) - 1);
+        integerText.text = integerPart.ToString();
+        decimalText.text = decimalPart.ToString($"D{numDecimals}");
+        unitText.text = unit;
     }
 
     private void SetDisplayValue(float newValue, string newUnit)
     {
         this.value = newValue;
         this.unit = newUnit;
-        if (value < 0.0f)
+        if (this.value < 0.0f)
         {
-            value = Mathf.Abs(value);
-            unit = "-" + unit;
+            this.value = Mathf.Abs(this.value);
+            this.unit = "-" + this.unit;
         }
-
-        int integerPart = Mathf.Clamp((int)value, -999, 999); // Clamp to max 3 characters
-        int decimalPart = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(value - integerPart) * Mathf.Pow(10, numDecimals)), 0, (int)Mathf.Pow(10, numDecimals) - 1);
-
-        // Update the UI text fields
-        integerText.text = integerPart.ToString();
-        decimalText.text = decimalPart.ToString($"D{numDecimals}");
-        unitText.text = unit;
     }
 }

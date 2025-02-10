@@ -1,4 +1,4 @@
-using System; 
+using System;   
 using Resources2;
 using Unity.Mathematics;
 using UnityEngine;
@@ -12,11 +12,16 @@ public class FluidArrowField : SensorBase
     [SerializeField] private FluidArrowFieldType fluidArrowFieldType;
     [SerializeField] private bool doDisplayValueBoxes;
 
+    [Header("Optimisations")]
+    [SerializeField, Range(0f, 1f)] private float minUsagePercentage = 0.5f; 
+    [SerializeField] private bool doUseWorkSplitting = false;
+    [SerializeField] private int updatesPerFrame = 100;
+    
     [Header("Measurement Zone")]
+    public Rect measurementZone;
     public bool doRenderMeasurementZone;
     public Color lineColor;
     public Color areaColor;
-    public Rect measurementZone;
     [SerializeField] private float patternModulo;
 
     [Header("Fluid Sampling")]
@@ -37,11 +42,16 @@ public class FluidArrowField : SensorBase
     [Header("Prefab reference")]
     [SerializeField] private GameObject uiArrowPrefab;
 
-    // Dictionaries
+    private List<int> allChunkKeys = new();
+    // Current index into allChunkKeys for updating.
+    private int currentUpdateIndex = 0;
+
+    // Dictionaries & lists for UIArrows
     private Dictionary<int, UIArrow> chunkArrows = new();
     private Dictionary<int, float> currentArrowValues = new();
     private Dictionary<int, float> targetArrowRotations = new();
-    
+    private List<UIArrow> arrowPool = new();
+
     // Private references
     private ArrowManager arrowManager;
     private SensorManager sensorManager;
@@ -50,17 +60,33 @@ public class FluidArrowField : SensorBase
     // Other
     private int minX, maxX, minY, maxY;
     private int2 chunksNum;
+    private float compensatedScale;
 
     private Vector2 canvasResolution;
     private Vector2 boundaryDims = Vector2.zero;
+    private float lastSensorUpdateTime;
 
     int GetChunkKey(int x, int y) => x + y * main.ChunksNum.x;
 
     public void Initialize()
     {
-        InitializeMeasurementParameters();
-        InitializeArrowField();
+        chunkArrows.Clear();
+        currentArrowValues.Clear();
+        targetArrowRotations.Clear();
+        allChunkKeys.Clear();
+
         SetConstants();
+
+        for (int x = minX; x <= maxX; x += sampleSpacing)
+        {
+            if (x < 0 || x >= chunksNum.x) continue;
+            for (int y = minY; y <= maxY; y += sampleSpacing)
+            {
+                if (y < 0 || y >= chunksNum.y) continue;
+                int chunkKey = GetChunkKey(x, y);
+                allChunkKeys.Add(chunkKey);
+            }
+        }
 
         PM.Instance.AddFluidArrowField(this);
     }
@@ -75,12 +101,12 @@ public class FluidArrowField : SensorBase
 
     private void SetConstants()
     {
-        
+        compensatedScale = sampleSpacing / (float)autoScaleReferenceSampleSpacing;
+        InitializeMeasurementParameters();
     }
 
     private void InitializeMeasurementParameters()
     {
-        if (main == null) return;
         chunksNum = main.ChunksNum;
         float maxInfluenceRadius = main.MaxInfluenceRadius;
 
@@ -88,34 +114,6 @@ public class FluidArrowField : SensorBase
         minY = Mathf.Max(Mathf.FloorToInt(measurementZone.min.y / maxInfluenceRadius), 0);
         maxX = Mathf.Min(Mathf.CeilToInt(measurementZone.max.x / maxInfluenceRadius), chunksNum.x - 1);
         maxY = Mathf.Min(Mathf.CeilToInt(measurementZone.max.y / maxInfluenceRadius), chunksNum.y - 1);
-    }
-
-    private void InitializeArrowField()
-    {
-        for (int x = minX; x <= maxX; x += sampleSpacing)
-        {
-            if (x < 0 || x >= chunksNum.x) continue;
-
-            for (int y = minY; y <= maxY; y += sampleSpacing)
-            {
-                if (y < 0 || y >= chunksNum.y) continue;
-
-                int chunkKey = GetChunkKey(x, y);
-
-                UIArrow uiArrow = arrowManager.CreateArrow(uiArrowPrefab);
-                uiArrow.UpdateArrow(0f, "", 0, 0f);
-                uiArrow.SetArrowVisibility(false);
-
-                // Set position
-                Vector2 positionSimSpace = new Vector2(x + 0.5f, y + 0.5f) * main.MaxInfluenceRadius;
-                Vector2 positionCanvasSpace = SimSpaceToCanvasSpace(positionSimSpace);
-                uiArrow.SetPosition(positionCanvasSpace, 0f);
-
-                chunkArrows.Add(chunkKey, uiArrow);
-                currentArrowValues.Add(chunkKey, 0f);
-                targetArrowRotations.Add(chunkKey, 0f);
-            }
-        }
     }
 
     public SensorArea GetSensorAreaData()
@@ -137,22 +135,19 @@ public class FluidArrowField : SensorBase
 
     public void UpdatePosition()
     {
-        foreach (KeyValuePair<int, UIArrow> keyArrowPair in chunkArrows)
+        foreach (var keyValuePair in chunkArrows)
         {
-            int chunkKey = keyArrowPair.Key;
-            UIArrow uiArrow = keyArrowPair.Value;
+            int chunkKey = keyValuePair.Key;
+            UIArrow uiArrow = keyValuePair.Value;
 
-            (Vector2 currentPos, float currentRotation) = uiArrow.GetPosition();
-            // Since arrows are static, position is set to targetPos
+            float currentRotation = uiArrow.rotation;
             float targetRotation = targetArrowRotations[chunkKey];
-            float angleDiff = Mathf.Abs(Mathf.DeltaAngle(currentRotation, targetRotation));
-
-            if (angleDiff > rotationLerpSkipThreshold)
-                currentRotation = targetRotation;
-            else
-                currentRotation = doInterpolation ? Mathf.LerpAngle(currentRotation, targetRotation, PM.Instance.clampedDeltaTime * rotationLerpSpeed) : targetRotation;
-
-            uiArrow.SetPosition(currentRotation);
+            float angleDiff = Func.AbsDeltaAngle(currentRotation, targetRotation);
+            currentRotation = angleDiff > rotationLerpSkipThreshold
+                                ? targetRotation
+                                : Mathf.LerpAngle(currentRotation, targetRotation, PM.Instance.clampedDeltaTime * rotationLerpSpeed);
+            
+            uiArrow.SetRotation(currentRotation);
         }
     }
 
@@ -165,39 +160,151 @@ public class FluidArrowField : SensorBase
             return;
         }
 
-        foreach (KeyValuePair<int, UIArrow> keyArrowPair in chunkArrows)
+        float sensorDt = GetDeltaTimeValues();
+
+        if (doUseWorkSplitting)
         {
-            int chunkKey = keyArrowPair.Key;
-            UIArrow uiArrow = keyArrowPair.Value;
-
-            RecordedFluidData_Translated fluidData = new(sensorManager.retrievedFluidDatas[chunkKey], main.FloatIntPrecisionP);
-            if (fluidData.numContributions == 0)
+            // Update a subset of grid cells per frame.
+            int totalKeys = allChunkKeys.Count;
+            if (totalKeys == 0) return;
+            int endIndex = currentUpdateIndex + updatesPerFrame;
+            for (int i = currentUpdateIndex; i < endIndex; i++)
             {
-                uiArrow.SetArrowVisibility(false);
-                continue;
+                int index = i % totalKeys;
+                int chunkKey = allChunkKeys[index];
+                UpdateArrowForChunk(chunkKey, sensorDt);
             }
+            currentUpdateIndex = (currentUpdateIndex + updatesPerFrame) % totalKeys;
+        }
+        else
+        {
+            // Iterate over all potential grid cells
+            for (int x = minX; x <= maxX; x += sampleSpacing)
+            {
+                if (x < 0 || x >= chunksNum.x) continue;
+                for (int y = minY; y <= maxY; y += sampleSpacing)
+                {
+                    if (y < 0 || y >= chunksNum.y) continue;
+                    int chunkKey = GetChunkKey(x, y);
+                    UpdateArrowForChunk(chunkKey, sensorDt);
+                }
+            }
+        }
 
-            (Vector2 value, string unit) = GetDisplayInfo(fluidData);
+        CleanUpArrowPool();
+    }
 
-            float targetValueMgn = value.magnitude;
-            float currentDisplayedValue = currentArrowValues[chunkKey];
-            float newDisplayedValue = doInterpolation ? Mathf.Lerp(currentDisplayedValue, targetValueMgn, PM.Instance.clampedDeltaTime * valueLerpSpeed) : targetValueMgn;
-            currentArrowValues[chunkKey] = newDisplayedValue;
+    private void UpdateArrowForChunk(int chunkKey, float sensorDt)
+    {
+        RecordedFluidData_Translated fluidData = new RecordedFluidData_Translated(sensorManager.retrievedFluidDatas[chunkKey], main.FloatIntPrecisionP);
+        if (fluidData.numContributions == 0)
+        {
+            // No contributions; if an arrow exists, return it to the pool.
+            if (chunkArrows.ContainsKey(chunkKey))
+            {
+                UIArrow arrow = chunkArrows[chunkKey];
+                ReturnArrowToPool(chunkKey, arrow);
+            }
+            return;
+        }
 
-            float factor = Mathf.Clamp01((newDisplayedValue - minArrowValue) / Mathf.Max(maxArrowValue - minArrowValue, 0.001f));
-            float arrowLength = Mathf.Lerp(minArrowLength, maxArrowLength, factor);
-            float scale = sampleSpacing / (float)autoScaleReferenceSampleSpacing;
+        (Vector2 value, string unit) = GetDisplayInfo(fluidData);
 
-            float targetRotation = Func.AngleFromDir(value);
-            targetArrowRotations[chunkKey] = targetRotation;
+        // Value lerp
+        float targetValueMgn = value.magnitude;
+        float currentDisplayedValue = currentArrowValues.ContainsKey(chunkKey) ? currentArrowValues[chunkKey] : targetValueMgn;
+        float newDisplayedValue = doInterpolation ? Mathf.Lerp(currentDisplayedValue, targetValueMgn, sensorDt * valueLerpSpeed) : targetValueMgn;
+        currentArrowValues[chunkKey] = newDisplayedValue;
 
-            bool forceDisplayBoxInvisibility = fluidArrowFieldType == FluidArrowFieldType.InterParticleForces;
-            uiArrow.SetValueBoxVisibility(doDisplayValueBoxes && !forceDisplayBoxInvisibility);
+        // Factor and arrowLength
+        float factor = Mathf.Clamp01((newDisplayedValue - minArrowValue) / Mathf.Max(maxArrowValue - minArrowValue, 0.001f));
+        if (factor == 0.0f)
+        {
+            // Arrows with too low values are returned to the pool
+            if (chunkArrows.ContainsKey(chunkKey))
+            {
+                UIArrow arrow = chunkArrows[chunkKey];
+                ReturnArrowToPool(chunkKey, arrow);
+            }
+            return;
+        }
+        float arrowLength = Mathf.Lerp(minArrowLength, maxArrowLength, factor);
 
-            uiArrow.UpdateArrow(newDisplayedValue, unit, arrowLength, factor, scale);
+        // Target rotation
+        float targetRotation = Func.AngleFromDir(value);
+        targetArrowRotations[chunkKey] = targetRotation;
+
+        // Get/create arrow
+        if (!chunkArrows.TryGetValue(chunkKey, out UIArrow uiArrow))
+        {
+            uiArrow = GetArrowFromPool();
+            uiArrow.SetScale(compensatedScale);
+
+            int x = chunkKey % main.ChunksNum.x;
+            int y = chunkKey / main.ChunksNum.x;
+            Vector2 positionSimSpace = new Vector2(x + 0.5f, y + 0.5f) * main.MaxInfluenceRadius;
+            Vector2 positionCanvasSpace = SimSpaceToCanvasSpace(positionSimSpace);
+            uiArrow.SetCenter(positionCanvasSpace);
+            chunkArrows.Add(chunkKey, uiArrow);
+        }
+
+        // Value box visibility.
+        bool forceDisplayBoxInvisibility = fluidArrowFieldType == FluidArrowFieldType.InterParticleForces;
+        uiArrow.SetValueBoxVisibility(doDisplayValueBoxes && !forceDisplayBoxInvisibility);
+
+        // Update all arrow data
+        uiArrow.UpdateArrow(newDisplayedValue, unit, arrowLength, factor);
+    }
+
+    private UIArrow GetArrowFromPool()
+    {
+        if (arrowPool.Count > 0)
+        {
+            UIArrow arrow = arrowPool[arrowPool.Count - 1];
+            arrowPool.RemoveAt(arrowPool.Count - 1);
+            arrow.SetArrowVisibility(true);
+            return arrow;
+        }
+        else
+        {
+            // Instantiate a new arrow if the pool is empty.
+            UIArrow newArrow = arrowManager.CreateArrow(uiArrowPrefab);
+            newArrow.SetArrowVisibility(true);
+            return newArrow;
         }
     }
 
+    private void ReturnArrowToPool(int chunkKey, UIArrow arrow)
+    {
+        if (chunkArrows.ContainsKey(chunkKey)) chunkArrows.Remove(chunkKey);
+        if (currentArrowValues.ContainsKey(chunkKey)) currentArrowValues.Remove(chunkKey);
+        if (targetArrowRotations.ContainsKey(chunkKey)) targetArrowRotations.Remove(chunkKey);
+        arrow.SetArrowVisibility(false);
+        arrowPool.Add(arrow);
+    }
+
+    // Remove some arrows if the active arrow ratio is too low
+    private void CleanUpArrowPool()
+    {
+        int activeCount = chunkArrows.Count;
+        int totalArrows = activeCount + arrowPool.Count;
+        int desiredTotal = Mathf.CeilToInt(activeCount / minUsagePercentage);
+        int excess = totalArrows - desiredTotal;
+        for (int i = 0; i < excess && arrowPool.Count > 0; i++)
+        {
+            UIArrow arrow = arrowPool[arrowPool.Count - 1];
+            arrowPool.RemoveAt(arrowPool.Count - 1);
+            Destroy(arrow.gameObject);
+        }
+    }
+ 
+    private float GetDeltaTimeValues()
+    {
+        float sensorDt = PM.Instance.totalScaledTimeElapsed - lastSensorUpdateTime;
+        lastSensorUpdateTime = PM.Instance.totalScaledTimeElapsed;
+        return sensorDt;
+    }
+ 
     private (Vector2 newValue, string unit) GetDisplayInfo(RecordedFluidData_Translated fluidData)
     {
         Vector2 value = Vector2.zero;
@@ -208,29 +315,26 @@ public class FluidArrowField : SensorBase
                 value = fluidData.totInterParticleAcc;
                 unit = "NoUnit";
                 break;
-
             case FluidArrowFieldType.Velocity:
                 value = fluidData.numContributions == 0 ? Vector2.zero : fluidData.totVelComponents / fluidData.numContributions;
                 unit = "m/s";
                 break;
-
             default:
                 Debug.LogWarning("Unrecognised FluidArrowFieldType: " + this.name);
                 break;
         }
-
         return (value, unit);
     }
-
+ 
     private Vector2 SimSpaceToCanvasSpace(Vector2 simCoords)
         => (simCoords / GetBoundaryDims() - new Vector2(0.5f, 0.5f)) * canvasResolution;
-
+ 
     public Vector2 GetBoundaryDims()
     {
         if (boundaryDims == Vector2.zero)
         {
             int2 boundaryDimsInt2 = PM.Instance.main.BoundaryDims;
-            boundaryDims = new(boundaryDimsInt2.x, boundaryDimsInt2.y);
+            boundaryDims = new Vector2(boundaryDimsInt2.x, boundaryDimsInt2.y);
         }
         return boundaryDims;
     }

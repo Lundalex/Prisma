@@ -281,6 +281,11 @@ namespace Resources2
             return (value & (1 << bitIndex)) != 0;
         }
 
+        public static float AbsDeltaAngle(float a, float b)
+        {
+            return Mathf.Abs(Mathf.DeltaAngle(a, b));
+        }
+
         public static float SinOscillation(float t0) => (Mathf.Sin((t0 + 0.75f) * Mathf.PI * 2.0f) + 1.0f) * 0.5f;
 
         public static float AngleFromDir(Vector2 dir) => dir == Vector2.zero ? 0 : Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
