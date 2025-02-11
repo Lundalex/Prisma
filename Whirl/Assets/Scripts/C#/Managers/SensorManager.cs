@@ -76,7 +76,8 @@ public class SensorManager : MonoBehaviour
             if (main.RecordedFluidDataBuffer != null && sensors != null)
             {
                 bool hasFluidSensor = sensors.OfType<FluidSensor>().Any();
-                if (hasFluidSensor)
+                bool hasFluidArrowField = sensors.OfType<FluidArrowField>().Any();
+                if (hasFluidSensor || hasFluidArrowField)
                 {
                     ComputeHelper.GetBufferContentsAsync<RecordedFluidData>(main.RecordedFluidDataBuffer, contents => 
                     {

@@ -18,10 +18,11 @@ public class FluidArrowField : SensorBase
     [SerializeField] private int updatesPerFrame = 100;
     
     [Header("Measurement Zone")]
-    public Rect measurementZone;
     public bool doRenderMeasurementZone;
-    public Color lineColor;
-    public Color areaColor;
+    [SerializeField] private Rect measurementZone;
+    [SerializeField] private int2 gridOffset;
+    [SerializeField] private Color lineColor;
+    [SerializeField] private Color areaColor;
     [SerializeField] private float patternModulo;
 
     [Header("Fluid Sampling")]
@@ -43,7 +44,7 @@ public class FluidArrowField : SensorBase
     [SerializeField] private GameObject uiArrowPrefab;
 
     private List<int> allChunkKeys = new();
-    // Current index into allChunkKeys for updating.
+    // Current index into allChunkKeys for updating
     private int currentUpdateIndex = 0;
 
     // Dictionaries & lists for UIArrows
@@ -114,6 +115,9 @@ public class FluidArrowField : SensorBase
         minY = Mathf.Max(Mathf.FloorToInt(measurementZone.min.y / maxInfluenceRadius), 0);
         maxX = Mathf.Min(Mathf.CeilToInt(measurementZone.max.x / maxInfluenceRadius), chunksNum.x - 1);
         maxY = Mathf.Min(Mathf.CeilToInt(measurementZone.max.y / maxInfluenceRadius), chunksNum.y - 1);
+
+        minX += gridOffset.x;
+        minY += gridOffset.y;
     }
 
     public SensorArea GetSensorAreaData()
@@ -164,7 +168,7 @@ public class FluidArrowField : SensorBase
 
         if (doUseWorkSplitting)
         {
-            // Update a subset of grid cells per frame.
+            // Update a subset of grid cells per frame
             int totalKeys = allChunkKeys.Count;
             if (totalKeys == 0) return;
             int endIndex = currentUpdateIndex + updatesPerFrame;
@@ -199,7 +203,7 @@ public class FluidArrowField : SensorBase
         RecordedFluidData_Translated fluidData = new RecordedFluidData_Translated(sensorManager.retrievedFluidDatas[chunkKey], main.FloatIntPrecisionP);
         if (fluidData.numContributions == 0)
         {
-            // No contributions; if an arrow exists, return it to the pool.
+            // No contributions; if an arrow exists, return it to the pool
             if (chunkArrows.ContainsKey(chunkKey))
             {
                 UIArrow arrow = chunkArrows[chunkKey];
@@ -248,7 +252,7 @@ public class FluidArrowField : SensorBase
             chunkArrows.Add(chunkKey, uiArrow);
         }
 
-        // Value box visibility.
+        // Value box visibility
         bool forceDisplayBoxInvisibility = fluidArrowFieldType == FluidArrowFieldType.InterParticleForces;
         uiArrow.SetValueBoxVisibility(doDisplayValueBoxes && !forceDisplayBoxInvisibility);
 
@@ -260,14 +264,14 @@ public class FluidArrowField : SensorBase
     {
         if (arrowPool.Count > 0)
         {
-            UIArrow arrow = arrowPool[arrowPool.Count - 1];
+            UIArrow arrow = arrowPool[^1];
             arrowPool.RemoveAt(arrowPool.Count - 1);
             arrow.SetArrowVisibility(true);
             return arrow;
         }
         else
         {
-            // Instantiate a new arrow if the pool is empty.
+            // Instantiate a new arrow if the pool is empty
             UIArrow newArrow = arrowManager.CreateArrow(uiArrowPrefab);
             newArrow.SetArrowVisibility(true);
             return newArrow;
@@ -304,7 +308,7 @@ public class FluidArrowField : SensorBase
         lastSensorUpdateTime = PM.Instance.totalScaledTimeElapsed;
         return sensorDt;
     }
- 
+
     private (Vector2 newValue, string unit) GetDisplayInfo(RecordedFluidData_Translated fluidData)
     {
         Vector2 value = Vector2.zero;
@@ -325,7 +329,7 @@ public class FluidArrowField : SensorBase
         }
         return (value, unit);
     }
- 
+
     private Vector2 SimSpaceToCanvasSpace(Vector2 simCoords)
         => (simCoords / GetBoundaryDims() - new Vector2(0.5f, 0.5f)) * canvasResolution;
  
