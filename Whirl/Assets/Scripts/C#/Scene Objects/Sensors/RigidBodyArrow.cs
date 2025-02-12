@@ -133,7 +133,7 @@ public class RigidBodyArrow : SensorBase
         }
         
         bool valueIsNearZero = newValue.magnitude < minArrowValue;
-        bool rbIsbeingDragged = Func.IsBitSet(rbData.stateFlags, 0); // Check isBeingDragged flag bit
+        bool rbIsbeingDragged = Func.ReadBit(rbData.stateFlags, 0); // Check isBeingDragged flag bit
         if (valueIsNearZero || rbIsbeingDragged)
         {
             newValue = Vector2.zero;

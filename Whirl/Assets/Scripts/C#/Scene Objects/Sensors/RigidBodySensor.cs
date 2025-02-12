@@ -2,12 +2,16 @@ using System;
 using Resources2;
 using UnityEngine;
 
+public delegate void CustomValueOverride(ref float value, RBData rbData);
+
 public class RigidBodySensor : Sensor
 {
     [Header("Sensor Settings")]
     [SerializeField] private RigidBodySensorType rigidBodySensorType;
     [SerializeField] private bool doInterpolation;
     [Range(1.0f, 20.0f), SerializeField] private float moveSpeed;
+
+    [NonSerialized] public CustomValueOverride CustomValueOverride;
     [NonSerialized] public int linkedRBIndex = -1;
     [NonSerialized] public bool firstDataRecieved = false;
 
@@ -115,10 +119,11 @@ public class RigidBodySensor : Sensor
                 break;
         }
 
-        if (Mathf.Abs(value * Mathf.Pow(10, 3 * (3 - minPrefixIndex))) < minDisplayValue) value = 0.0f;
-        
         value *= valueMultiplier;
         value += valueOffset;
+        CustomValueOverride(ref value, rbData);
+
+        if (Mathf.Abs(value * Mathf.Pow(10, 3 * (3 - minPrefixIndex))) < minDisplayValue) value = 0.0f;
 
         (string prefix, float displayValue) = GetMagnitudePrefix(value, minPrefixIndex);
         bool isNewUnit = SetSensorUnit(prefix);

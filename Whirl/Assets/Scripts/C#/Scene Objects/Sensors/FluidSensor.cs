@@ -247,10 +247,10 @@ public class FluidSensor : Sensor
             }
         }
 
-        // Apply threshold, multiplier, and offset
-        if (Mathf.Abs(value * Mathf.Pow(10, 3 * (3 - minPrefixIndex))) < minDisplayValue) value = 0f;
         value *= valueMultiplier;
         value += valueOffset;
+
+        if (Mathf.Abs(value * Mathf.Pow(10, 3 * (3 - minPrefixIndex))) < minDisplayValue) value = 0f;
 
         // Set UI
         (string prefix, float displayValue) = GetMagnitudePrefix(value, minPrefixIndex);

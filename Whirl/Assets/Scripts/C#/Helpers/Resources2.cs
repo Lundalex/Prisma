@@ -276,9 +276,21 @@ namespace Resources2
             return (a + b) * 0.5f;
         }
 
-        public static bool IsBitSet(int value, int bitIndex)
+        public static bool ReadBit(int value, int bitIndex)
         {
             return (value & (1 << bitIndex)) != 0;
+        }
+
+        public static void SetBit(ref int value, int bitIndex, bool state)
+        {
+            if (state)
+            {
+                value |= (1 << bitIndex);
+            }
+            else
+            {
+                value &= ~(1 << bitIndex);
+            }
         }
 
         public static float AbsDeltaAngle(float a, float b)

@@ -510,10 +510,10 @@ public class SceneManager : MonoBehaviour
         bool isSpringConstraint = rbInput.constraintType == ConstraintType.Spring;
 
         // Bit-packed integer for storing flag values in each bit
-        // Below is a map to each reserved bit's meaning
         int stateFlags = 0;
-        // bit nr : default : naming
-        // bit 0 : false : isBeingMoved (by the left mouse button)
+        // bit nr : naming
+        Func.SetBit(ref stateFlags, 0, false); // bit 0 : isBeingMoved (by the left mouse button)
+        Func.SetBit(ref stateFlags, 1, rbInput.disallowBorderCollisions); // bit 1 : disallowBorderCollisions (overrides the default property for movable rigid bodies to collide with the border)
 
         return new RBData
         {
@@ -570,22 +570,3 @@ public class SceneManager : MonoBehaviour
         };
     }
 }
-
-// // Determine flag booleans
-// bool canMove = rbInput.canMove && rbInput.constraintType != ConstraintType.LinearMotor;
-// bool isRBCollider = rbInput.colliderType == ColliderType.RigidBody || rbInput.colliderType == ColliderType.All;
-// bool isFluidCollider = rbInput.colliderType == ColliderType.Fluid || rbInput.colliderType == ColliderType.All;
-// bool isLinearMotor = rbInput.constraintType == ConstraintType.LinearMotor;
-// bool doRoundTrip = rbInput.doRoundTrip;
-// bool isRigidConstraint = rbInput.constraintType == ConstraintType.Rigid;
-// bool isSpringConstraint = rbInput.constraintType == ConstraintType.Spring;
-
-// // Prepare bit-packed flags
-// int flags = 0;
-// if (canMove) flags |= 1 << 0;
-// if (isRBCollider) flags |= 1 << 1;
-// if (isFluidCollider) flags |= 1 << 2;
-// if (isLinearMotor) flags |= 1 << 3;
-// if (doRoundTrip) flags |= 1 << 4;
-// if (isRigidConstraint) flags |= 1 << 5;
-// if (isSpringConstraint) flags |= 1 << 6;

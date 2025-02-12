@@ -11,6 +11,7 @@ public struct RBInput
     public ColliderType colliderType;
     public bool canMove;
     public bool canRotate;
+    public bool disallowBorderCollisions;
 
     [Header("Runtime Properties")]
     public float mass;

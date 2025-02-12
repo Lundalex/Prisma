@@ -940,7 +940,8 @@ void UpdateRigidBodies(uint3 id : SV_DispatchThreadID)
     }
     else if (canMove)
     {
-        if (IsNearBoundary(rb.pos, abs(rb.maxRadiusSqr)))
+        bool disallowBoundaryCollisions = ReadBit(rb.stateFlags, 1);
+        if (IsNearBoundary(rb.pos, abs(rb.maxRadiusSqr)) && !disallowBoundaryCollisions)
         {
             float2 boundsMin = float2(1.#INF, 1.#INF);
             float2 boundsMax = float2(-1.#INF, -1.#INF);
