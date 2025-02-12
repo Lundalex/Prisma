@@ -236,6 +236,7 @@ public class ShaderHelper : MonoBehaviour
     {
         rbSimShader.SetBuffer(0, "RigidBodies", m.RBDataBuffer);
         rbSimShader.SetBuffer(0, "RBVectors", m.RBVectorBuffer);
+        rbSimShader.SetBuffer(0, "RecordedFluidDatas", m.RecordedFluidDataBuffer);
 
         rbSimShader.SetBuffer(0, "SpatialLookup", m.SpatialLookupBuffer);
         rbSimShader.SetBuffer(0, "PTypes", m.PTypeBuffer);
@@ -258,6 +259,7 @@ public class ShaderHelper : MonoBehaviour
         rbSimShader.SetBuffer(5, "RigidBodies", m.RBDataBuffer);
         rbSimShader.SetBuffer(5, "RBVectors", m.RBVectorBuffer);
         rbSimShader.SetBuffer(5, "RBAdjustments", m.RBAdjustmentBuffer);
+        rbSimShader.SetBuffer(5, "RecordedFluidDatas", m.RecordedFluidDataBuffer);
 
         rbSimShader.SetBuffer(6, "RigidBodies", m.RBDataBuffer);
         rbSimShader.SetBuffer(6, "RBVectors", m.RBVectorBuffer);
@@ -273,6 +275,7 @@ public class ShaderHelper : MonoBehaviour
         rbSimShader.SetInt("NumRigidBodies", m.NumRigidBodies);
         rbSimShader.SetInt("NumVectors", m.NumRigidBodyVectors);
         rbSimShader.SetInt("NumParticles", m.ParticlesNum);
+        rbSimShader.SetVector("ChunksNum", Utils.Int2ToVector2(m.ChunksNum));
         rbSimShader.SetInt("ChunksNumAll", m.ChunksNumAll);
         rbSimShader.SetInt("PTypesNum", m.PTypesNum);
 

@@ -7,7 +7,7 @@ public struct RecordedFluidData_Translated
     public float totTemp;
     public float totThermalEnergy;
     public float totPressure;
-    public float2 totInterParticleAcc;
+    public float2 totRigidBodyForces;
     public float2 totVelComponents;
     public float totVelAbs;
     public float totMass;
@@ -20,7 +20,7 @@ public struct RecordedFluidData_Translated
         this.totTemp = Func.IntToFloat(recordedFluidData.totTemp_Int, precision);
         this.totThermalEnergy = Func.IntToFloat(recordedFluidData.totThermalEnergy_Int, precision);
         this.totPressure = Func.IntToFloat(recordedFluidData.totPressure_Int, precision);
-        this.totInterParticleAcc = Func.Int2ToFloat2(recordedFluidData.totInterParticleAcc_Int2, precision);
+        this.totRigidBodyForces = Func.Int2ToFloat2(recordedFluidData.totRigidBodyForces_Int2, precision);
         this.totVelComponents = Func.Int2ToFloat2(recordedFluidData.totVel_Int2, precision);
         this.totVelAbs = Func.IntToFloat(recordedFluidData.totVelAbs_Int, precision);
         this.totMass = Func.IntToFloat(recordedFluidData.totMass_Int, precision);
@@ -32,7 +32,7 @@ public struct RecordedFluidData_Translated
         this.totTemp *= factor;
         this.totThermalEnergy *= factor;
         this.totPressure *= factor;
-        this.totInterParticleAcc *= factor;
+        this.totRigidBodyForces *= factor;
         this.totVelComponents *= factor;
         this.totVelAbs *= factor;
         this.totMass *= factor;

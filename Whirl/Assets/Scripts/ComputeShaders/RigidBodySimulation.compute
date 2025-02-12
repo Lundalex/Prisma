@@ -20,6 +20,7 @@ const float BoundaryFriction;
 const uint NumRigidBodies;
 const uint NumVectors;
 const uint NumParticles;
+const int2 ChunksNum;
 const uint ChunksNumAll;
 const uint PTypesNum;
 
@@ -51,6 +52,23 @@ RWStructuredBuffer<PData> PDatas;
 RWStructuredBuffer<RigidBody> RigidBodies;
 RWStructuredBuffer<RBVector> RBVectors;
 RWStructuredBuffer<RBAdjustment> RBAdjustments;
+
+RWStructuredBuffer<RecordedFluidData> RecordedFluidDatas;
+
+int GetChunkKey(int2 chunk)
+{
+    return chunk.y * ChunksNum.x + chunk.x;
+}
+
+int2 GetChunk(float2 pos)
+{
+    return int2(clamp((int)pos.x, 0, ChunksNum.x - 1), clamp((int)pos.y, 0, ChunksNum.y - 1));
+}
+
+int Extract_LastChunkKey(int LastChunkKey_PType_POrder)
+{
+    return (uint)LastChunkKey_PType_POrder % ChunksNumAll;
+}
 
 void AccumulateDeltaVel(int index, int2 deltaVel_Int2)
 {
@@ -510,6 +528,14 @@ void ResolveCollisionRB_P(
     // Delta velocities for RB
     deltaCenterVel = canMove   ? (rbImpulse / rb.mass) : 0;
     deltaRotVel    = canRotate ? (torque / rb.inertia) : 0;
+
+    {
+        float2 collisionForce = -pImpulse / DeltaTime;
+        int lastChunkKey = Extract_LastChunkKey(pData.lastChunkKey_PType_POrder);
+        int2 collisionForce_Int2 = Float2AsInt2(collisionForce, INT_FLOAT_PRECISION_RB);
+        InterlockedAdd(RecordedFluidDatas[lastChunkKey].totRigidBodyForces_Int2.x, collisionForce_Int2.x);
+        InterlockedAdd(RecordedFluidDatas[lastChunkKey].totRigidBodyForces_Int2.y, collisionForce_Int2.y);
+    }
 }
 
 int Extract_PType(int LastChunkKey_PType_POrder)
@@ -842,6 +868,16 @@ void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, floa
                          + RB_RBFixedCollisionCorrection)
                         * normal;
     rb.pos += correction;
+
+    {
+        float2 totalImpulse = -impulseNormal;
+        float2 boundaryForce = totalImpulse / DeltaTime;
+        int2 chunk = GetChunk(collisionPoint);
+        int chunkKey = GetChunkKey(chunk);
+        int2 boundaryForce_Int2 = Float2AsInt2(boundaryForce, INT_FLOAT_PRECISION_RB);
+        InterlockedAdd(RecordedFluidDatas[chunkKey].totRigidBodyForces_Int2.x, boundaryForce_Int2.x);
+        InterlockedAdd(RecordedFluidDatas[chunkKey].totRigidBodyForces_Int2.y, boundaryForce_Int2.y);
+    }
 }
 
 [numthreads(TN_RBS1,1,1)]

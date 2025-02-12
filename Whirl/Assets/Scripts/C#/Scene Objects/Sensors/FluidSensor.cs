@@ -179,7 +179,7 @@ public class FluidSensor : Sensor
         a.totTemp += b.totTemp;
         a.totThermalEnergy += b.totThermalEnergy;
         a.totPressure += b.totPressure;
-        a.totInterParticleAcc += b.totInterParticleAcc;
+        a.totRigidBodyForces += b.totRigidBodyForces;
         a.totVelComponents += b.totVelComponents;
         a.totVelAbs += b.totVelAbs;
         a.totMass += b.totMass;

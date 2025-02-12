@@ -584,7 +584,6 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
 
     // Record data
     PDatas[i].recordedPressure = totAbsPressure;
-    PDatas[i].recordedInterParticleAcc = totParticleAcc;
 }
 
 float2 SafeFloat2(float2 value, float max)
@@ -657,7 +656,9 @@ void UpdatePositions (uint3 id : SV_DispatchThreadID)
 void ResetFluidData (uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= ChunksNumAll) return;
+    int2 transferData = RecordedFluidDatas[id.x].totRigidBodyForces_Int2 * 0.9;
     RecordedFluidDatas[id.x] = InitRecordedFluidData();
+    RecordedFluidDatas[id.x].totRigidBodyForces_Int2 = transferData;
 }
 
 [numthreads(TN_PS,1,1)]
@@ -680,7 +681,6 @@ void RecordFluidData (uint3 id : SV_DispatchThreadID)
 
     float thermalEnergy = mass * temperature * pType.specificHeatCapacity;
 
-    int2 particleAcc_Int2 = Float2AsInt2(pData.recordedInterParticleAcc, INT_FLOAT_PRECISION_P);
     int2 vel_Int2 = Float2AsInt2(pData.vel, INT_FLOAT_PRECISION_P);
     int totVelAbs_Int = FloatAsInt(length(pData.vel), INT_FLOAT_PRECISION_P);
 
@@ -688,8 +688,6 @@ void RecordFluidData (uint3 id : SV_DispatchThreadID)
     InterlockedAdd(RecordedFluidDatas[chunkKey].totTemp_Int, FloatAsInt(temperature, INT_FLOAT_PRECISION_P));
     InterlockedAdd(RecordedFluidDatas[chunkKey].totThermalEnergy_Int, FloatAsInt(thermalEnergy, INT_FLOAT_PRECISION_P));
     InterlockedAdd(RecordedFluidDatas[chunkKey].totPressure_Int, FloatAsInt(pData.recordedPressure, INT_FLOAT_PRECISION_P));
-    InterlockedAdd(RecordedFluidDatas[chunkKey].totInterParticleAcc_Int2.x, particleAcc_Int2.x);
-    InterlockedAdd(RecordedFluidDatas[chunkKey].totInterParticleAcc_Int2.y, particleAcc_Int2.y);
     InterlockedAdd(RecordedFluidDatas[chunkKey].totVel_Int2.x, vel_Int2.x);
     InterlockedAdd(RecordedFluidDatas[chunkKey].totVel_Int2.y, vel_Int2.y);
     InterlockedAdd(RecordedFluidDatas[chunkKey].totVelAbs_Int, totVelAbs_Int);

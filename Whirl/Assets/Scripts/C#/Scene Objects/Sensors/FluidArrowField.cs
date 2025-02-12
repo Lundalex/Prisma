@@ -28,7 +28,8 @@ public class FluidArrowField : SensorBase
     [Header("Fluid Sampling")]
     [SerializeField, Range(0, 100)] private int sampleSpacing;
     [SerializeField, Range(1, 100)] private int autoScaleReferenceSampleSpacing;
-    
+    [SerializeField, Range(0, 10)] private int sampleRadius;
+
     [Header("Smart Interpolation")]
     [SerializeField, Range(0.0f, 180f)] private float rotationLerpSkipThreshold;
     [SerializeField] private float minArrowValue;
@@ -152,6 +153,7 @@ public class FluidArrowField : SensorBase
                                 : Mathf.LerpAngle(currentRotation, targetRotation, PM.Instance.clampedDeltaTime * rotationLerpSpeed);
             
             uiArrow.SetRotation(currentRotation);
+            uiArrow.SetRadius(uiArrow.radius);
         }
     }
 
@@ -200,8 +202,32 @@ public class FluidArrowField : SensorBase
 
     private void UpdateArrowForChunk(int chunkKey, float sensorDt)
     {
-        RecordedFluidData_Translated fluidData = new RecordedFluidData_Translated(sensorManager.retrievedFluidDatas[chunkKey], main.FloatIntPrecisionP);
-        if (fluidData.numContributions == 0)
+        int chunksNum = main.ChunksNum.x;
+        int chunkX = chunkKey % chunksNum;
+        int chunkY = chunkKey / chunksNum;
+        RecordedFluidData_Translated sumFluidDatas = new();
+        bool hasData = false;
+        for (int offsetX = -sampleRadius; offsetX <= sampleRadius; offsetX++)
+        {
+            for (int offsetY = -sampleRadius; offsetY <= sampleRadius; offsetY++)
+            {
+                int newX = chunkX + offsetX;
+                int newY = chunkY + offsetY;
+                if (newX < 0 || newX >= main.ChunksNum.x || newY < 0 || newY >= main.ChunksNum.y) continue;
+                int neighborChunkKey = GetChunkKey(newX, newY);
+                RecordedFluidData_Translated neighborData = new(sensorManager.retrievedFluidDatas[neighborChunkKey], main.FloatIntPrecisionP);
+                if (!hasData)
+                {
+                    sumFluidDatas = neighborData;
+                    hasData = true;
+                }
+                else
+                {
+                    AddRecordedFluidData(ref sumFluidDatas, neighborData);
+                }
+            }
+        }
+        if (sumFluidDatas.numContributions == 0)
         {
             // No contributions; if an arrow exists, return it to the pool
             if (chunkArrows.ContainsKey(chunkKey))
@@ -212,7 +238,7 @@ public class FluidArrowField : SensorBase
             return;
         }
 
-        (Vector2 value, string unit) = GetDisplayInfo(fluidData);
+        (Vector2 value, string unit) = GetDisplayInfo(sumFluidDatas);
 
         // Value lerp
         float targetValueMgn = value.magnitude;
@@ -253,7 +279,7 @@ public class FluidArrowField : SensorBase
         }
 
         // Value box visibility
-        bool forceDisplayBoxInvisibility = fluidArrowFieldType == FluidArrowFieldType.InterParticleForces;
+        bool forceDisplayBoxInvisibility = fluidArrowFieldType == FluidArrowFieldType.RigidBodyForces;
         uiArrow.SetValueBoxVisibility(doDisplayValueBoxes && !forceDisplayBoxInvisibility);
 
         // Update all arrow data
@@ -315,12 +341,12 @@ public class FluidArrowField : SensorBase
         string unit = "";
         switch (fluidArrowFieldType)
         {
-            case FluidArrowFieldType.InterParticleForces:
-                value = fluidData.totInterParticleAcc;
+            case FluidArrowFieldType.RigidBodyForces:
+                value = fluidData.totRigidBodyForces;
                 unit = "NoUnit";
                 break;
             case FluidArrowFieldType.Velocity:
-                value = fluidData.numContributions == 0 ? Vector2.zero : fluidData.totVelComponents / fluidData.numContributions;
+                value = fluidData.numContributions == 0.0f ? Vector2.zero : fluidData.totVelComponents / fluidData.numContributions;
                 unit = "m/s";
                 break;
             default:
@@ -341,5 +367,17 @@ public class FluidArrowField : SensorBase
             boundaryDims = new Vector2(boundaryDimsInt2.x, boundaryDimsInt2.y);
         }
         return boundaryDims;
+    }
+    
+    private void AddRecordedFluidData(ref RecordedFluidData_Translated a, RecordedFluidData_Translated b)
+    {
+        a.totTemp += b.totTemp;
+        a.totThermalEnergy += b.totThermalEnergy;
+        a.totPressure += b.totPressure;
+        a.totRigidBodyForces += b.totRigidBodyForces;
+        a.totVelComponents += b.totVelComponents;
+        a.totVelAbs += b.totVelAbs;
+        a.totMass += b.totMass;
+        a.numContributions += b.numContributions;
     }
 }

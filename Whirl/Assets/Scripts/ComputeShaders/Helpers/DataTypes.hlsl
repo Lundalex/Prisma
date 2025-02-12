@@ -55,7 +55,6 @@ struct PData
     float temperature; // kelvin
     float temperatureExchangeBuffer;
     float recordedPressure;
-    float2 recordedInterParticleAcc;
     // POrder; // POrder is dynamic, 
     // LastChunkKey; // 0 <= LastChunkKey <= ChunkNum
     // PType; // 0 <= PType <= PTypesNum
@@ -71,7 +70,7 @@ struct RecordedFluidData
     int totTemp_Int;
     int totThermalEnergy_Int;
     int totPressure_Int;
-    int2 totInterParticleAcc_Int2;
+    int2 totRigidBodyForces_Int2;
     int2 totVel_Int2;
     int totVelAbs_Int;
     int totMass_Int;
@@ -184,7 +183,7 @@ RecordedFluidData InitRecordedFluidData()
     recordedFluidData.totTemp_Int = 0;
     recordedFluidData.totThermalEnergy_Int = 0;
     recordedFluidData.totPressure_Int = 0;
-    recordedFluidData.totInterParticleAcc_Int2 = 0;
+    recordedFluidData.totRigidBodyForces_Int2 = 0;
     recordedFluidData.totVel_Int2 = 0;
     recordedFluidData.totVelAbs_Int = 0;
     recordedFluidData.totMass_Int = 0;

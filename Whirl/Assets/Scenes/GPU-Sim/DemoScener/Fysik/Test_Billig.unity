@@ -244,7 +244,7 @@ MonoBehaviour:
   FluidPadding: 0.1
   RigidBodyPadding: 0
   BoundaryElasticity: 0.5
-  BoundaryFriction: 0
+  BoundaryFriction: 0.5
   DoSimulateParticleViscosity: 1
   DoSimulateParticleSprings: 0
   DoSimulateParticleTemperature: 0
@@ -259,8 +259,8 @@ MonoBehaviour:
   SubTimeStepsPerRBSimUpdate: 1
   TimeStepType: 1
   TargetFrameRate: 0
-  TimeStep: 0.018
-  ProgramSpeed: 7
+  TimeStep: 0.02
+  ProgramSpeed: 9
   MaxInteractionRadius: 60
   InteractionAttractionPower: 5
   InteractionRepulsionPower: 3.5
@@ -1019,11 +1019,15 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 2046149768}
+    m_TransformParent: {fileID: 4409041864190835300}
     m_Modifications:
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: gridSpacing
       value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
+      propertyPath: rbInput.mass
+      value: 5000
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: rbInput.canMove
@@ -1039,7 +1043,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: approximatedVolume
-      value: 1,394 l
+      value: 12.5993 l
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: defaultGridSpacing
@@ -1551,15 +1555,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8635991356798325462, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8635991356798325462, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8635991356798325462, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8635991356798325462, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1567,7 +1571,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8635991356798325462, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 291
+      value: 270.71
       objectReference: {fileID: 0}
     - target: {fileID: 8635991356798325462, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1750,6 +1754,26 @@ PrefabInstance:
       propertyPath: minValueDeltaForUpdate
       value: 0.1
       objectReference: {fileID: 0}
+    - target: {fileID: 1718864646172864926, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: radiusOscillationSpeed
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1718864646172864926, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: minRadiusDeltaForUpdate
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1718864646172864926, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: radiusOscillationRadius
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 1718864646172864926, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: minRotationDeltaForUpdate
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1718864646172864926, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: minBaseLengthDeltaForUpdate
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 6858802012959142922, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
       propertyPath: m_Name
       value: FluidArrowField
@@ -1803,24 +1827,44 @@ PrefabInstance:
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
-      propertyPath: maxArrowValue
-      value: 12
-      objectReference: {fileID: 0}
-    - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
-      propertyPath: minArrowValue
+      propertyPath: sampleRadius
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: maxArrowValue
+      value: 500000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: minArrowValue
+      value: 50000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
       propertyPath: sampleSpacing
-      value: 4
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
       propertyPath: maxArrowLength
       value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: valueLerpSpeed
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: rotationLerpSpeed
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: doDisplayValueBoxes
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
+      propertyPath: fluidArrowFieldType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509562954461559046, guid: 754e63e7ade0a9b4a9ee12b17adbbe42, type: 3}
       propertyPath: autoScaleReferenceSampleSpacing
-      value: 13
+      value: 10
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3062,7 +3106,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7844964519482188911, guid: 50e501077191fbb4d8342255e39c0968, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -4447,7 +4491,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2046149768
 Transform:
   m_ObjectHideFlags: 0
@@ -4462,7 +4506,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 60058164}
-  - {fileID: 770583787}
   m_Father: {fileID: 4409041864190835300}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2046149769
@@ -4807,7 +4850,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -4943,7 +4986,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -5055,7 +5098,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -5183,7 +5226,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -5451,7 +5494,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -5793,6 +5836,7 @@ Transform:
   - {fileID: 7426780360149379722}
   - {fileID: 1557774202}
   - {fileID: 2046149768}
+  - {fileID: 770583787}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4638313777464518916

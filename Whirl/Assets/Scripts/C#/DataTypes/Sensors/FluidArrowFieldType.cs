@@ -1,5 +1,5 @@
 public enum FluidArrowFieldType
 {
-    InterParticleForces, // Pressure, viscosity, particle springs
+    RigidBodyForces,
     Velocity
 }

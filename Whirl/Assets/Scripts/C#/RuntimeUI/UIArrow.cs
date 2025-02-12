@@ -39,6 +39,7 @@ public class UIArrow : EditorLifeCycle
 
     [Header("Update Thresholds")]
     [SerializeField] private float minValueDeltaForUpdate = 0.01f;
+    [SerializeField] private float minRadiusDeltaForUpdate = 1f;
     [SerializeField] private float minRotationDeltaForUpdate = 1f;
     [SerializeField] private float minBaseLengthDeltaForUpdate = 1f;
     [SerializeField] private float minColorLerpFactorDeltaForUpdate = 0.01f;
@@ -64,6 +65,8 @@ public class UIArrow : EditorLifeCycle
     [SerializeField] private TMP_Text integerText;
     [SerializeField] private TMP_Text decimalText;
     [SerializeField] private TMP_Text unitText;
+
+    private float lastOscillation = 0;
 
 #if UNITY_EDITOR
     public override void OnEditorUpdate()
@@ -149,6 +152,16 @@ public class UIArrow : EditorLifeCycle
         this.center = center;
         UpdateCenterSprites();
     }
+    public void SetRadius(float newRadius)
+    {
+        float newOscillation = Func.SinOscillation(PM.Instance.totalScaledTimeElapsed * radiusOscillationSpeed) * radiusOscillationRadius;
+        if (Mathf.Abs((newRadius + newOscillation) - (this.radius + lastOscillation)) > minRadiusDeltaForUpdate)
+        {
+            lastOscillation = newOscillation;
+            this.radius = newRadius;
+            UpdateRadiusSprites(newOscillation);
+        }
+    }
     public void SetRotation(float newRotation)
     {
         if (Mathf.Abs(newRotation - this.rotation) > minRotationDeltaForUpdate)
@@ -205,11 +218,15 @@ public class UIArrow : EditorLifeCycle
         transform.localPosition = center;
     }
 
+    private void UpdateRadiusSprites(float oscillation)
+    {
+        // Radius offset
+        positionJointRect.localPosition = new Vector2(radius + oscillation, 0);
+    }
+
     private void UpdateRotationSprites()
     {
         rotationJointRect.localRotation = Quaternion.Euler(0f, 0f, rotation);
-        float oscillation = Func.SinOscillation(PM.Instance.totalScaledTimeElapsed * radiusOscillationSpeed) * radiusOscillationRadius;
-        positionJointRect.localPosition = new Vector2(radius + oscillation, 0);
     }
 
     private void UpdateScaleSprites()
@@ -226,6 +243,10 @@ public class UIArrow : EditorLifeCycle
         outlineBaseRect.sizeDelta = new Vector2(baseLength, baseWidth);
         bodyBaseRect.sizeDelta = new Vector2(baseLength, baseWidth - 2f * outlineGap);
         bodyBaseRect.localPosition = outlineBaseRect.localPosition + new Vector3(outlineGap, 0);
+
+        // Radius offset
+        float oscillation = Func.SinOscillation(PM.Instance.totalScaledTimeElapsed * radiusOscillationSpeed) * radiusOscillationRadius;
+        positionJointRect.localPosition = new Vector2(radius + oscillation, 0);
 
         // Hat section
         float hatHeight = baseWidth + hatSize;
