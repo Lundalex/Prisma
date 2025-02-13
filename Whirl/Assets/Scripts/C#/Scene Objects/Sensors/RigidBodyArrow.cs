@@ -137,7 +137,9 @@ public class RigidBodyArrow : SensorBase
         if (valueIsNearZero || rbIsbeingDragged)
         {
             newValue = Vector2.zero;
+            uiArrow.SetArrowVisibility(false);
             firstDataRecieved = false;
+            return;
         }
         else if (Vector2.Distance(lastValue, newValue) < minValueChangeForUpdate) return;
 
@@ -146,6 +148,7 @@ public class RigidBodyArrow : SensorBase
         float arrowLength = Mathf.Lerp(minArrowLength, maxArrowLength, factor);
 
         uiArrow.UpdateArrow(newValueMgn, unit, arrowLength, factor);
+        uiArrow.SetArrowVisibility(true);
 
         // Store references for next frame
         lastValue = newValue;

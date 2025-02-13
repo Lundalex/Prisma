@@ -26,6 +26,7 @@ public class SplineCurveDrawer : MonoBehaviour
     [SerializeField] private DataStorage dataStorageB;
 
     [SerializeField, HideInInspector] private Vector3[] lastHandlePositions;
+    [SerializeField] private bool disableChildrenOnStart = false;
 
     // Private references
     private Main main;
@@ -34,6 +35,17 @@ public class SplineCurveDrawer : MonoBehaviour
     private bool storedDataInitialized = false;
     private bool isMonitoringValueChange = false;
     private float[] previousSliderValues;
+
+    private void Start()
+    {
+        if (disableChildrenOnStart && Application.isPlaying)
+        {
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                transform.GetChild(i).gameObject.SetActive(false);
+            }
+        }
+    }
 
     private void CheckStoredData()
     {
@@ -44,7 +56,7 @@ public class SplineCurveDrawer : MonoBehaviour
             {
                 for (int i = 0; i < handleRects.Length; i++)
                 {
-                    if (handleRects[i] != null)
+                    if (handleRects[i] != null && !disableChildrenOnStart)
                     {
                         Slider slider = handleRects[i].GetComponentInParent<Slider>();
                         if (slider != null)
@@ -78,7 +90,7 @@ public class SplineCurveDrawer : MonoBehaviour
             float[] sliderValues = new float[handleRects.Length];
             for (int i = 0; i < handleRects.Length; i++)
             {
-                if (handleRects[i] != null)
+                if (handleRects[i] != null && !disableChildrenOnStart)
                 {
                     Slider slider = handleRects[i].GetComponentInParent<Slider>();
                     if (slider != null)
@@ -88,7 +100,7 @@ public class SplineCurveDrawer : MonoBehaviour
                 }
             }
             
-            if (previousSliderValues == null)
+            if (previousSliderValues == null || previousSliderValues.Length != sliderValues.Length)
             {
                 previousSliderValues = sliderValues;
             }

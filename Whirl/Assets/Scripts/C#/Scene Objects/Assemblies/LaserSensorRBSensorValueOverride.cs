@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class LazerSensorOverride : MonoBehaviour
+public class LaserSensorOverride : MonoBehaviour
 {
     [SerializeField] private RigidBodySensor mySensor;
     public float yThreshold;

@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using Resources2;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 public delegate void CustomValueOverride(ref float value, RBData rbData);
 
@@ -62,14 +64,24 @@ public class RigidBodySensor : Sensor
         }
     }
 
+    private float distanceTraveled = 0;
+    private Vector2 lastPos = Vector2.positiveInfinity;
     private void UpdateSensorContents(RBData[] rBDatas, int linkedRBIndex)
     {
         float simUnitToMetersFactor = main.SimUnitToMetersFactor;
 
         RBData rbData = rBDatas[linkedRBIndex];
 
-        Vector2 vel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB) * simUnitToMetersFactor;
         Vector2 pos = (Vector2)rbData.pos * simUnitToMetersFactor;
+        Vector2 vel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB) * simUnitToMetersFactor;
+        float velMgn = vel.magnitude;
+
+        if (lastPos.x == float.PositiveInfinity) lastPos = pos;
+        else
+        {
+            if (velMgn > 0.01f) distanceTraveled += (pos - lastPos).magnitude;
+            lastPos = pos;
+        }
 
         float value = 0;
         switch (rigidBodySensorType)
@@ -79,7 +91,7 @@ public class RigidBodySensor : Sensor
                 break;
 
             case RigidBodySensorType.Velocity:
-                value = vel.magnitude;
+                value = velMgn;
                 break;
 
             case RigidBodySensorType.Velocity_X:
@@ -91,11 +103,15 @@ public class RigidBodySensor : Sensor
                 break;
 
             case RigidBodySensorType.Momentum:
-                value = vel.magnitude * rbData.mass * 0.001f;
+                value = velMgn * rbData.mass * 0.001f;
                 break;
 
             case RigidBodySensorType.RotationalVelocity:
                 value = Func.IntToFloat(rbData.rotVel_AsInt, main.FloatIntPrecisionRB);
+                break;
+
+            case RigidBodySensorType.Distance:
+                value = distanceTraveled;
                 break;
 
             case RigidBodySensorType.Position_X:
@@ -121,7 +137,7 @@ public class RigidBodySensor : Sensor
 
         value *= valueMultiplier;
         value += valueOffset;
-        CustomValueOverride(ref value, rbData);
+        CustomValueOverride?.Invoke(ref value, rbData);
 
         if (Mathf.Abs(value * Mathf.Pow(10, 3 * (3 - minPrefixIndex))) < minDisplayValue) value = 0.0f;
 
@@ -157,6 +173,7 @@ public class RigidBodySensor : Sensor
                 baseUnit = "r/s";
                 break;
 
+            case RigidBodySensorType.Distance:
             case RigidBodySensorType.Position_X:
             case RigidBodySensorType.Position_Y:
                 baseUnit = "m";
@@ -215,6 +232,10 @@ public class RigidBodySensor : Sensor
                 title = "Vkl.hast.";
                 break;
 
+            case RigidBodySensorType.Distance:
+                title = "Distans";
+                break;
+
             case RigidBodySensorType.Position_X:
                 title = "Position X";
                 break;
@@ -268,20 +289,24 @@ public class RigidBodySensor : Sensor
                 itemIndex = 5;
                 break;
 
-            case RigidBodySensorType.Position_X:
+            case RigidBodySensorType.Distance:
                 itemIndex = 6;
                 break;
 
-            case RigidBodySensorType.Position_Y:
+            case RigidBodySensorType.Position_X:
                 itemIndex = 7;
                 break;
 
-            case RigidBodySensorType.FrictionForce:
+            case RigidBodySensorType.Position_Y:
                 itemIndex = 8;
                 break;
 
-            case RigidBodySensorType.SpringForce:
+            case RigidBodySensorType.FrictionForce:
                 itemIndex = 9;
+                break;
+
+            case RigidBodySensorType.SpringForce:
+                itemIndex = 10;
                 break;
 
             default:
