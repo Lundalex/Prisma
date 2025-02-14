@@ -11,12 +11,15 @@ public class SplineCurveDrawer : MonoBehaviour
     [Header("Curve Settings")]
     [SerializeField] private RectTransform[] handleRects;
     [SerializeField] private Vector2 curveOffset = Vector2.zero;
-    [SerializeField] private int segmentsPerCurve = 10;
     [SerializeField] private Color editorCanvasCurveColor = Color.green;
     [SerializeField] private Color editorSimCurveColor = Color.blue;
     [SerializeField] private float boxBottom = 0f;
     [SerializeField] private float boxLeft = 0f;
     [SerializeField] private float boxRight = 0f;
+    [Header("Curve Resolution & Pruning")]
+    [SerializeField] private int segmentsPerCurve = 10;
+    [SerializeField] private float angleThreshold = 2f;
+    [SerializeField] private float dstThreshold = 0f;
 
     [Header("Unity Event")]
     public UnityEvent onValueChangeDone;
@@ -145,6 +148,7 @@ public class SplineCurveDrawer : MonoBehaviour
         
         for (int i = 0; i < splinePoints.Length - 1; i++)
         {
+            Gizmos.DrawSphere(splinePoints[i], 4);
             Gizmos.DrawLine(splinePoints[i], splinePoints[i + 1]);
         }
     }
@@ -173,17 +177,20 @@ public class SplineCurveDrawer : MonoBehaviour
             
             if (points.Count == 0)
             {
-                points.Add(TransformPoint(p1, simSpace_canvasSpace));
+                points.Add(p1);
             }
             
             for (int j = 1; j <= segmentsPerCurve; j++)
             {
                 float t = j / (float)segmentsPerCurve;
                 Vector3 point = Func.CatmullRom(p0, p1, p2, p3, t);
-                points.Add(TransformPoint(point, simSpace_canvasSpace));
+                points.Add(point);
             }
         }
-        
+
+        points = PrunePoints(points);
+        for (int i = 0; i < points.Count; i++) points[i] = TransformPoint(points[i], simSpace_canvasSpace);
+
         return points.ToArray();
     }
 
@@ -197,10 +204,8 @@ public class SplineCurveDrawer : MonoBehaviour
         
         List<Vector3> points = new();
         
-        // Add the top curve points
         points.AddRange(topCurve);
 
-        // Compute extrusion values using shared logic
         float extrudedBottomY = GetExtrusionValue(boxBottom, simSpace_canvasSpace, false);
         float leftOffset = GetExtrusionValue(boxLeft, simSpace_canvasSpace, true);
         float rightOffset = GetExtrusionValue(boxRight, simSpace_canvasSpace, true);
@@ -208,14 +213,11 @@ public class SplineCurveDrawer : MonoBehaviour
         Vector3 firstTop = topCurve[0];
         Vector3 lastTop = topCurve[topCurve.Length - 1];
 
-        // Create extruded vertices for straight, perpendicular side edges
         Vector3 leftTop = new Vector3(firstTop.x + leftOffset, firstTop.y, firstTop.z);
         Vector3 rightTop = new Vector3(lastTop.x + rightOffset, lastTop.y, lastTop.z);
         Vector3 leftBottom = new Vector3(firstTop.x + leftOffset, extrudedBottomY, firstTop.z);
         Vector3 rightBottom = new Vector3(lastTop.x + rightOffset, extrudedBottomY, lastTop.z);
 
-        // Construct the polygon:
-        // top curve -> right edge (top then bottom) -> bottom edge -> left edge (bottom then top) -> close
         points.Add(rightTop);
         points.Add(rightBottom);
         points.Add(leftBottom);
@@ -279,5 +281,29 @@ public class SplineCurveDrawer : MonoBehaviour
         }
         onValueChangeDone.Invoke();
         isMonitoringValueChange = false;
+    }
+
+    private List<Vector3> PrunePoints(List<Vector3> input)
+    {
+        if (input.Count < 3) return input;
+        List<Vector3> output = new()
+        {
+            input[0]
+        };
+        float lastAngle = 0;
+        for (int i = 1; i < input.Count - 1; i++)
+        {
+            Vector3 prev = input[i];
+            Vector3 next = input[i + 1];
+            float newAngle = Func.AngleFromDir(prev - next);
+            float deltaAngle = Func.AbsDeltaAngle(newAngle, lastAngle);
+            lastAngle = newAngle;
+            if (deltaAngle >= angleThreshold && (prev - next).magnitude > dstThreshold)
+            {
+                output.Add(input[i]);
+            }
+        }
+        output.Add(input[^1]);
+        return output;
     }
 }
