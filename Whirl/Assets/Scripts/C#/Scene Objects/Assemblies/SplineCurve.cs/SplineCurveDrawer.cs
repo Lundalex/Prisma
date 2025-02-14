@@ -148,7 +148,7 @@ public class SplineCurveDrawer : MonoBehaviour
         
         for (int i = 0; i < splinePoints.Length - 1; i++)
         {
-            Gizmos.DrawSphere(splinePoints[i], 4);
+            Gizmos.DrawSphere(splinePoints[i], simSpace_canvasSpace ? 2 : 4);
             Gizmos.DrawLine(splinePoints[i], splinePoints[i + 1]);
         }
     }
@@ -213,10 +213,10 @@ public class SplineCurveDrawer : MonoBehaviour
         Vector3 firstTop = topCurve[0];
         Vector3 lastTop = topCurve[topCurve.Length - 1];
 
-        Vector3 leftTop = new Vector3(firstTop.x + leftOffset, firstTop.y, firstTop.z);
-        Vector3 rightTop = new Vector3(lastTop.x + rightOffset, lastTop.y, lastTop.z);
-        Vector3 leftBottom = new Vector3(firstTop.x + leftOffset, extrudedBottomY, firstTop.z);
-        Vector3 rightBottom = new Vector3(lastTop.x + rightOffset, extrudedBottomY, lastTop.z);
+        Vector3 leftTop = new(firstTop.x + leftOffset, firstTop.y, firstTop.z);
+        Vector3 rightTop = new(lastTop.x + rightOffset, lastTop.y, lastTop.z);
+        Vector3 leftBottom = new(firstTop.x + leftOffset, extrudedBottomY, firstTop.z);
+        Vector3 rightBottom = new(lastTop.x + rightOffset, extrudedBottomY, lastTop.z);
 
         points.Add(rightTop);
         points.Add(rightBottom);
