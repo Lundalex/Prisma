@@ -445,9 +445,9 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
 // Since the CPU shouldn't halt the GPU when sending new data, this issue was dealt with by filtering the data before usage
 bool IsDataValid(RBAdjustment data)
 {
-    if (length(Int2ToFloat2(data.deltaPos_Int2, INT_FLOAT_PRECISION_RB)) > 100) return false;
-    if (length(Int2ToFloat2(data.deltaVel_Int2, INT_FLOAT_PRECISION_RB)) > 100) return false;
-    if (abs(IntToFloat(data.deltaRotVel_Int, INT_FLOAT_PRECISION_RB)) > 100) return false;
+    if (length(Int2ToFloat2(data.deltaPos_Int2, INT_FLOAT_PRECISION_RB)) > 2000) return false;
+    if (length(Int2ToFloat2(data.deltaVel_Int2, INT_FLOAT_PRECISION_RB)) > 2000) return false;
+    if (abs(IntToFloat(data.deltaRotVel_Int, INT_FLOAT_PRECISION_RB)) > 2000) return false;
     return true;
 }
 
