@@ -190,11 +190,11 @@ public class RigidBodyArrow : SensorBase
         float mass = rbData.mass * 0.001f; // g -> kg
         Vector2 vel = rawVel * simUnitToMetersFactor;
         Vector2 momentum = vel * mass;
-        if (programDt != 0) targetAcc = (vel - lastVel) / programDt;
+        if (programDt != 0) targetAcc = (vel - lastVel) / sensorDt;
         lastVel = vel;
         currentAcc = doInterpolation ? Vector2.Lerp(currentAcc, targetAcc, PM.Instance.clampedDeltaTime * valueLerpSpeed) : targetAcc;
 
-        Vector2 totalForce = currentAcc * rbData.mass;
+        Vector2 totalForce = currentAcc * rbData.mass * 0.001f;
         Vector2 springForce = rbData.recordedSpringForce;
         Vector2 frictionForce = rbData.recordedFrictionForce;
 

@@ -3,6 +3,7 @@ using Resources2;
 using UnityEngine;
 using PM = ProgramManager;
 
+[ExecuteInEditMode]
 public class UserSelectorInput : UserUIElement
 {
     [Header("Settings")]
@@ -58,6 +59,8 @@ public class UserSelectorInput : UserUIElement
                 onValueChanged.Invoke();
             }
         }
+
+        if (!Application.isPlaying) InitDisplay();
     }
 
     private void ModifyField()

@@ -8,15 +8,23 @@ using Resources2;
 [ExecuteAlways]
 public class SplineCurveDrawer : MonoBehaviour
 {
-    [Header("Curve Settings")]
+    [Header("Handle References")]
     [SerializeField] private RectTransform[] handleRects;
-    [SerializeField] private Vector2 curveOffset = Vector2.zero;
+
+    [Header("Editor Render")]
+    [SerializeField] private Color editorCanvasPointColor = Color.green;
+    [SerializeField] private Color editorSimPointColor = Color.blue;
     [SerializeField] private Color editorCanvasCurveColor = Color.green;
     [SerializeField] private Color editorSimCurveColor = Color.blue;
+
+    [Header("Positioning")]
+    [SerializeField] private Vector2 curveOffset = Vector2.zero;
     [SerializeField] private float boxBottom = 0f;
     [SerializeField] private float boxLeft = 0f;
     [SerializeField] private float boxRight = 0f;
-    [Header("Curve Resolution & Pruning")]
+    
+    [Header("Resolution & Pruning")]
+    [SerializeField] private bool splineOnly = false;
     [SerializeField] private int segmentsPerCurve = 10;
     [SerializeField] private float angleThreshold = 2f;
     [SerializeField] private float dstThreshold = 0f;
@@ -82,8 +90,8 @@ public class SplineCurveDrawer : MonoBehaviour
     {
         if (handleRects == null || handleRects.Length < 2) return;
 
-        DrawBoxSplineInEditor(editorCanvasCurveColor, false); // Canvas space
-        DrawBoxSplineInEditor(editorSimCurveColor, true); // Sim space
+        DrawBoxSplineInEditor(editorCanvasPointColor, editorCanvasCurveColor, false); // Canvas space
+        DrawBoxSplineInEditor(editorSimPointColor, editorSimCurveColor,true); // Sim space
     }
 
     public void Update()
@@ -139,16 +147,16 @@ public class SplineCurveDrawer : MonoBehaviour
         }
     }
 
-    private void DrawBoxSplineInEditor(Color color, bool simSpace_canvasSpace)
+    private void DrawBoxSplineInEditor(Color pointColor, Color curveColor, bool simSpace_canvasSpace)
     {
-        Gizmos.color = color;
-        
         Vector3[] splinePoints = CreateBoxSplinePoints(simSpace_canvasSpace, true);
         if (splinePoints.Length < 2) return;
         
         for (int i = 0; i < splinePoints.Length - 1; i++)
         {
-            Gizmos.DrawSphere(splinePoints[i], simSpace_canvasSpace ? 2 : 4);
+            Gizmos.color = pointColor;
+            Gizmos.DrawSphere(splinePoints[i], simSpace_canvasSpace ? 2 : 8);
+            Gizmos.color = curveColor;
             Gizmos.DrawLine(splinePoints[i], splinePoints[i + 1]);
         }
     }
@@ -188,7 +196,14 @@ public class SplineCurveDrawer : MonoBehaviour
             }
         }
 
-        points = PrunePoints(points);
+        // Prune points
+        int lastCount = -1;
+        while (lastCount != points.Count)
+        {
+            lastCount = points.Count;
+            PrunePoints(ref points);
+        }
+
         for (int i = 0; i < points.Count; i++) points[i] = TransformPoint(points[i], simSpace_canvasSpace);
 
         return points.ToArray();
@@ -206,23 +221,30 @@ public class SplineCurveDrawer : MonoBehaviour
         
         points.AddRange(topCurve);
 
-        float extrudedBottomY = GetExtrusionValue(boxBottom, simSpace_canvasSpace, false);
-        float leftOffset = GetExtrusionValue(boxLeft, simSpace_canvasSpace, true);
-        float rightOffset = GetExtrusionValue(boxRight, simSpace_canvasSpace, true);
+        boxLeft = boxLeft == 0f ? -0.01f : boxLeft;
+        boxRight = boxRight == 0f ? 0.01f : boxRight;
 
-        Vector3 firstTop = topCurve[0];
-        Vector3 lastTop = topCurve[topCurve.Length - 1];
+        if (!splineOnly)
+        {
+            float extrudedBottomY = GetExtrusionValue(boxBottom, simSpace_canvasSpace, false);
+            float leftOffset = GetExtrusionValue(boxLeft, simSpace_canvasSpace, true);
+            float rightOffset = GetExtrusionValue(boxRight, simSpace_canvasSpace, true);
 
-        Vector3 leftTop = new(firstTop.x + leftOffset, firstTop.y, firstTop.z);
-        Vector3 rightTop = new(lastTop.x + rightOffset, lastTop.y, lastTop.z);
-        Vector3 leftBottom = new(firstTop.x + leftOffset, extrudedBottomY, firstTop.z);
-        Vector3 rightBottom = new(lastTop.x + rightOffset, extrudedBottomY, lastTop.z);
+            Vector3 firstTop = topCurve[0];
+            Vector3 lastTop = topCurve[topCurve.Length - 1];
 
-        points.Add(rightTop);
-        points.Add(rightBottom);
-        points.Add(leftBottom);
-        points.Add(leftTop);
-        if (closeLoop) points.Add(firstTop);
+            Vector3 leftTop = new(firstTop.x + leftOffset, firstTop.y, firstTop.z);
+            Vector3 rightTop = new(lastTop.x + rightOffset, lastTop.y, lastTop.z);
+            Vector3 leftBottom = new(firstTop.x + leftOffset, extrudedBottomY, firstTop.z);
+            Vector3 rightBottom = new(lastTop.x + rightOffset, extrudedBottomY, lastTop.z);
+            
+            points.Add(rightTop);
+            points.Add(rightBottom);
+            points.Add(leftBottom);
+            points.Add(leftTop);
+            if (closeLoop) points.Add(firstTop);
+        }
+        else if (closeLoop) points.Add(points[0]);
         
         return points.ToArray();
     }
@@ -283,9 +305,9 @@ public class SplineCurveDrawer : MonoBehaviour
         isMonitoringValueChange = false;
     }
 
-    private List<Vector3> PrunePoints(List<Vector3> input)
+    private void PrunePoints(ref List<Vector3> input)
     {
-        if (input.Count < 3) return input;
+        if (input.Count < 3) return;
         List<Vector3> output = new()
         {
             input[0]
@@ -300,10 +322,14 @@ public class SplineCurveDrawer : MonoBehaviour
             lastAngle = newAngle;
             if (deltaAngle >= angleThreshold && (prev - next).magnitude > dstThreshold)
             {
-                output.Add(input[i]);
+                if ((output[^1] - input[i]).sqrMagnitude > 0.01) output.Add(input[i]);
+            }
+            else
+            {
+                if (++i < input.Count - 1) output.Add(input[++i]);
             }
         }
-        output.Add(input[^1]);
-        return output;
+        if ((output[^1] - input[^1]).sqrMagnitude > 0.01) output.Add(input[^1]);
+        input = output;
     }
 }

@@ -4,7 +4,6 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 using PM = ProgramManager;
 
-[ExecuteAlways]
 public abstract class UserUIElement : EditorLifeCycle
 {
     public PointerHoverArea pointerHoverArea;
@@ -17,7 +16,7 @@ public abstract class UserUIElement : EditorLifeCycle
     [Header("Unity Event")]
     public UnityEvent onValueChanged;
 
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
     public override void OnEditorUpdate()
     {
         if (!Application.isPlaying)
@@ -26,7 +25,7 @@ public abstract class UserUIElement : EditorLifeCycle
             InitDisplay();
         }
     }
-    #endif
+#endif
 
     private void Start()
     {

@@ -225,10 +225,10 @@ void ResolveCollisionRB_RB(
     inout RigidBody rbB,
     RBHitInfo rbHitInfo,
     bool AInsideB_BInsideA,
-    out float2 deltaVelA,
-    out float deltaRotVelA,
-    out float2 deltaVelB,
-    out float deltaRotVelB)
+    inout float2 deltaVelA,
+    inout float deltaRotVelA,
+    inout float2 deltaVelB,
+    inout float deltaRotVelB)
 {
     // Initialize outputs
     deltaVelA = 0;

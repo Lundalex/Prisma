@@ -6,6 +6,7 @@ using UnityEngine;
 
 public class ConfigHelper : MonoBehaviour
 {
+    [SerializeField] private bool onlyRunWhilePlaying;
     [SerializeField] [Min(-1)] private int collectionIndex;
     [SerializeField] [Min(-1)] private int configIndex;
     [SerializeField] private ConfigCollection[] collections;
@@ -43,8 +44,11 @@ public class ConfigHelper : MonoBehaviour
     }
 #endif
 
+    public void UpdateActiveConfig() => SetActiveConfigByIndex(collectionIndex, configIndex);
+    public void SetActiveConfigByIndex(int configIndex) => SetActiveConfigByIndex(collectionIndex, configIndex);
     public void SetActiveConfigByIndex(int collectionIndex, int configIndex)
     {
+        if (onlyRunWhilePlaying && !Application.isPlaying) return;
         if (collectionIndex >= collections.Length)
         {
             Debug.LogWarning("configIndex out of range. ConfigHelper: " + this.name);
