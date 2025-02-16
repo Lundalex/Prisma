@@ -2,6 +2,7 @@ using Michsky.MUIP;
 using UnityEngine;
 using UnityEngine.Events;
 
+[ExecuteInEditMode]
 public class UserButtonInput : UserUIElement
 {
     [Header("Button")]
@@ -18,6 +19,8 @@ public class UserButtonInput : UserUIElement
     {
         onButtonClicked.Invoke();
         onValueChanged.Invoke();
+
+        if (!Application.isPlaying) InitDisplay();
     }
 
     public override void InitDisplay()

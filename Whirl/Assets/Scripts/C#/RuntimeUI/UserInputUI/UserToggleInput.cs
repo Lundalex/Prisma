@@ -2,6 +2,7 @@ using Michsky.MUIP;
 using UnityEngine;
 using PM = ProgramManager;
 
+[ExecuteInEditMode]
 public class UserToggleInput : UserUIElement
 {
     [Header("Settings")]
@@ -39,6 +40,8 @@ public class UserToggleInput : UserUIElement
 
             onValueChanged.Invoke();
         }
+
+        if (!Application.isPlaying) InitDisplay();
     }
 
     private void ModifyField()

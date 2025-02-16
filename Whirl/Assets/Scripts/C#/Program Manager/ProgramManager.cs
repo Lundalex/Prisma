@@ -327,6 +327,7 @@ public class ProgramManager : ScriptableObject
         }
         
         totalTimeElapsed = 0;
+        totalScaledTimeElapsed = 0;
         frameCount = 0;
         globalBrightnessFactor = -1;
 
