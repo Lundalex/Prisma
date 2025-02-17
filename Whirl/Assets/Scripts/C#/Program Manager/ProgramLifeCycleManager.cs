@@ -5,6 +5,9 @@ using PM = ProgramManager;
 
 public class ProgramLifeCycleManager : MonoBehaviour
 {
+    [Header("Startup Settings")]
+    public bool pauseOnStart;
+
     [Header("Editor Settings")]
     public bool darkMode;
     public bool doHideUIInSceneView = true;
@@ -28,7 +31,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
     
     private void Awake()
     {
-        PM.Instance.ResetData();
+        PM.Instance.ResetData(pauseOnStart);
 
         // Make sure the user UI & canvas are shown
         uiCanvas.SetActive(true);
@@ -91,9 +94,12 @@ public class ProgramLifeCycleManager : MonoBehaviour
         yield return new WaitForSeconds(Func.MsToSeconds(PM.msStartConfimationDelay));
         PM.startConfirmationStatus = StartConfirmationStatus.Complete;
 
-        // Show controls tip
-        yield return new WaitForSeconds(Func.MsToSeconds(PM.msControlsTipDelay));
-        notificationManager.OpenNotification("ControlsTip");
+        // Show controls tip, unless pauseOnStart == true to make sure the pause tip gets shown
+        if (!pauseOnStart)
+        {
+            yield return new WaitForSeconds(Func.MsToSeconds(PM.msControlsTipDelay));
+            notificationManager.OpenNotification("ControlsTip");
+        }
     }
 
     private void OnDestroy() => PM.Instance.OnDestroy();

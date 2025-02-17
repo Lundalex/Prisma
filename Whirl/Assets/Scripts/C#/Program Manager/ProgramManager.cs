@@ -33,6 +33,7 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public float timeScale = 1;
     [NonSerialized] public bool isAnySensorSettingsViewActive;
     [NonSerialized] public bool programPaused;
+    [NonSerialized] public bool pauseOnStart;
     [NonSerialized] public bool slowMotionActive;
     [NonSerialized] public bool frameStep;
     [NonSerialized] public int frameCount;
@@ -203,7 +204,9 @@ public class ProgramManager : ScriptableObject
         }
         else if (startConfirmationStatus == StartConfirmationStatus.Complete)
         {
-            programPaused = false;
+            programPaused = pauseOnStart;
+            if (pauseOnStart) TriggerSetPauseState(true);
+
             startConfirmationStatus = StartConfirmationStatus.None;
         }
     }
@@ -217,18 +220,18 @@ public class ProgramManager : ScriptableObject
         }
         else if (Input.GetKeyDown(KeyCode.Space))
         {
-            OnSetNewPauseState?.Invoke(!programPaused);
+            TriggerSetPauseState(!programPaused);
         }
         else if (Input.GetKey(KeyCode.F) && rapidFrameSteppingTimer.Check())
         {
-            if (!programPaused) OnSetNewPauseState?.Invoke(true);
+            if (!programPaused) TriggerSetPauseState(true);
             frameStep = !frameStep;
         }
         else if (Input.GetKeyDown(KeyCode.S))
         {
             if (frameStep || programPaused)
             {
-                if (programPaused) OnSetNewPauseState?.Invoke(false);
+                if (programPaused) TriggerSetPauseState(false);
                 frameStep = false;
             }
             OnSetNewSlowMotionState?.Invoke(!slowMotionActive);
@@ -308,13 +311,14 @@ public class ProgramManager : ScriptableObject
         languageSelectDropdown = GameObject.FindGameObjectWithTag("LanguageSelect")?.GetComponent<Transform>();
     }
 
-    public void ResetData()
+    public void ResetData(bool pauseOnStart)
     {
         programStarted = true;
         sceneIsResetting = false;
         doOnSettingsChanged = false;
         isAnySensorSettingsViewActive = false;
-        programPaused = false;
+        programPaused = true;
+        this.pauseOnStart = pauseOnStart;
         slowMotionActive = false;
 
         if (!hasShownStartConfirmation)

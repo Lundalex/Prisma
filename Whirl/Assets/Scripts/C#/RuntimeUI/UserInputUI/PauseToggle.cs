@@ -10,6 +10,11 @@ public class PauseToggle : MonoBehaviour
         PM.Instance.OnSetNewPauseState += ChangeState;
     }
 
+    private void Start()
+    {
+        if (PM.Instance.pauseOnStart) ChangeState(true);
+    }
+
     private void ChangeState(bool state)
     {
         string windowName = state ? "EnabledDisplay" : "DisabledDisplay";
