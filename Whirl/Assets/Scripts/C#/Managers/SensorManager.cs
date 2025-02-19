@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Resources2;
+using PM = ProgramManager;
 
 public class SensorManager : MonoBehaviour
 {
@@ -42,7 +43,7 @@ public class SensorManager : MonoBehaviour
         while (programRunning)
         {
             // Retrieve rigid body data buffer asynchronously
-            if (main.RBDataBuffer != null && sensors != null)
+            if (!PM.Instance.programPaused && main.RBDataBuffer != null && sensors != null)
             {
                 bool hasRigidBodySensor = sensors.OfType<RigidBodySensor>().Any() || sensors.OfType<RigidBodyArrow>().Any();
                 if (hasRigidBodySensor)
@@ -73,7 +74,7 @@ public class SensorManager : MonoBehaviour
         while (programRunning)
         {
             // Retrieve rigid body data buffer asynchronously
-            if (main.RecordedFluidDataBuffer != null && sensors != null)
+            if (!PM.Instance.programPaused && main.RecordedFluidDataBuffer != null && sensors != null)
             {
                 bool hasFluidSensor = sensors.OfType<FluidSensor>().Any();
                 bool hasFluidArrowField = sensors.OfType<FluidArrowField>().Any();

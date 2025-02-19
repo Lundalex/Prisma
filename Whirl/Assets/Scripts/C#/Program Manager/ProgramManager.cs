@@ -317,7 +317,7 @@ public class ProgramManager : ScriptableObject
         sceneIsResetting = false;
         doOnSettingsChanged = false;
         isAnySensorSettingsViewActive = false;
-        programPaused = true;
+        programPaused = pauseOnStart;
         this.pauseOnStart = pauseOnStart;
         slowMotionActive = false;
 
