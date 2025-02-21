@@ -8,9 +8,9 @@ public abstract class UserUIElement : EditorLifeCycle
 {
     public PointerHoverArea pointerHoverArea;
     public Image containerTrimImage;
-    [SerializeField] private TMP_Text title;
+    public TMP_Text title;
 
-    [SerializeField] private string titleText;
+    public string titleText;
     public Color primaryColor;
 
     [Header("Unity Event")]

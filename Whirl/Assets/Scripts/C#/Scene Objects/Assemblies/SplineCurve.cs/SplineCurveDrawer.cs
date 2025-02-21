@@ -12,6 +12,7 @@ public class SplineCurveDrawer : MonoBehaviour
     [SerializeField] private RectTransform[] handleRects;
 
     [Header("Editor Render")]
+    [SerializeField] private bool doRenderInEditor = true;
     [SerializeField] private Color editorCanvasPointColor = Color.green;
     [SerializeField] private Color editorSimPointColor = Color.blue;
     [SerializeField] private Color editorCanvasCurveColor = Color.green;
@@ -88,7 +89,7 @@ public class SplineCurveDrawer : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        if (handleRects == null || handleRects.Length < 2) return;
+        if (!doRenderInEditor || handleRects == null || handleRects.Length < 2) return;
 
         DrawBoxSplineInEditor(editorCanvasPointColor, editorCanvasCurveColor, false); // Canvas space
         DrawBoxSplineInEditor(editorSimPointColor, editorSimCurveColor,true); // Sim space

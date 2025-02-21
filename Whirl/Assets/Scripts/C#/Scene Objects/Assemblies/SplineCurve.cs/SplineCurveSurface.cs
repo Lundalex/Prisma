@@ -9,10 +9,7 @@ public class SplineCurveSurface : Assembly
 
     public override void AssemblyUpdate()
     {
-        if (sceneRigidBody == null)
-        {
-            return;
-        }
+        if (sceneRigidBody == null || splineCurveDrawers == null) return;
         if (splineCurveDrawers.Length == 0) return;
 
         for (int i = 0; i < splineCurveDrawers.Length; i++)

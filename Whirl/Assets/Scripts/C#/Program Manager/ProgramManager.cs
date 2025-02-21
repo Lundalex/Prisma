@@ -174,6 +174,9 @@ public class ProgramManager : ScriptableObject
 
             // Update all non-mono behaviour objects subscribed to the ProgramUpdate life cycle (all Timer objects)
             TriggerProgramUpdate(true);
+
+            // Request an update of all sensors
+            sensorManager.RequestUpdate();
         }
         else
         {

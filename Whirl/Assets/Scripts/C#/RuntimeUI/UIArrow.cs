@@ -16,6 +16,7 @@ public class UIArrow : EditorLifeCycle
     [Header("Value Display")]
     [SerializeField] private float displayBoxScale = 1f;
     [SerializeField] private float value = 0f;
+    [SerializeField, Range(1, 3)] private int numIntegers = 3;
     [SerializeField, Range(1, 2)] private int numDecimals = 2;
     [SerializeField] private string unit = "m/s";
     [SerializeField, Range(0f, 1f)] private float colorLerpFactor = 0;
@@ -274,7 +275,8 @@ public class UIArrow : EditorLifeCycle
     private void UpdateDisplayValue()
     {
         // Update the UI text fields
-        int integerPart = Mathf.Clamp((int)value, -999, 999); // Clamp to max 3 characters
+        int maxInteger = (int)Mathf.Pow(10, numIntegers) - 1; // Determine max value based on numIntegers
+        int integerPart = Mathf.Clamp((int)value, -maxInteger, maxInteger);
         int decimalPart = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(value - integerPart) * Mathf.Pow(10, numDecimals)), 0, (int)Mathf.Pow(10, numDecimals) - 1);
         integerText.text = integerPart.ToString();
         decimalText.text = decimalPart.ToString($"D{numDecimals}");

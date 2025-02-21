@@ -205,7 +205,7 @@ public class SensorUI : MonoBehaviour
             sensor.valueMultiplier = 1.0f;
             sensor.minPrefixIndex = 2;
             sensor.numGraphDecimals = 1;
-            sensor.numGraphTimeDecimals = 1;
+            sensor.numGraphTimeDecimals = 0;
             sensor.displayValueLerpThreshold = 0.0f;
             sensor.minDisplayValue = 0.0f;
             sensor.graphController.SetNumGraphDecimals(sensor.numGraphDecimals, sensor.numGraphTimeDecimals);

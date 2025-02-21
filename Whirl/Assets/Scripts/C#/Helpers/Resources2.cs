@@ -449,6 +449,30 @@ namespace Resources2
 
             return array;
         }
+
+        public static T[] ResizeArray<T>(T[] oldArray, int newSize)
+        {
+            newSize = Mathf.Max(0, newSize);
+            T[] newArray = new T[newSize];
+            if(oldArray != null)
+            {
+                int copyLength = Mathf.Min(oldArray.Length, newSize);
+                Array.Copy(oldArray, newArray, copyLength);
+            }
+            return newArray;
+        }
+
+        public static void ResizeArray<T>(ref T[] oldArray, int newSize)
+        {
+            newSize = Mathf.Max(0, newSize);
+            T[] newArray = new T[newSize];
+            if(oldArray != null)
+            {
+                int copyLength = Mathf.Min(oldArray.Length, newSize);
+                Array.Copy(oldArray, newArray, copyLength);
+            }
+            oldArray = newArray;
+        }
     }
 #endregion
 

@@ -25,26 +25,31 @@ public class SensorManager : MonoBehaviour
     [NonSerialized] public List<SensorBase> sensors;
     private Main main;
 
+    // Private
     private bool programRunning;
+    private bool rigidBodyUpdateRequested;
+    private bool fluidUpdateRequested;
+
     public void StartScript(Main main)
     {
         this.main = main;
 
         programRunning = true;
-        StartCoroutine(RetrieveRigidBodyBufferDatasCoroutine());
-        StartCoroutine(RetrieveParticleBufferDatasCoroutine());
+        StartCoroutine(RetrieveRigidBodyDatasCoroutine());
+        StartCoroutine(RetrieveFluidDatasCoroutine());
         StartCoroutine(UpdateGraphsCoroutine());
     }
 
     public void SubscribeGraphToCoroutine(GraphController graphController) => graphControllers.Add(graphController);
 
-    private IEnumerator RetrieveRigidBodyBufferDatasCoroutine()
+    private IEnumerator RetrieveRigidBodyDatasCoroutine()
     {
         while (programRunning)
         {
             // Retrieve rigid body data buffer asynchronously
-            if (!PM.Instance.programPaused && main.RBDataBuffer != null && sensors != null)
+            if (rigidBodyUpdateRequested && main.RBDataBuffer != null && sensors != null)
             {
+                rigidBodyUpdateRequested = false;
                 bool hasRigidBodySensor = sensors.OfType<RigidBodySensor>().Any() || sensors.OfType<RigidBodyArrow>().Any();
                 if (hasRigidBodySensor)
                 {
@@ -69,13 +74,14 @@ public class SensorManager : MonoBehaviour
         }
     }
 
-    private IEnumerator RetrieveParticleBufferDatasCoroutine()
+    private IEnumerator RetrieveFluidDatasCoroutine()
     {
         while (programRunning)
         {
-            // Retrieve rigid body data buffer asynchronously
-            if (!PM.Instance.programPaused && main.RecordedFluidDataBuffer != null && sensors != null)
+            // Retrieve fluid buffer data asynchronously
+            if (fluidUpdateRequested && main.RecordedFluidDataBuffer != null && sensors != null)
             {
+                fluidUpdateRequested = false;
                 bool hasFluidSensor = sensors.OfType<FluidSensor>().Any();
                 bool hasFluidArrowField = sensors.OfType<FluidArrowField>().Any();
                 if (hasFluidSensor || hasFluidArrowField)
@@ -122,6 +128,8 @@ public class SensorManager : MonoBehaviour
             yield return new WaitForSeconds(waitTimeSeconds);
         }
     }
+
+    public void RequestUpdate() => rigidBodyUpdateRequested = fluidUpdateRequested = true;
 
     private void OnDestroy() => programRunning = false;
 }
