@@ -239,8 +239,12 @@ public class EditorManager : Editor
     private static (Vector2 start, Vector2 end) GetSpringEndPoints(SceneRigidBody rigidBody)
     {
         SceneRigidBody otherRigidBody = rigidBody.rbInput.linkedRigidBody;
+
+        if (rigidBody.cachedCentroid.x == float.PositiveInfinity) rigidBody.ComputeCentroid(rigidBody.defaultGridSpacing);
+        if (otherRigidBody.cachedCentroid.x == float.PositiveInfinity) otherRigidBody.ComputeCentroid(otherRigidBody.defaultGridSpacing);
+
         Vector2 startPoint = rigidBody.cachedCentroid + rigidBody.rbInput.localLinkPosThisRB;
-        Vector2 endPoint   = otherRigidBody.cachedCentroid + rigidBody.rbInput.localLinkPosOtherRB;
+        Vector2 endPoint = otherRigidBody.cachedCentroid + rigidBody.rbInput.localLinkPosOtherRB;
         return (startPoint, endPoint);
     }
 

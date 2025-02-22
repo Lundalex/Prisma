@@ -378,7 +378,7 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
         // Check if any points of rbA are inside rbB
         uint startIndexA = rbA.startIndex;
         uint endIndexA = rbA.endIndex;
-        for (uint vecIndex = startIndexA; vecIndex <= endIndexA; vecIndex++)
+        for (uint vecIndex = startIndexA; vecIndex <= endIndexA && !collisionDetected; vecIndex++)
         {
             float2 vertexA = RBVectors[vecIndex].pos;
             EnsureNoPathMarker(vertexA);
@@ -398,7 +398,7 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
         // Check if any points of rbB are inside rbA
         uint startIndexB = rbB.startIndex;
         uint endIndexB = rbB.endIndex;
-        for (vecIndex = startIndexB; vecIndex <= endIndexB; vecIndex++)
+        for (vecIndex = startIndexB; vecIndex <= endIndexB && !collisionDetected; vecIndex++)
         {
             float2 vertexB = RBVectors[vecIndex].pos;
             EnsureNoPathMarker(vertexB);
@@ -866,7 +866,7 @@ void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, floa
     float2 correction = (max(penetrationDepth, -epsilonCorrection)
                          + epsilonCorrection
                          + RB_RBFixedCollisionCorrection)
-                        * normal;
+                         * normal;
     rb.pos += correction;
 
     {

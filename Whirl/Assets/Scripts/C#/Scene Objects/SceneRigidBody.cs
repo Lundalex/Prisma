@@ -31,7 +31,6 @@ public class SceneRigidBody : Polygon
     public string approximatedSpringForce;
 
     // NonSerialized
-    [NonSerialized] public Vector2[] points;
     [NonSerialized] public Vector2 lastPosition = Vector2.positiveInfinity;
     [NonSerialized] public Vector2 cachedCentroid = Vector2.positiveInfinity;
     [NonSerialized] public Vector2 cachedRelativeLinkPos;

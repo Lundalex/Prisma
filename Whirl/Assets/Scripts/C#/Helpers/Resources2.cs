@@ -97,6 +97,13 @@ namespace Resources2
         {
             return new(a.x, a.y, a.z);
         }
+
+        public static Vector2 SampleCircleEvenDistribution(float radius)
+        {
+            float randomAngle = UnityEngine.Random.Range(0f, 2 * Mathf.PI);
+            float randomMagnitude = UnityEngine.Random.Range(0f, radius);
+            return new Vector2(Mathf.Cos(randomAngle), Mathf.Sin(randomAngle)) * randomMagnitude;
+        }
     }
 #endregion
 

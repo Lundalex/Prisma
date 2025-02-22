@@ -1,0 +1,154 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5079207708494968336
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3701939291932346748}
+  - component: {fileID: 4190892413440347921}
+  - component: {fileID: 6241827372916356330}
+  m_Layer: 0
+  m_Name: RectangleCart
+  m_TagString: RigidBody
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3701939291932346748
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5079207708494968336}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 410, y: 145, z: 0}
+  m_LocalScale: {x: 1.5, y: 2, z: 3}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4190892413440347921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5079207708494968336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60f0f9d213ee0c84c9b15bf4d21012c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  snapPointToGrid: 1
+  gridSpacing: 5
+  LineColor: {r: 0, g: 0, b: 0, a: 1}
+  BodyColor: {r: 1, g: 0.9972117, b: 0, a: 1}
+  doCenterPosition: 0
+  doDrawBody: 1
+  editorLineAnimationSpeed: 10
+  doOverrideGridSpacing: 1
+  defaultGridSpacing: 1
+  addInBetweenPoints: 0
+  doRecursiveSubdivisison: 0
+  minDstForSubDivision: 0.5
+  linkedSensors: []
+  rbInput:
+    includeInSimulation: 1
+    overrideCentroid: 0
+    isInteractable: 1
+    colliderType: 1
+    canMove: 1
+    canRotate: 0
+    disallowBorderCollisions: 0
+    mass: 5000
+    gravity: 9.82
+    rbElasticity: 0.3
+    fluidElasticity: 0
+    friction: 0
+    passiveDamping: 0
+    heatingStrength: 0
+    constraintType: 3
+    localLinkPosThisRB: {x: 0, y: 0}
+    localLinkPosOtherRB: {x: 0, y: 0}
+    linkedRigidBody: {fileID: 0}
+    autoSpringRestLength: 0
+    springRestLength: 0
+    springStiffness: 0
+    damping: 0
+    lerpSpeed: 0
+    lerpTimeOffset: 0
+    doRoundTrip: 0
+    startPos: {x: 0, y: 0}
+    endPos: {x: 0, y: 0}
+    overrideCentroidPosition: {x: 0, y: 0}
+    angularVelocity: 0
+    velocity: {x: 20, y: 0}
+    disableRender: 0
+    disableSpringRender: 0
+    renderPriority: 4
+    matIndex: 4
+    springMatIndex: 0
+  approximatedVolume: 208 l
+  approximatedSpringLength: No Active Spring Link
+  approximatedSpringForce: No Active Spring Link
+--- !u!60 &6241827372916356330
+PolygonCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5079207708494968336}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Points:
+    m_Paths:
+    - - {x: -30, y: -10}
+      - {x: -23.333334, y: -15}
+      - {x: 23.333334, y: -15}
+      - {x: 30, y: -10}
+      - {x: 30, y: 10}
+      - {x: 23.333334, y: 15}
+      - {x: -23.333334, y: 15}
+      - {x: -30, y: 10}
+  m_UseDelaunayMesh: 0
