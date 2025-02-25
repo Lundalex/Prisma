@@ -47,10 +47,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rigidBodyArrowType: 0
   doDisplayValueBox: 1
-  doInterpolation: 1
-  moveSpeed: 70
-  rotationSpeed: 30
-  valueLerpSpeed: 7
+  moveInterpolation: 1
+  moveSpeed: 100
+  moveAverageFrames: 5
+  moveAverageWeightBias: 0
+  rotateInterpolation: 1
+  rotationSpeed: 50
+  rotateAverageFrames: 5
+  rotateAverageWeightBias: 0
+  recordedInterpolation: 1
+  valueLerpSpeed: 10
+  recordedAverageFrames: 5
+  recordedAverageWeightBias: 0
+  accelFramesBack: 12
   doPredictTransform: 1
   rotationLerpSkipThreshold: 150
   minArrowValue: 0.15

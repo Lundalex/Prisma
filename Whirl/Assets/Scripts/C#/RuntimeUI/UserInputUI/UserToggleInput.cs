@@ -29,6 +29,8 @@ public class UserToggleInput : UserUIElement
         containerTrimImage.color = primaryColor;
     }
 
+    public bool IsOn() => toggleManager.isOn;
+
     private void Update()
     {
         if (toggleManager.isOn != lastValue)

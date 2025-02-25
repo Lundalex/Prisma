@@ -266,6 +266,7 @@ public class Main : MonoBehaviour
     private float SimTimeElapsed;
     private int StepCount = 0;
     private int timeSetRand;
+    private bool gpuDataSorted = false;
     [NonSerialized] public static bool2 MousePressed = false; // (left, right)
 
     public void SubmitParticlesToSimulation(PData[] particlesToAdd) => NewPDatas.AddRange(particlesToAdd);
@@ -330,7 +331,7 @@ public class Main : MonoBehaviour
         UpdateShaderTimeStep();
         GPUSortChunkLookUp();
         GPUSortSpringLookUp();
-        PM.Instance.clampedDeltaTime = Mathf.Min(Time.deltaTime, PM.MaxDeltaTime);
+        PM.Instance.clampedDeltaTime = Const.SMALL_FLOAT;
         UpdateScript();
 
         StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
@@ -343,12 +344,12 @@ public class Main : MonoBehaviour
         DeltaTime = GetDeltaTime(PM.Instance.clampedDeltaTime, true);
         RLDeltaTime = GetDeltaTime(Time.deltaTime, false);
 
+        gpuDataSorted = false;
         for (int i = 0; i < TimeStepsPerFrame; i++)
         {
             UpdateShaderTimeStep();
 
-            GPUSortChunkLookUp();
-            GPUSortSpringLookUp();
+            RunGPUSorting();
 
             if (i == 0) RunRenderShader();
 
@@ -370,6 +371,18 @@ public class Main : MonoBehaviour
                 StepCount++;
                 SimTimeElapsed += DeltaTime;
             }
+
+            gpuDataSorted = false;
+        }
+    }
+
+    public void RunGPUSorting()
+    {
+        if (!gpuDataSorted)
+        {
+            GPUSortChunkLookUp();
+            GPUSortSpringLookUp();
+            gpuDataSorted = true;
         }
     }
 

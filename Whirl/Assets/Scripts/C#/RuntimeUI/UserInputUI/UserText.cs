@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 
+[ExecuteInEditMode]
 public class UserText : UserUIElement
 {
     [Header("Display")]
@@ -9,6 +10,11 @@ public class UserText : UserUIElement
 
     [Header("References")]
     [SerializeField] private TMP_Text textField;
+
+    private void Update()
+    {
+        if (!Application.isPlaying) InitDisplay();
+    }
 
     public override void InitDisplay()
     {

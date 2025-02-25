@@ -8,14 +8,16 @@ using UnityEngine.Events;
 using System.Collections;
 
 #if UNITY_EDITOR
-using UnityEditor;
+    using UnityEditor;
 #endif
 
+[ExecuteInEditMode]
 public class UserSliderInput : UserUIElement
 {
     [Header("Settings")]
     [Range(0.0f, 1000.0f), SerializeField] private float msMaxUpdateFrequency = 100.0f;
     [Range(0, 2), SerializeField] private int numDecimals;
+    [SerializeField] private SliderDataType sliderDataType;
     public float startValue;
     [SerializeField] private float minValue;
     [SerializeField] private float maxValue;
@@ -50,19 +52,32 @@ public class UserSliderInput : UserUIElement
         sliderInput.decimals = numDecimals;
         sliderInputField.text = StringUtils.FloatToString(startValue, 1);
         containerTrimImage.color = primaryColor;
-        updateTimer = new Timer(Func.MsToSeconds(msMaxUpdateFrequency));
+        updateTimer = new Timer(Func.MsToSeconds(msMaxUpdateFrequency), TimeType.NonClamped);
+        title.text = titleText;
     }
 
     public void SetValue(float value)
     {
-        startValue = value;
-        InitDisplay();
+        if (Application.isPlaying)
+        {
+            startValue = value;
+            InitDisplay();
+        }
+        #if UNITY_EDITOR
+        else 
+            EditorApplication.delayCall += () => 
+            {
+                startValue = value;
+                InitDisplay();
+            };
+        #endif
     }
 
     private void Update()
     {
         if (slider.value != lastValue)
         {
+            if (updateTimer != null)
             if (updateTimer.Check())
             {
                 ModifyField();
@@ -73,6 +88,8 @@ public class UserSliderInput : UserUIElement
                 onValueChanged.Invoke();
             }
         }
+
+        if (!Application.isPlaying) InitDisplay();
     }
 
     private void ModifyField()
@@ -83,10 +100,21 @@ public class UserSliderInput : UserUIElement
         }
         else
         {
-            if (useInnerField)
-                fieldModifier.ModifyClassField(innerFieldName, slider.value);
+            float value = slider.value;
+            if (sliderDataType == SliderDataType.Float)
+            {
+                if (useInnerField)
+                    fieldModifier.ModifyClassField(innerFieldName, value);
+                else
+                    fieldModifier.ModifyField(value);
+            }
             else
-                fieldModifier.ModifyField(slider.value);
+            {
+                if (useInnerField)
+                    fieldModifier.ModifyClassField(innerFieldName, (int)value);
+                else
+                    fieldModifier.ModifyField((int)value);
+            }
         }
     }
 
@@ -97,17 +125,14 @@ public class UserSliderInput : UserUIElement
             userSliderInput.gameObject.SetActive(active);
             if (active)
             {
-                if (Application.isPlaying) userSliderInput.SetValue(activeValue);
-                #if UNITY_EDITOR
-                    else EditorApplication.delayCall += () => userSliderInput.SetValue(activeValue);
-                #endif
+                userSliderInput.SetValue(activeValue);
             }
         }
     }
 
     public void StartMonitoringValueChange()
     {
-        if (!isMonitoringValueChange && PM.Instance.totalTimeElapsed > 0.5f) StartCoroutine(WaitForMouseRelease());
+        if (!isMonitoringValueChange && PM.Instance.totalRLTimeSinceSceneLoad > 0.2f) StartCoroutine(WaitForMouseRelease());
     }
 
     private IEnumerator WaitForMouseRelease()

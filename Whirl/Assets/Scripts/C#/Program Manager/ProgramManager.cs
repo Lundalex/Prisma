@@ -41,6 +41,7 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public float scaledDeltaTime;
     [NonSerialized] public float totalTimeElapsed;
     [NonSerialized] public float totalScaledTimeElapsed;
+    [NonSerialized] public float totalRLTimeSinceSceneLoad;
     [NonSerialized] public float timeSetRandTimer;
     [NonSerialized] public Vector2 Resolution;
     [NonSerialized] public int2 ResolutionInt2;
@@ -133,6 +134,7 @@ public class ProgramManager : ScriptableObject
         // Per frame "constants"
         clampedDeltaTime = Mathf.Min(Time.deltaTime, MaxDeltaTime);
         scaledDeltaTime = clampedDeltaTime * timeScale * (slowMotionActive ? 1.0f / SlowMotionFactor : 1.0f);
+        totalRLTimeSinceSceneLoad += Time.deltaTime;
 
         // Rendering
         UpdateAnimatedDashedLineOffset(clampedDeltaTime);
@@ -180,6 +182,7 @@ public class ProgramManager : ScriptableObject
         }
         else
         {
+            main.RunGPUSorting();
             main.RunRenderShader();
             UpdateArrowScripts();
             TriggerProgramUpdate(false);
@@ -333,10 +336,11 @@ public class ProgramManager : ScriptableObject
             startConfirmationStatus = StartConfirmationStatus.None;
         }
         
-        totalTimeElapsed = 0;
-        totalScaledTimeElapsed = 0;
+        totalTimeElapsed = 0f;
+        totalScaledTimeElapsed = 0f;
+        totalRLTimeSinceSceneLoad = 0f;
         frameCount = 0;
-        globalBrightnessFactor = -1;
+        globalBrightnessFactor = -1f;
 
         sensorDatas = new();
         rigidBodyArrows = new();

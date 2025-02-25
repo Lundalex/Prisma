@@ -104,6 +104,27 @@ namespace Resources2
             float randomMagnitude = UnityEngine.Random.Range(0f, radius);
             return new Vector2(Mathf.Cos(randomAngle), Mathf.Sin(randomAngle)) * randomMagnitude;
         }
+
+        public static Color HSVColorLerp(Color minColor, Color maxColor, float t)
+        {
+            Color.RGBToHSV(minColor, out float h1, out float s1, out float v1);
+            Color.RGBToHSV(maxColor, out float h2, out float s2, out float v2);
+                if (Mathf.Abs(h2 - h1) > 0.5f)
+                {
+                        if (h1 > h2)
+                        {
+                                h2 += 1.0f;
+                        }
+                        else
+                        {
+                                h1 += 1.0f;
+                        }
+                }
+                float h = Mathf.Lerp(h1, h2, t) % 1.0f;
+                float s = Mathf.Lerp(s1, s2, t);
+                float v = Mathf.Lerp(v1, v2, t);
+                return Color.HSVToRGB(h, s, v);
+        }
     }
 #endregion
 

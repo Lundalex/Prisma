@@ -16,8 +16,10 @@ public class UIArrow : EditorLifeCycle
     [Header("Value Display")]
     [SerializeField] private float displayBoxScale = 1f;
     [SerializeField] private float value = 0f;
+    [SerializeField] private float valueFactor10Exp = 0;
     [SerializeField, Range(1, 3)] private int numIntegers = 3;
     [SerializeField, Range(1, 2)] private int numDecimals = 2;
+    [SerializeField] private bool overrideUnit;
     [SerializeField] private string unit = "m/s";
     [SerializeField, Range(0f, 1f)] private float colorLerpFactor = 0;
 
@@ -32,6 +34,7 @@ public class UIArrow : EditorLifeCycle
     [SerializeField] private float outlineGap = 3f;
 
     [Header("Colors")]
+    [SerializeField] private bool doUseHSVColorLerp;
     [SerializeField] private Color minOutlineColor;
     [SerializeField] private Color maxOutlineColor;
     [SerializeField] private Color minBodyColor;
@@ -122,6 +125,8 @@ public class UIArrow : EditorLifeCycle
 
     public void UpdateArrow(float val, string unit, float baseLength, float colorLerpFactor)
     {
+        val *= Mathf.Pow(10, valueFactor10Exp);
+
         // Only update display value if the change is significant
         if (Mathf.Abs(val - this.value) > minValueDeltaForUpdate)
         {
@@ -259,8 +264,16 @@ public class UIArrow : EditorLifeCycle
     private void UpdateColorAndTextSprites()
     {
         // Sprite colors
-        outlineBaseImage.color = outlineHatImage.color = Color.Lerp(minOutlineColor, maxOutlineColor, colorLerpFactor);
-        bodyBaseImage.color = bodyHatImage.color = Color.Lerp(minBodyColor, maxBodyColor, colorLerpFactor);
+        if (doUseHSVColorLerp)
+        {
+            outlineBaseImage.color = outlineHatImage.color = Utils.HSVColorLerp(minOutlineColor, maxOutlineColor, colorLerpFactor);
+            bodyBaseImage.color = bodyHatImage.color = Utils.HSVColorLerp(minBodyColor, maxBodyColor, colorLerpFactor);
+        }
+        else
+        {
+            outlineBaseImage.color = outlineHatImage.color = Color.Lerp(minOutlineColor, maxOutlineColor, colorLerpFactor);
+            bodyBaseImage.color = bodyHatImage.color = Color.Lerp(minBodyColor, maxBodyColor, colorLerpFactor);
+        }
 
         if (displyBoxActive)
         {
@@ -286,11 +299,12 @@ public class UIArrow : EditorLifeCycle
     private void SetDisplayValue(float newValue, string newUnit)
     {
         this.value = newValue;
-        this.unit = newUnit;
+
+        if (!overrideUnit) this.unit = newUnit;
         if (this.value < 0.0f)
         {
             this.value = Mathf.Abs(this.value);
-            this.unit = "-" + this.unit;
+            if (!overrideUnit) this.unit = "-" + newUnit;
         }
     }
 }

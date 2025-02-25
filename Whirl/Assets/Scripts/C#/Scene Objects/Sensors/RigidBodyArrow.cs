@@ -320,7 +320,7 @@ public class RigidBodyArrow : SensorBase
 
             case RigidBodyArrowType.Velocity_X:
                 value = new Vector2(vel.x, 0);
-                unit = "m/s";
+                unit = "mm/s";
                 break;
 
             case RigidBodyArrowType.Velocity_Y:

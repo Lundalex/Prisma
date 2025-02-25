@@ -297,6 +297,8 @@ public class SensorUI : MonoBehaviour
 
     private void SetDisplayValue(float val, int numDecimals)
     {
+        val *= 1.00001f;
+
         int integerPart = Mathf.Clamp((int)val, -999, 999); // Clamp to max 3 characters
         int decimalPart = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(val - integerPart) * Mathf.Pow(10, numDecimals)), 0, (int)Mathf.Pow(10, numDecimals) - 1);
 

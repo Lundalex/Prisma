@@ -8,8 +8,8 @@ using PM = ProgramManager;
 
 public class SensorManager : MonoBehaviour
 {
-    [Range(5.0f, 100.0f), SerializeField] public float msRigidBodyDataRetrievalInterval;
-    [Range(5.0f, 100.0f), SerializeField] public float msFluidDataRetrievalInterval;
+    [Range(5.0f, 100.0f)] public float msRigidBodyDataRetrievalInterval;
+    [Range(5.0f, 100.0f)] public float msFluidDataRetrievalInterval;
     [Range(5.0f, 500.0f)] public float msGraphPointSubmissionFrequency;
     [SerializeField] private bool doUpdateGraphsAsync = true;
     [Range(10.0f, 2000.0f), SerializeField] private float msGraphUpdateFrequency;
@@ -35,6 +35,7 @@ public class SensorManager : MonoBehaviour
         this.main = main;
 
         programRunning = true;
+        RequestUpdate();
         StartCoroutine(RetrieveRigidBodyDatasCoroutine());
         StartCoroutine(RetrieveFluidDatasCoroutine());
         StartCoroutine(UpdateGraphsCoroutine());
