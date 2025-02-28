@@ -26,7 +26,7 @@ public class FluidArrowField : SensorBase
     [SerializeField] private float patternModulo;
 
     [Header("Fluid Sampling")]
-    [SerializeField, Range(0, 100)] private int sampleSpacing;
+    [SerializeField, Range(1, 100)] private int sampleSpacing;
     [SerializeField, Range(1, 100)] private int autoScaleReferenceSampleSpacing;
     [SerializeField, Range(0, 10)] private int sampleRadius;
 
@@ -342,7 +342,7 @@ public class FluidArrowField : SensorBase
         switch (fluidArrowFieldType)
         {
             case FluidArrowFieldType.RigidBodyForces:
-                value = fluidData.totRigidBodyForces;
+                value = fluidData.totRigidBodyForces / Mathf.Max(fluidData.numContributions, 1);
                 unit = "NoUnit";
                 break;
             case FluidArrowFieldType.Velocity:

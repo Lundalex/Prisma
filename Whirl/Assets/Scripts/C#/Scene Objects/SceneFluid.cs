@@ -18,6 +18,7 @@ public class SceneFluid : Polygon
 
     [Header("Simulation Object Settings")]
     [Range(0.1f, 10.0f)] public float defaultGridSpacing = 2.0f;
+    [Range(0.0f, 1.0f)] public float particleOffsetMagnitude = 0.1f;
     [SerializeField] private float particleTemperatureCelcius = 20.0f;
     [SerializeField] private int pTypeIndex = 0;
 
@@ -71,7 +72,7 @@ public class SceneFluid : Polygon
         if (pTypeInput == null) pTypeInput = GameObject.FindGameObjectWithTag("PTypeInput").GetComponent<PTypeInput>();
 
         SetPolygonData();
-        List<Vector2> generatedPoints = GeneratePoints(gridSpacing);
+        List<Vector2> generatedPoints = GeneratePoints(true, gridSpacing);
 
         if (pTypeIndex >= pTypeInput.particleTypeStates.Length * 3) Debug.LogError("pTypeIndex outside valid range. SceneFluid: " + this.name);
 
@@ -84,7 +85,7 @@ public class SceneFluid : Polygon
         return pDatas;
     }
 
-    public List<Vector2> GeneratePoints(float gridSpacing = 0)
+    public List<Vector2> GeneratePoints(bool doApplySmallRandOffset, float gridSpacing = 0)
     {
         if (sceneManager == null) sceneManager = GameObject.Find("SceneManager").GetComponent<SceneManager>();
 
@@ -110,7 +111,8 @@ public class SceneFluid : Polygon
             for (float y = min.y; y <= max.y; y += gridSpacing)
             {
                 // Offset the spawning of each particle slightly to avoid visual rendering artifacts the first few frames
-                Vector2 point = new Vector2(x, y) + SmallRandVector2(0.1f * gridSpacing);
+                Vector2 point = new(x, y);
+                if (doApplySmallRandOffset) point += SmallRandVector2(particleOffsetMagnitude * gridSpacing);
 
                 if (IsPointInsidePolygon(point) &&
                     sceneManager.IsPointInsideBounds(point) &&

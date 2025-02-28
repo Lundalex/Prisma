@@ -179,14 +179,21 @@ float dot2(float2 dst)
 	return dot(dst, dst);
 }
 
+float sqr(float a)
+{
+	return a * a;
+}
+
 float avg(float a, float b)
 {
     return (a + b) * 0.5;
 }
 
-float sqr(float a)
+float weightedAvg(float valueA, float weightA, float valueB, float weightB)
 {
-	return a * a;
+    float denom = weightA + weightB;
+    if (denom == 0) return 0.01;
+    return (valueA * weightA + valueB * weightB) / denom;
 }
 
 float lerp1D(float posA, float posB, float valA, float valB, float targetVal)

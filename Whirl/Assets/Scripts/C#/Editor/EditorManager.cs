@@ -151,7 +151,7 @@ public class EditorManager : Editor
 
         if (fluid.editorRenderMethod == EditorRenderMethod.Particles)
         {
-            fluid.Points = fluid.GeneratePoints(-1).ToArray();
+            fluid.Points = fluid.GeneratePoints(false, -1).ToArray();
             int iterationCount = 0;
 
             Gizmos.color = fluid.BodyColor;

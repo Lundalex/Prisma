@@ -202,9 +202,6 @@ float2 CalcDensity(int pIndex) // (density, nearDensity)
         }
     }
 
-    // // density ∝ temperature
-    // float tempCoefficient = 0.0033 * pData.temperature;
-
     return float2(totDensity, totNearDensity);
 }
 
@@ -248,7 +245,7 @@ float SharedPressure(float densityA, float densityB, float targetDensityA, float
 {
     float PressureA = DensityToPressure(densityA, targetDensityA, typePressureA);
     float PressureB = DensityToPressure(densityB, targetDensityB, typePressureB);
-    float sharedPressure = avg(PressureA, PressureB);
+    float sharedPressure = weightedAvg(PressureA, densityA, PressureB, densityB);
 
     return sharedPressure;
 }
@@ -257,7 +254,7 @@ float SharedNearPressure(float nearDensityA, float nearDensityB, float nearPress
 {
     float nearPressureA = nearDensityA * nearPressureMultiplierA;
     float nearPressureB = nearDensityB * nearPressureMultiplierB;
-    float sharedNearPressure = avg(nearPressureA, nearPressureB);
+    float sharedNearPressure = weightedAvg(nearPressureA, nearDensityA, nearPressureB, nearDensityB);
 
     return sharedNearPressure;
 }
@@ -297,7 +294,7 @@ float2 ViscocityForce(float2 lastVelocityA, float2 lastVelocityB, PType pType, P
 {
     float2 viscocityForce = viscocityLaplacian * (lastVelocityB - lastVelocityA);
 
-    return viscocityForce * avg(pType.viscosity, pType_otherPIndex.viscosity);
+    return viscocityForce * ((pType.viscosity * pType.mass + pType_otherPIndex.viscosity * pType_otherPIndex.mass) / (pType.mass + pType_otherPIndex.mass + EPSILON));
 }
 
 float3 InteractionEffects(int pIndex)
@@ -336,6 +333,9 @@ float3 InteractionEffects(int pIndex)
 
 float2 LiquidSpringForce(PType pType, PType PType_otherPIndex, int pIndex, int otherPIndex, int springIndex, float absDst, float avgInfluenceRadius, float2 normDst)
 {
+    // Replace the simple avgInfluenceRadius with a weighted average:
+    float weightedInfluenceRadius = weightedAvg(pType.influenceRadius, pType.mass, PType_otherPIndex.influenceRadius, PType_otherPIndex.mass);
+
     Spring spring = ParticleSpringsCombined[springIndex];
 
     // Initialize if needed
@@ -343,7 +343,7 @@ float2 LiquidSpringForce(PType pType, PType PType_otherPIndex, int pIndex, int o
     {
         spring.pLinkedA = pIndex;
         spring.pLinkedB = otherPIndex;
-        spring.restLength = avgInfluenceRadius - 0.1;
+        spring.restLength = weightedInfluenceRadius - 0.1;
     }
 
     // Plasticity calculations
@@ -355,7 +355,7 @@ float2 LiquidSpringForce(PType pType, PType PType_otherPIndex, int pIndex, int o
 
     // Elasticity calculations
     float stiffness = avg(pType.springStiffness, PType_otherPIndex.springStiffness);
-    float absSpringForce = LiquidSpringForceModel(stiffness, spring.restLength, avgInfluenceRadius, absDst);
+    float absSpringForce = LiquidSpringForceModel(stiffness, spring.restLength, weightedInfluenceRadius, absDst);
     float2 springForce = absSpringForce * normDst;
     
     // Plastic update
@@ -373,7 +373,7 @@ float2 LiquidSpringForce(PType pType, PType PType_otherPIndex, int pIndex, int o
 float TemperatureExchange(float viscocityLaplacian, float TemperatureA, float TemperatureB, float ThermalConductivityA, float ThermalConductivityB, float absDst, float DeltaTime)
 {
     float temperatureDiff = TemperatureB - TemperatureA;
-    float avgThermalConductivity = avg(ThermalConductivityA, ThermalConductivityB);
+    float avgThermalConductivity = min(ThermalConductivityA, ThermalConductivityB);
 
     return LiquidTemperatureExchangeModel(avgThermalConductivity, temperatureDiff, viscocityLaplacian, max(absDst, 0.1), DeltaTime);
 }
@@ -534,7 +534,7 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
 
                 float2 dst = PData_otherPIndex.pos - pData.pos;
                 float sqrDst = dot(dst, dst);
-                float avgInfluenceRadius = avg(pType.influenceRadius, PType_otherPIndex.influenceRadius);
+                float avgInfluenceRadius = weightedAvg(pType.influenceRadius, pType.mass, PType_otherPIndex.influenceRadius, PType_otherPIndex.mass);
 
                 if (sqrDst > MaxInfluenceRadiusSqr || sqrDst > sqr(avgInfluenceRadius)) { index++; nCount++; continue; }
                 float absDst = sqrt(sqrDst);
@@ -564,8 +564,6 @@ void ParticleForces (uint3 id : SV_DispatchThreadID)
                 #if SIMULATE_PARTICLE_TEMPERATURE
                     totTemperatureExchange += TemperatureExchange(viscocityLaplacian, pData.temperature, PData_otherPIndex.temperature, pType.thermalConductivity, PType_otherPIndex.thermalConductivity, absDst, DeltaTime);
                 #endif
-
-                // --- Increment index each iteration - particle chunks algorithm, particle springs algorithm ---
 
                 index++;
                 nCount++;
@@ -601,6 +599,7 @@ void UpdatePositions (uint3 id : SV_DispatchThreadID)
     PData pData = PDatas[i];
     int pTypeIndex = Extract_PType(pData.lastChunkKey_PType_POrder);
     PType pType = PTypes[pTypeIndex];
+    uint state = id.y * BoundaryDims.x + id.x + StepRand;
 
     // Ensure the velocity is within the valid range
     pData.vel = SafeFloat2(pData.vel, MaxPVel);
@@ -612,6 +611,7 @@ void UpdatePositions (uint3 id : SV_DispatchThreadID)
     float2 newVelocity = float2(PosVelData.z, PosVelData.w);
 
     // Decrease the velocity vector length with respect to the passive damping factor
+    if (AreAllComponentsEqualTo(newVelocity, 0)) newVelocity = 0.01 * randPointInCircle(state);
     newVelocity *= max(length(newVelocity) - pType.passiveDamping * DeltaTime, 0) / length(newVelocity);
     PDatas[i].vel = newVelocity;
 

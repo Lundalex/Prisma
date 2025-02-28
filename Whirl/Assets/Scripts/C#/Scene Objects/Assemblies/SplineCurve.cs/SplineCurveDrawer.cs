@@ -161,7 +161,7 @@ public class SplineCurveDrawer : MonoBehaviour
             Gizmos.DrawLine(splinePoints[i], splinePoints[i + 1]);
         }
     }
- 
+
     public Vector3[] CreateSplinePoints(bool simSpace_canvasSpace)
     {
         CheckStoredData();
@@ -177,23 +177,50 @@ public class SplineCurveDrawer : MonoBehaviour
                 positions[i] = handleRects[i].position;
         }
         
-        for (int i = 0; i < positions.Length - 1; i++)
+        int numPositions = positions.Length;
+
+        if (splineOnly) // Non-box spline: treat as a closed loop
         {
-            Vector3 p0 = positions[Mathf.Max(i - 1, 0)];
-            Vector3 p1 = positions[i];
-            Vector3 p2 = positions[i + 1];
-            Vector3 p3 = positions[Mathf.Min(i + 2, positions.Length - 1)];
-            
-            if (points.Count == 0)
+            for (int i = 0; i < numPositions; i++)
             {
-                points.Add(p1);
+                Vector3 p1 = positions[i];
+                Vector3 p2 = positions[(i + 1) % numPositions];
+                Vector3 p0 = (i == 0) ? positions[numPositions - 1] : positions[i - 1];
+                Vector3 p3 = positions[(i + 2) % numPositions];
+
+                if (points.Count == 0)
+                {
+                    points.Add(p1);
+                }
+                
+                for (int j = 1; j <= segmentsPerCurve; j++)
+                {
+                    float t = j / (float)segmentsPerCurve;
+                    Vector3 point = Func.CatmullRom(p0, p1, p2, p3, t);
+                    points.Add(point);
+                }
             }
-            
-            for (int j = 1; j <= segmentsPerCurve; j++)
+        }
+        else // Box spline: use an open curve that does not loop through the start and end
+        {
+            for (int i = 0; i < numPositions - 1; i++)
             {
-                float t = j / (float)segmentsPerCurve;
-                Vector3 point = Func.CatmullRom(p0, p1, p2, p3, t);
-                points.Add(point);
+                Vector3 p1 = positions[i];
+                Vector3 p2 = positions[i + 1];
+                Vector3 p0 = (i == 0) ? p1 * 2f - p2 : positions[i - 1];
+                Vector3 p3 = (i == numPositions - 2) ? p2 * 2f - p1 : positions[i + 2];
+                
+                if (points.Count == 0)
+                {
+                    points.Add(p1);
+                }
+                
+                for (int j = 1; j <= segmentsPerCurve; j++)
+                {
+                    float t = j / (float)segmentsPerCurve;
+                    Vector3 point = Func.CatmullRom(p0, p1, p2, p3, t);
+                    points.Add(point);
+                }
             }
         }
 
@@ -205,7 +232,8 @@ public class SplineCurveDrawer : MonoBehaviour
             PrunePoints(ref points);
         }
 
-        for (int i = 0; i < points.Count; i++) points[i] = TransformPoint(points[i], simSpace_canvasSpace);
+        for (int i = 0; i < points.Count; i++) 
+            points[i] = TransformPoint(points[i], simSpace_canvasSpace);
 
         return points.ToArray();
     }
