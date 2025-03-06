@@ -32,6 +32,7 @@ public class UIArrow : EditorLifeCycle
     [SerializeField] private float baseLength = 100f;
     [SerializeField] private float hatSize = 80f;
     [SerializeField] private float outlineGap = 3f;
+    [SerializeField] private bool extrudeForward = true;
 
     [Header("Colors")]
     [SerializeField] private bool doUseHSVColorLerp;
@@ -243,7 +244,7 @@ public class UIArrow : EditorLifeCycle
     private void UpdateGeometrySprites()
     {
         // Sprite container
-        spriteContainerRect.localPosition = new Vector2(baseLength, 0);
+        spriteContainerRect.localPosition = extrudeForward ? new Vector2(baseLength, 0) : new Vector2(-baseLength, 0);
 
         // Base section
         outlineBaseRect.sizeDelta = new Vector2(baseLength, baseWidth);
