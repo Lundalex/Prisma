@@ -15,7 +15,7 @@ using System.Collections;
 public class UserSliderInput : UserUIElement
 {
     [Header("Settings")]
-    [Range(0.0f, 1000.0f), SerializeField] private float msMaxUpdateFrequency = 100.0f;
+    [Range(0.0f, 1000.0f), SerializeField] private float msMaxUpdateFrequency = 10.0f;
     [Range(0, 2), SerializeField] private int numDecimals;
     [SerializeField] private SliderDataType sliderDataType;
     public float startValue;

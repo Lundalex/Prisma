@@ -536,6 +536,23 @@ namespace Resources2
             };
         }
 
+        public static Vector2[] Circle(float radius, int numSegments, Vector2? centerInput = null)
+        {
+            Vector2 center = centerInput ?? Vector2.zero;
+            Vector2[] points = new Vector2[numSegments];
+            for (int i = 0; i < numSegments; i++)
+            {
+                float angle = 2 * Mathf.PI * i / numSegments;
+                points[i] = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+            }
+            return points;
+        }
+
+        public static Vector2[] CenteredCircle(float radius, int numSegments)
+        {
+            return Circle(radius, numSegments, Vector2.zero);
+        }
+
         public static bool IsClockwise(Vector2[] points)
         {
             float area = 0f;
