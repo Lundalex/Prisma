@@ -271,9 +271,9 @@ void ResolveCollisionRB_RB(
 
     // Velocities at collision
     float2 rbAVel = Int2ToFloat2(rbA.vel_AsInt2, INT_FLOAT_PRECISION_RB)
-                  + crossZ(IntToFloat(rbA.rotVel_AsInt, INT_FLOAT_PRECISION_RB), rA);
+                  + crossZ(IntToFloat(rbA.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT), rA);
     float2 rbBVel = Int2ToFloat2(rbB.vel_AsInt2, INT_FLOAT_PRECISION_RB)
-                  + crossZ(IntToFloat(rbB.rotVel_AsInt, INT_FLOAT_PRECISION_RB), rB);
+                  + crossZ(IntToFloat(rbB.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT), rB);
 
     float2 relVel = rbBVel - rbAVel;
     float relVelAlongNormal = dot(relVel, normal);
@@ -424,8 +424,8 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
             AccumulateDeltaVel(rbBIndex, deltaVelB_Int2);
 
             // Update angular velocities
-            int deltaRotVelA_Int = FloatAsInt(deltaRotVelA, INT_FLOAT_PRECISION_RB);
-            int deltaRotVelB_Int = FloatAsInt(deltaRotVelB, INT_FLOAT_PRECISION_RB);
+            int deltaRotVelA_Int = FloatAsInt(deltaRotVelA, INT_FLOAT_PRECISION_RB_ROT);
+            int deltaRotVelB_Int = FloatAsInt(deltaRotVelB, INT_FLOAT_PRECISION_RB_ROT);
             AccumulateDeltaRotVel(rbAIndex, deltaRotVelA_Int);
             AccumulateDeltaRotVel(rbBIndex, deltaRotVelB_Int);
 
@@ -489,7 +489,7 @@ void ResolveCollisionRB_P(
 
     // RigidBody velocity at collision
     float2 dstToCollisionPoint = collisionPoint - rb.pos;
-    float2 rotVelAtCollisionPoint = float2(-dstToCollisionPoint.y, dstToCollisionPoint.x) * IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB);
+    float2 rotVelAtCollisionPoint = float2(-dstToCollisionPoint.y, dstToCollisionPoint.x) * IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT);
     float2 rbVel = Int2ToFloat2(rb.vel_AsInt2, INT_FLOAT_PRECISION_RB) + rotVelAtCollisionPoint;
     float2 relVel = pData.vel - rbVel;
 
@@ -578,7 +578,7 @@ void SimulateRB_P(uint3 id : SV_DispatchThreadID)
                 }
                 if (deltaRotVel != 0)
                 {
-                    int deltaRotVel_Int = FloatAsInt(deltaRotVel, INT_FLOAT_PRECISION_RB);
+                    int deltaRotVel_Int = FloatAsInt(deltaRotVel, INT_FLOAT_PRECISION_RB_ROT);
                     AccumulateDeltaRotVel(rbIndex, deltaRotVel_Int);
                 }
 
@@ -630,6 +630,8 @@ void GetRBBounds(RigidBody rb,
 
 float2 interactionAcceleration(inout RigidBody rb)
 {
+    if (rb.maxRadiusSqr <= 0) return 0;
+
     float2 dst = rb.pos - MousePos;
     float absDst = length(dst);
 
@@ -714,9 +716,9 @@ void SimulateRBSprings(uint3 id : SV_DispatchThreadID)
         AccumulateDeltaPos(rbA.linkedRBIndex, deltaPosB_Int2);
 
         float2 velAtLinkA = Int2ToFloat2(rbA.vel_AsInt2, INT_FLOAT_PRECISION_RB)
-                          + crossZ(IntToFloat(rbA.rotVel_AsInt, INT_FLOAT_PRECISION_RB), linkPosA);
+                          + crossZ(IntToFloat(rbA.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT), linkPosA);
         float2 velAtLinkB = Int2ToFloat2(rbB.vel_AsInt2, INT_FLOAT_PRECISION_RB)
-                          + crossZ(IntToFloat(rbB.rotVel_AsInt, INT_FLOAT_PRECISION_RB), linkPosB);
+                          + crossZ(IntToFloat(rbB.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT), linkPosB);
 
         float2 relVel = velAtLinkA - velAtLinkB;
         float2 direction = normalize(constraintError);
@@ -751,9 +753,9 @@ void SimulateRBSprings(uint3 id : SV_DispatchThreadID)
         float springForceMagnitude = -stiffness * displacement;
 
         float2 velAtLinkA = Int2ToFloat2(rbA.vel_AsInt2, INT_FLOAT_PRECISION_RB)
-                          + crossZ(IntToFloat(rbA.rotVel_AsInt, INT_FLOAT_PRECISION_RB), linkPosA);
+                          + crossZ(IntToFloat(rbA.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT), linkPosA);
         float2 velAtLinkB = Int2ToFloat2(rbB.vel_AsInt2, INT_FLOAT_PRECISION_RB)
-                          + crossZ(IntToFloat(rbB.rotVel_AsInt, INT_FLOAT_PRECISION_RB), linkPosB);
+                          + crossZ(IntToFloat(rbB.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT), linkPosB);
 
         float2 relVel = velAtLinkA - velAtLinkB;
         float relVelAlongSpring = dot(relVel, direction);
@@ -777,8 +779,8 @@ void SimulateRBSprings(uint3 id : SV_DispatchThreadID)
     AccumulateDeltaVel(i, deltaVelA_Int2);
     AccumulateDeltaVel(rbA.linkedRBIndex, deltaVelB_Int2);
 
-    int deltaRotVelA_Int = FloatAsInt(deltaRotVelA, INT_FLOAT_PRECISION_RB);
-    int deltaRotVelB_Int = FloatAsInt(deltaRotVelB, INT_FLOAT_PRECISION_RB);
+    int deltaRotVelA_Int = FloatAsInt(deltaRotVelA, INT_FLOAT_PRECISION_RB_ROT);
+    int deltaRotVelB_Int = FloatAsInt(deltaRotVelB, INT_FLOAT_PRECISION_RB_ROT);
     AccumulateDeltaRotVel(i, deltaRotVelA_Int);
     AccumulateDeltaRotVel(rbA.linkedRBIndex, deltaRotVelB_Int);
 
@@ -795,9 +797,9 @@ int SafeAsInt(int asInt, float max)
 {
     if (asInt == 0) return 0;
 
-    float asFloat = IntToFloat(asInt, INT_FLOAT_PRECISION_RB);
+    float asFloat = IntToFloat(asInt, INT_FLOAT_PRECISION_RB_ROT);
     asFloat = sign(asFloat) * min(abs(asFloat), max);
-    int newAsInt = FloatAsInt(asFloat, INT_FLOAT_PRECISION_RB);
+    int newAsInt = FloatAsInt(asFloat, INT_FLOAT_PRECISION_RB_ROT);
     return newAsInt;
 }
 
@@ -815,7 +817,7 @@ void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, floa
 {
     float2 r = collisionPoint - rb.pos;
 
-    float2 rbRotVelAtCollisionPoint = crossZ(IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB), r);
+    float2 rbRotVelAtCollisionPoint = crossZ(IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT), r);
     float2 rbVel = Int2ToFloat2(rb.vel_AsInt2, INT_FLOAT_PRECISION_RB) + rbRotVelAtCollisionPoint;
 
     float2 relVel = rbVel;
@@ -836,7 +838,7 @@ void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, floa
     rb.vel_AsInt2 += Float2AsInt2(impulseNormal * invMass, INT_FLOAT_PRECISION_RB);
 
     float deltaRotVel = cross2D(r, impulseNormal) * invInertia;
-    rb.rotVel_AsInt += FloatAsInt(deltaRotVel, INT_FLOAT_PRECISION_RB);
+    rb.rotVel_AsInt += FloatAsInt(deltaRotVel, INT_FLOAT_PRECISION_RB_ROT);
 
     float2 tangent = relVel - relVelAlongNormal * normal;
     float tangentSpeed = length(tangent);
@@ -853,7 +855,7 @@ void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, floa
         rb.vel_AsInt2 += Float2AsInt2(impulseFriction * invMass, INT_FLOAT_PRECISION_RB);
 
         float deltaRotVelFriction = cross2D(r, impulseFriction) * invInertia;
-        rb.rotVel_AsInt += FloatAsInt(deltaRotVelFriction, INT_FLOAT_PRECISION_RB);
+        rb.rotVel_AsInt += FloatAsInt(deltaRotVelFriction, INT_FLOAT_PRECISION_RB_ROT);
 
         float2 frictionForce = impulseFriction / DeltaTime;
         float2 frictionForceNormalized = frictionForce * 0.001;
@@ -905,7 +907,7 @@ void UpdateRigidBodies(uint3 id : SV_DispatchThreadID)
     if (rb.inertia > 0)
     {
         rb.rotVel_AsInt = SafeAsInt(rb.rotVel_AsInt, MaxRBRotVel);
-        rb.totRot += IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB) * DeltaTime;
+        rb.totRot += IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT) * DeltaTime;
     }
     
     bool isLinearMotor = rb.mass < 0;

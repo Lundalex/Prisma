@@ -9,6 +9,7 @@ public class UIArrow : EditorLifeCycle
 {
     [Header("Arrow Transform")]
     public Vector2 center = Vector2.zero;
+    public Vector2 centerOffset = Vector2.zero;
     public float radius = 20f;
     public float rotation = 0f;
     public float scale = 1f;
@@ -222,7 +223,7 @@ public class UIArrow : EditorLifeCycle
 
     private void UpdateCenterSprites()
     {
-        transform.localPosition = center;
+        transform.localPosition = center + centerOffset;
     }
 
     private void UpdateRadiusSprites(float oscillation)

@@ -7,6 +7,7 @@ public class Circle : Assembly
 
     [Header("Circle Settings")]
     public int numSegments = 16;
+    public float radiusFactor = 1.0f;
     public float radius = 50.0f;
     public float referenceRadius = 50.0f;
     public float referenceMass = 1000.0f;
@@ -14,13 +15,14 @@ public class Circle : Assembly
     [Header("References")]
     [SerializeField] private SceneRigidBody rigidBody;
     [SerializeField] private UserSliderInput userSliderInput;
+    [SerializeField] private DataStorage dataStorage;
 
-    // Private static
-    private static float storedRadius;
-    private static int storedNumSegments;
-    private static float storedReferenceRadius;
-    private static float storedReferenceMass;
-    private static bool dataHasBeenStored = false;
+    private class CircleData {
+        public float radius;
+        public int numSegments;
+        public float referenceRadius;
+        public float referenceMass;
+    }
 
     private void OnEnable()
     {
@@ -36,20 +38,22 @@ public class Circle : Assembly
 
     private void StoreData()
     {
-        dataHasBeenStored = true;
-        storedRadius = radius;
-        storedNumSegments = numSegments;
-        storedReferenceRadius = referenceRadius;
-        storedReferenceMass = referenceMass;
+        CircleData data = new();
+        data.radius = radius;
+        data.numSegments = numSegments;
+        data.referenceRadius = referenceRadius;
+        data.referenceMass = referenceMass;
+        dataStorage?.SetValue(data);
     }
 
     private void RetrieveData()
     {
-        if (!dataHasBeenStored) return;
-        radius = storedRadius;
-        numSegments = storedNumSegments;
-        referenceRadius = storedReferenceRadius;
-        referenceMass = storedReferenceMass;
+        CircleData data = dataStorage?.GetValue<CircleData>();
+        if (data == null) return;
+        radius = data.radius;
+        numSegments = data.numSegments;
+        referenceRadius = data.referenceRadius;
+        referenceMass = data.referenceMass;
     }
 
     public override void AssemblyUpdate()
@@ -68,12 +72,13 @@ public class Circle : Assembly
             numSegments = 3;
         }
 
-        Vector2[] circlePoints = GeometryUtils.CenteredCircle(radius, numSegments);
+        float scaledRadius = radius * radiusFactor;
+        Vector2[] circlePoints = GeometryUtils.CenteredCircle(scaledRadius, numSegments);
         rigidBody.OverridePolygonPoints(circlePoints);
 
         if (referenceRadius > 0)
         {
-            float mass = referenceMass * Func.Sqr(radius / referenceRadius);
+            float mass = referenceMass * Func.Sqr(scaledRadius / referenceRadius);
             rigidBody.rbInput.mass = mass;
         }
         else

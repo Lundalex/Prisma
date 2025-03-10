@@ -47,7 +47,8 @@ public class Main : MonoBehaviour
     public bool DoSimulateParticleTemperature = true;
 
     // Variable storage precision
-    public float FloatIntPrecisionRB = 20000.0f; // Rigid Body Simulation
+    public float FloatIntPrecisionRB = 50000.0f; // Rigid Body Simulation
+    public float FloatIntPrecisionRBRot = 5000000.0f; // Rigid Body Simulation
     public float FloatIntPrecisionP = 1000.0f; // Particle Simulation
 #endregion
 

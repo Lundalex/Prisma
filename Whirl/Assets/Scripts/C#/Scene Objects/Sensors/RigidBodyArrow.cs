@@ -299,7 +299,7 @@ public class RigidBodyArrow : SensorBase
             recordedBufferIndex = (recordedBufferIndex + 1) % recordedBuffer.Length;
         }
 
-        Vector2 totalForce = currentAcc * rbData.mass * 0.001f;
+        Vector2 totalForce = 0.001f * rbData.mass * currentAcc;
         Vector2 springForce = rbData.recordedSpringForce;
         Vector2 frictionForce = rbData.recordedFrictionForce;
 
@@ -404,7 +404,7 @@ public class RigidBodyArrow : SensorBase
                 break;
 
             case RigidBodyArrowType.GravityForce:
-                value = new Vector2(0, -rbData.gravity);
+                value = 0.001f * rbData.mass * new Vector2(0, -rbData.gravity);
                 unit = "N";
                 break;
 

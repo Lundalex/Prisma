@@ -20,6 +20,7 @@ static const float RED_TINT_FACTOR = 0.00002;
 
 // A higher value may cause the half precision to be insufficient, leading to incorrect calculations
 static const float INT_FLOAT_PRECISION_RB = 50000.0;
+static const float INT_FLOAT_PRECISION_RB_ROT = 50000000.0;
 static const float INT_FLOAT_PRECISION_P = 5000.0;
 
 // --- New path flag values ---
