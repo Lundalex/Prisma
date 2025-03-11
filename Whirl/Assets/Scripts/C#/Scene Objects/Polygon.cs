@@ -9,8 +9,8 @@ public abstract class Polygon : EditorLifeCycle
     [Header("Editor Settings")]
     public bool snapPointToGrid = true;
     public float gridSpacing = 1.0f;
-    public Color LineColor = Color.black;
-    public Color BodyColor = Color.white;
+    [ColorUsage(true, true)] public Color LineColor = Color.black;
+    [ColorUsage(true, true)] public Color BodyColor = Color.white;
 
     [NonSerialized] public List<Edge> Edges = new();
     [NonSerialized] public List<Vector2> MeshPoints = new(); // All points combined

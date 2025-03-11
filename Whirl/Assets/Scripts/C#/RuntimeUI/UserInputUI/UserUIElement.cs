@@ -11,7 +11,7 @@ public abstract class UserUIElement : EditorLifeCycle
     public TMP_Text title;
 
     public string titleText;
-    public Color primaryColor;
+    [ColorUsage(true, true)] public Color primaryColor;
 
     [Header("Unity Event")]
     public UnityEvent onValueChanged;
