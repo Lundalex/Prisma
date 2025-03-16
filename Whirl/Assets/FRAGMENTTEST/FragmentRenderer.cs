@@ -13,11 +13,32 @@ struct RigidBody
 [StructLayout(LayoutKind.Sequential)]
 struct VertexData
 {
-    public int parentIndex; // offset 0 (stored as float)
-    public Vector2 pos;     // offset 1 (2 floats)
+    public Vector2 pos;     // offset 0 (2 floats)
 }
 
-public class FragmentShaderBufferRenderer : MonoBehaviour
+// struct RigidBody
+// {
+//     float2 pos;
+//     int renderPriority;
+//     uint startIndex;
+//     uint endIndex;
+//     int matIndex;
+//     float totRot;
+//     float maxRadiusSqr;
+//     int springMatIndex;
+//     float springStiffness;
+//     int linkedRBIndex;
+//     float2 localLinkPosThisRB;
+//     float2 localLinkPosOtherRB;
+//     float recordedSpringForce;
+//     float springRestLength;
+// };
+// struct RBVector
+// {
+//     float2 pos;
+// };
+
+public class FragmentRenderer : MonoBehaviour
 {
     public int maxTextureSize = 16;
     public int numRigidBodies = 10;
@@ -42,14 +63,18 @@ public class FragmentShaderBufferRenderer : MonoBehaviour
 
     float[] Flatten<T>(T item)
     {
-        List<float> values = new List<float>();
+        List<float> values = new();
         foreach (FieldInfo field in typeof(T).GetFields())
         {
             object val = field.GetValue(item);
             if (field.FieldType == typeof(float))
+            {
                 values.Add((float)val);
+            }
             else if (field.FieldType == typeof(int))
+            {
                 values.Add((int)val);
+            }
             else if (field.FieldType == typeof(Vector2))
             {
                 Vector2 vec = (Vector2)val;
@@ -89,11 +114,9 @@ public class FragmentShaderBufferRenderer : MonoBehaviour
         vertexData = new VertexData[numVertices];
         for (int i = 0; i < numVertices; i++)
         {
-            int parent = i / 4;
             vertexData[i] = new VertexData
             {
-                parentIndex = parent,
-                pos = GetSquareVerts(i % 4)
+                pos = GetSquareVertex(i % 4)
             };
         }
 
@@ -123,7 +146,7 @@ public class FragmentShaderBufferRenderer : MonoBehaviour
         UpdateShaderData();
     }
 
-    Vector2 GetSquareVerts(int index)
+    Vector2 GetSquareVertex(int index)
     {
         float halfSide = 0.05f;
         return index switch

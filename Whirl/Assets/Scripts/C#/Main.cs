@@ -10,6 +10,8 @@ using Debug = UnityEngine.Debug;
 
 public class Main : MonoBehaviour
 {
+    public SimulationDevice simDevice = SimulationDevice.GPU;
+
 #region Safety
     public float MaxPVel = 100;
     public float MaxRBRotVel = 100;
@@ -182,11 +184,11 @@ public class Main : MonoBehaviour
     public RenderTexture dynamicCausticsTexture;
     public Texture2DArray precomputedCausticsTexture;
 
-    // Scripts
     public MaterialInput materialInput;
     public PTypeInput pTypeInput;
     public SceneManager sceneManager;
     public ShaderHelper shaderHelper;
+    public Transform fragmentTransform;
 
     // Compute Shaders
     public ComputeShader renderShader;
@@ -276,7 +278,8 @@ public class Main : MonoBehaviour
     {
         SimTimeElapsed = 0;
 
-        CameraSetup();
+        ValidateHardwareCompatibility();
+        RenderSetup();
 
         // Boundary
         BoundaryDims = sceneManager.GetBounds(MaxInfluenceRadius);
@@ -541,10 +544,19 @@ public class Main : MonoBehaviour
         else rbSimShader.DisableKeyword("DO_USE_FAST_COMPILATION");
     }
 
-    private void CameraSetup()
+    private void ValidateHardwareCompatibility()
+    {
+        // This function will determine whether the current simulation device settings are compatible with the user's computer.
+        // Otherwise, the simulation device will be changed to prevent crashes.
+    }
+
+    private void RenderSetup()
     {
         Camera.main.transform.position = new Vector3(BoundaryDims.x / 2, BoundaryDims.y / 2, -1);
         Camera.main.orthographicSize = Mathf.Max(BoundaryDims.x * 0.75f, BoundaryDims.y * 1.5f);
+        fragmentTransform.position = new Vector3(BoundaryDims.x / 2, BoundaryDims.y / 2, -0.5f);
+        fragmentTransform.localScale = 0.5f * Func.Int2ToVector2(Resolution);
+        fragmentTransform.gameObject.SetActive(simDevice != SimulationDevice.GPU);
     }
 
     private void SetLightingSettings()
@@ -794,7 +806,11 @@ public class Main : MonoBehaviour
         renderShader.SetInt("NextTimeSetRand", timeSetRand);
     }
 
-    public void OnRenderImage(RenderTexture src, RenderTexture dest) => Graphics.Blit(renderTexture, dest);
+    public void OnRenderImage(RenderTexture src, RenderTexture dest)
+    {
+        if (simDevice == SimulationDevice.GPU) Graphics.Blit(renderTexture, dest);
+        else Graphics.Blit(src, dest);
+    }
 
     private void OnDestroy()
     {

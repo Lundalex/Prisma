@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <uie:PropertyField binding-path="simDevice" label="Simulation Device" tooltip="Recommended: GPU: utilize compute shaders for running the simulation and rendering. These operations are performed in parallell, allowing for great performance, even for complex scenes. If compute shaders aren&apos;t supported on the user&apos;s hardware, the simulation device will default to &apos;CPU_MultiCore&apos;. The CPU options use c# for running the simulation, and a fragment shader for rendering." />
     <ui:Foldout text="Fluid Simulation" name="FluidSimulation" value="true" style="-unity-font-style: bold; font-size: 12px; flex-direction: column; background-color: rgba(46, 46, 46, 0); background-position-x: center 0; background-position-y: center 0; -unity-background-scale-mode: stretch-to-fill; border-left-color: rgb(0, 0, 0); border-right-color: rgb(0, 0, 0); border-top-color: rgb(0, 0, 0); border-bottom-color: rgb(0, 0, 0); border-bottom-width: 2px; padding-bottom: 4px; padding-top: 4px; padding-right: 4px; padding-left: 4px;">
         <ui:Slider label="Look-Ahead-Time" value="42" high-value="0.1" binding-path="LookAheadTime" focusable="true" tooltip="Look-ahead-time (seconds) used for inter-particle force calculations" show-input-field="true" fill="true" />
         <ui:Slider label="State Transfer Padding" value="42" high-value="5" binding-path="StateThresholdPadding" focusable="true" tooltip="State transfer padding required for particles to surpass before transitioning between temperature states, preventing rapid flickering." show-input-field="true" fill="true" name="StateThresholdPadding" />
@@ -155,11 +156,12 @@
         <uie:ObjectField label="UI" binding-path="uiTexture" />
         <uie:ObjectField label="Dynamic Caustics" binding-path="dynamicCausticsTexture" />
         <uie:ObjectField label="Precomputed Caustics" binding-path="precomputedCausticsTexture" />
-        <ui:Label text="Scripts" style="left: -10px;" />
+        <ui:Label text="Managers" style="left: -10px;" />
         <uie:ObjectField label="Material Input" binding-path="materialInput" />
         <uie:ObjectField label="Particle Type Input" binding-path="pTypeInput" />
         <uie:ObjectField label="Scene Manager" binding-path="sceneManager" />
         <uie:ObjectField label="Shader Helper" binding-path="shaderHelper" />
+        <uie:ObjectField label="Fragment transform" binding-path="fragmentTransform" />
         <ui:Label text="Compute Shaders" style="left: -10px;" />
         <uie:ObjectField label="Render" binding-path="renderShader" />
         <uie:ObjectField label="Particle Simulation" binding-path="pSimShader" />

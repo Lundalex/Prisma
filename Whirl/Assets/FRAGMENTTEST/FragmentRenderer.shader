@@ -1,4 +1,4 @@
-Shader "Unlit/RigidBodyRayIntersection"
+Shader "Unlit/FragmentRenderer"
 {
     Properties
     {
@@ -40,6 +40,28 @@ Shader "Unlit/RigidBodyRayIntersection"
             float _SphereRadius;
             float _Zoom;
 
+            struct RigidBody
+            {
+                float2 pos;
+                int renderPriority;
+                uint startIndex;
+                uint endIndex;
+                int matIndex;
+                float totRot;
+                float maxRadiusSqr;
+                int springMatIndex;
+                float springStiffness;
+                int linkedRBIndex;
+                float2 localLinkPosThisRB;
+                float2 localLinkPosOtherRB;
+                float recordedSpringForce;
+                float springRestLength;
+            };
+            struct RBVector
+            {
+                float2 pos;
+            };
+
             // Rigid body: _RigidFloatsPerElement floats per element
             float GetRigidBodyFloat(uint elementIndex, uint fieldOffset)
             {
@@ -54,7 +76,7 @@ Shader "Unlit/RigidBodyRayIntersection"
                 return float2(GetRigidBodyFloat(elementIndex, fieldOffset), GetRigidBodyFloat(elementIndex, fieldOffset + 1));
             }
 
-            // Vertex data: _VertexFloatsPerElement floats per element (parentIndex, pos.x, pos.y)
+            // Vertex data: _VertexFloatsPerElement floats per element
             float GetVertexFloat(uint elementIndex, uint fieldOffset)
             {
                 uint flatIndex = elementIndex * (uint)_VertexFloatsPerElement + fieldOffset;
@@ -62,10 +84,6 @@ Shader "Unlit/RigidBodyRayIntersection"
                 uint y = flatIndex / _VertexTexWidth;
                 float2 uv = float2((x + 0.5) * _VertexInvTexWidth, (y + 0.5) * _VertexInvTexHeight);
                 return tex2D(_VertexData, uv).r;
-            }
-            int GetVertexInt(uint elementIndex)
-            {
-                return (int)GetVertexFloat(elementIndex, 0);
             }
             float2 GetVertexFloat2(uint elementIndex, uint fieldOffset)
             {
@@ -100,12 +118,12 @@ Shader "Unlit/RigidBodyRayIntersection"
                 [unroll(200)]
                 for (uint j = 0; j < _NumVertexElements; j++)
                 {
-                    int parentIndex = GetVertexInt(j);
+                    int parentIndex = j / 4;
                     
                     // Compute worldPos: rigid body pos is at field offset 0
                     float2 parentPos = GetRigidBodyFloat2(parentIndex, 0);
                     // Vertex offset stored in vertex data at field offset 1 (pos.x, pos.y)
-                    float2 vertexOffset = GetVertexFloat2(j, 1);
+                    float2 vertexOffset = GetVertexFloat2(j, 0);
                     float2 worldPos = parentPos + vertexOffset;
                     
                     // Compute distance from fragment to this vertex.
