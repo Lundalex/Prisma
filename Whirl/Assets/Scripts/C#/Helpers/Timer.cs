@@ -16,10 +16,10 @@ public class Timer
         this.resetTimerOnThresholdReached = resetTimerOnThresholdReached;
         this.time = time;
         
-        PM.Instance.OnProgramUpdate += Update;
+        PM.Instance.OnProgramUpdate += IncrementTime;
     }
 
-    private void Update(bool doUpdateClampedTime)
+    private void IncrementTime(bool doUpdateClampedTime)
     {
         if (!doUpdateClampedTime && timeType != TimeType.NonClamped) return;
         switch (timeType)

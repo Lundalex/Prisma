@@ -594,7 +594,12 @@ public class Main : MonoBehaviour
         {
             deltaTime = totalFrameTime / stepsPerFrame;
             deltaTime *= PM.Instance.timeScale * ProgramSpeed;
-            if (doClamp) deltaTime = Mathf.Min(deltaTime, TimeStep);
+            if (doClamp)
+            {
+                float newDeltaTime = Mathf.Min(deltaTime, TimeStep);
+                PM.Instance.scaledDeltaTime *= (newDeltaTime / deltaTime);
+                deltaTime = newDeltaTime;
+            }
         }
 
         return deltaTime;
