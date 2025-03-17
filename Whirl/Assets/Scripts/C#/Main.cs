@@ -554,9 +554,13 @@ public class Main : MonoBehaviour
     {
         Camera.main.transform.position = new Vector3(BoundaryDims.x / 2, BoundaryDims.y / 2, -1);
         Camera.main.orthographicSize = Mathf.Max(BoundaryDims.x * 0.75f, BoundaryDims.y * 1.5f);
-        fragmentTransform.position = new Vector3(BoundaryDims.x / 2, BoundaryDims.y / 2, -0.5f);
-        fragmentTransform.localScale = 0.5f * Func.Int2ToVector2(Resolution);
-        fragmentTransform.gameObject.SetActive(simDevice != SimulationDevice.GPU);
+
+        if (fragmentTransform != null)
+        {
+            fragmentTransform.position = new Vector3(BoundaryDims.x / 2, BoundaryDims.y / 2, -0.5f);
+            fragmentTransform.localScale = 0.5f * Func.Int2ToVector2(Resolution);
+            fragmentTransform.gameObject.SetActive(simDevice != SimulationDevice.GPU);
+        }
     }
 
     private void SetLightingSettings()

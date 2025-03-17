@@ -63,7 +63,7 @@ public class SplineCurveDrawer : MonoBehaviour
     {
         if (Application.isPlaying && !storedDataInitialized)
         {
-            float[] storedSliderValues = dataStorage.GetValue<float[]>();
+            float[] storedSliderValues = dataStorage?.GetValue<float[]>();
             if (storedSliderValues != null && handleRects != null && storedSliderValues.Length == handleRects.Length)
             {
                 for (int i = 0; i < handleRects.Length; i++)
@@ -78,7 +78,7 @@ public class SplineCurveDrawer : MonoBehaviour
                     }
                 }
             }
-            Vector3[] storedPositions = dataStorageB.GetValue<Vector3[]>();
+            Vector3[] storedPositions = dataStorageB?.GetValue<Vector3[]>();
             if (storedPositions != null && handleRects != null && storedPositions.Length == handleRects.Length)
             {
                 lastHandlePositions = storedPositions;
@@ -134,8 +134,7 @@ public class SplineCurveDrawer : MonoBehaviour
                 previousSliderValues = sliderValues;
             }
             
-            if(dataStorage != null)
-                dataStorage.SetValue(sliderValues);
+            if(dataStorage != null) dataStorage.SetValue(sliderValues);
 
             lastHandlePositions = new Vector3[handleRects.Length];
             for (int i = 0; i < handleRects.Length; i++)
@@ -143,8 +142,7 @@ public class SplineCurveDrawer : MonoBehaviour
                 if (handleRects[i] != null)
                     lastHandlePositions[i] = handleRects[i].position;
             }
-            if(dataStorageB != null)
-                dataStorageB.SetValue(lastHandlePositions);
+            if(dataStorageB != null) dataStorageB.SetValue(lastHandlePositions);
         }
     }
 

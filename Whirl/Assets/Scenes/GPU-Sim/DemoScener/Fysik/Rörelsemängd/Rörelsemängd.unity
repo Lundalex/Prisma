@@ -225,6 +225,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f20c516896de6d941af0611e4bca0081, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  simDevice: 0
   MaxPVel: 80
   MaxRBRotVel: 999999
   MaxRBVel: 999999
@@ -249,6 +250,7 @@ MonoBehaviour:
   DoSimulateParticleSprings: 0
   DoSimulateParticleTemperature: 0
   FloatIntPrecisionRB: 50000
+  FloatIntPrecisionRBRot: 5000000
   FloatIntPrecisionP: 5000
   AllowLinkedRBCollisions: 1
   RB_RBCollisionCorrectionFactor: 0.6
@@ -396,11 +398,12 @@ MonoBehaviour:
   MirrorRepeatBackgroundUV: 0
   uiTexture: {fileID: 8400000, guid: 3f8f5277ec04f5048946bcec7a320ab1, type: 2}
   dynamicCausticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
-  precomputedCausticsTexture: {fileID: 18700000, guid: fd236c79f064f4d4c81170507d2e62d2, type: 2}
+  precomputedCausticsTexture: {fileID: 0}
   materialInput: {fileID: 1639710805}
   pTypeInput: {fileID: 1044655778}
   sceneManager: {fileID: 1751344381}
   shaderHelper: {fileID: 486544}
+  fragmentTransform: {fileID: 0}
   renderShader: {fileID: 7200000, guid: ee5600fc85106194ea3f562bf40f8a95, type: 3}
   pSimShader: {fileID: 7200000, guid: 1159aacbba0e56246a49c59505ceac6b, type: 3}
   rbSimShader: {fileID: 7200000, guid: 262942b13b71cb34685c0e9873f5a06c, type: 3}
@@ -1333,8 +1336,16 @@ PrefabInstance:
       value: 0.09803922
       objectReference: {fileID: 0}
     - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
+      propertyPath: sliderDataType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: doUseDataStorage
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
+      propertyPath: msMaxUpdateFrequency
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: onValueChanged.m_PersistentCalls.m_Calls.Array.size
@@ -7075,7 +7086,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &795559657
 Transform:
   m_ObjectHideFlags: 0
@@ -8421,6 +8432,10 @@ PrefabInstance:
       value: Antal klossar
       objectReference: {fileID: 0}
     - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
+      propertyPath: startValue
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: numDecimals
       value: 0
       objectReference: {fileID: 0}
@@ -8431,6 +8446,10 @@ PrefabInstance:
     - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: sliderDataType
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
+      propertyPath: msMaxUpdateFrequency
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 6990916900791070344, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: onValueChanged.m_PersistentCalls.m_Calls.Array.size
@@ -13645,7 +13664,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1733708346
 Transform:
   m_ObjectHideFlags: 0
@@ -13842,7 +13861,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58921c50d144046aca0f32e1f635e7c4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  onlyRunWhilePlaying: 0
+  onlyRunWhilePlaying: 1
   collectionIndex: 0
   configIndex: 0
   collections:
@@ -16725,7 +16744,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -16885,7 +16904,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -16997,7 +17016,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -17129,7 +17148,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -17405,7 +17424,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y

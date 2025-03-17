@@ -40,18 +40,18 @@ namespace Michsky.MUIP
 
         void Awake()
         {
-            if (enableSaving == true)
-            {
-                if (PlayerPrefs.HasKey(sliderTag + "MUIPSliderValue") == false) { saveValue = mainSlider.value; }
-                else { saveValue = PlayerPrefs.GetFloat(sliderTag + "MUIPSliderValue"); }
+            // if (enableSaving == true)
+            // {
+            //     if (PlayerPrefs.HasKey(sliderTag + "MUIPSliderValue") == false) { saveValue = mainSlider.value; }
+            //     else { saveValue = PlayerPrefs.GetFloat(sliderTag + "MUIPSliderValue"); }
 
-                mainSlider.value = saveValue;
-                mainSlider.onValueChanged.AddListener(delegate
-                {
-                    saveValue = mainSlider.value;
-                    PlayerPrefs.SetFloat(sliderTag + "MUIPSliderValue", saveValue);
-                });
-            }
+            //     mainSlider.value = saveValue;
+            //     mainSlider.onValueChanged.AddListener(delegate
+            //     {
+            //         saveValue = mainSlider.value;
+            //         PlayerPrefs.SetFloat(sliderTag + "MUIPSliderValue", saveValue);
+            //     });
+            // }
 
             mainSlider.onValueChanged.AddListener(delegate
             {

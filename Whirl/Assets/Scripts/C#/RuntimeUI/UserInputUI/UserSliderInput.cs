@@ -51,7 +51,7 @@ public class UserSliderInput : UserUIElement
         slider.maxValue = maxValue;
         sliderInput.decimals = numDecimals;
         sliderInputField.text = StringUtils.FloatToString(startValue, 1);
-        containerTrimImage.color = primaryColor;
+        if (containerTrimImage != null) containerTrimImage.color = primaryColor;
         updateTimer = new Timer(Func.MsToSeconds(msMaxUpdateFrequency), TimeType.NonClamped);
         title.text = titleText;
     }
@@ -157,6 +157,8 @@ public class UserSliderInput : UserUIElement
         {
             if (DataStorage.hasValue) startValue = dataStorage.GetValue<float>();
         }
+        if (Application.isPlaying)
+            InitDisplay();
     }
 
     private void OnDestroy()
