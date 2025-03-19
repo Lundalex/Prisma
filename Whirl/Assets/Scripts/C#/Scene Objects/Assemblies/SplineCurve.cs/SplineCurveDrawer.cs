@@ -42,11 +42,14 @@ public class SplineCurveDrawer : MonoBehaviour
 
     // Private references
     private Main main;
+    private CanvasScaler canvas;
 
     // Other
     private bool storedDataInitialized = false;
     private bool isMonitoringValueChange = false;
     private float[] previousSliderValues;
+
+    private void OnEnable() => CheckStoredData();
 
     private void Start()
     {
@@ -140,7 +143,11 @@ public class SplineCurveDrawer : MonoBehaviour
             for (int i = 0; i < handleRects.Length; i++)
             {
                 if (handleRects[i] != null)
-                    lastHandlePositions[i] = handleRects[i].position;
+                {
+                    Vector3 simPos = handleRects[i].position;
+                    CanvasSpaceToSimSpace(ref simPos);
+                    lastHandlePositions[i] = simPos;
+                }
             }
             if(dataStorageB != null) dataStorageB.SetValue(lastHandlePositions);
         }
@@ -167,9 +174,10 @@ public class SplineCurveDrawer : MonoBehaviour
         List<Vector3> points = new();
 
         Vector3[] positions = new Vector3[handleRects.Length];
+        bool usingStored = Application.isPlaying && simSpace_canvasSpace && lastHandlePositions != null && lastHandlePositions.Length == handleRects.Length;
         for (int i = 0; i < handleRects.Length; i++)
         {
-            if (Application.isPlaying && lastHandlePositions != null && lastHandlePositions.Length == handleRects.Length)
+            if (usingStored)
                 positions[i] = lastHandlePositions[i];
             else if (handleRects[i] != null)
                 positions[i] = handleRects[i].position;
@@ -230,8 +238,13 @@ public class SplineCurveDrawer : MonoBehaviour
             PrunePoints(ref points);
         }
 
-        for (int i = 0; i < points.Count; i++) 
-            points[i] = TransformPoint(points[i], simSpace_canvasSpace);
+        for (int i = 0; i < points.Count; i++)
+        {
+            if (usingStored)
+                points[i] += (Vector3)curveOffset;
+            else
+                points[i] = TransformPoint(points[i], simSpace_canvasSpace);
+        }
 
         return points.ToArray();
     }
@@ -278,12 +291,11 @@ public class SplineCurveDrawer : MonoBehaviour
 
     private float GetExtrusionValue(float value, bool simSpace, bool isHorizontal)
     {
-        if (simSpace)
-            return value;
+        if (simSpace) return value;
         if (main == null) main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
-        Vector2 res = Func.Int2ToVector2(main.Resolution);
+        if (canvas == null) canvas = GameObject.FindGameObjectWithTag("UICanvas").GetComponent<CanvasScaler>();
         Vector2 boundary = Func.Int2ToVector2(main.BoundaryDims);
-        return isHorizontal ? value / boundary.x * res.x : value / boundary.y * res.y;
+        return isHorizontal ? value / boundary.x * Screen.width : value / boundary.y * Screen.height;
     }
 
     private float GetBoxBottom(bool simSpace_canvasSpace)
@@ -305,14 +317,14 @@ public class SplineCurveDrawer : MonoBehaviour
     {
         point += (Vector3)curveOffset;
         if (simSpace_canvasSpace) CanvasSpaceToSimSpace(ref point);
-
         return point;
     }
- 
+
     private void CanvasSpaceToSimSpace(ref Vector3 coords)
     {
         if (main == null) main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
-        coords = (Vector2)coords / Func.Int2ToVector2(main.Resolution) * Func.Int2ToVector2(main.BoundaryDims);
+        if (canvas == null) canvas = GameObject.FindGameObjectWithTag("UICanvas").GetComponent<CanvasScaler>();
+        coords = (Vector2)coords / new Vector2(Screen.width, Screen.height) * Func.Int2ToVector2(main.BoundaryDims);
     }
     
     public void StartMonitoringValueChange()

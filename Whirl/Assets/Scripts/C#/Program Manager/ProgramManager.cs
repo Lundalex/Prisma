@@ -83,6 +83,8 @@ public class ProgramManager : ScriptableObject
     private static readonly float rapidFrameSteppingDelay = 0.1f;
     private static readonly float SlowMotionFactor = 4.0f;
 
+    [NonSerialized] public static bool hasBeenReset = false;
+
     // Singleton
     private static ProgramManager _instance;
     public static ProgramManager Instance
@@ -192,6 +194,7 @@ public class ProgramManager : ScriptableObject
     public void ResetScene()
     {
         startConfirmationStatus = StartConfirmationStatus.None;
+        hasBeenReset = true;
         UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
     }
 

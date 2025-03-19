@@ -142,7 +142,7 @@ public class RigidBodyArrow : SensorBase
                     targetPosition = canvasTargetPosition;
                     break;
                 case InterpolationType.Lerp:
-                    targetPosition = Vector2.Lerp(currentPosition, canvasTargetPosition, PM.Instance.clampedDeltaTime * moveSpeed);
+                    targetPosition = Vector2.Lerp(currentPosition, canvasTargetPosition, PM.Instance.scaledDeltaTime * moveSpeed);
                     break;
                 case InterpolationType.Average:
                     moveBuffer[moveBufferIndex] = canvasTargetPosition;
@@ -163,7 +163,7 @@ public class RigidBodyArrow : SensorBase
                 case InterpolationType.Lerp:
                     targetRotation = angleDiff > rotationLerpSkipThreshold
                         ? currentTargetRotation
-                        : Mathf.LerpAngle(currentRotation, currentTargetRotation, PM.Instance.clampedDeltaTime * rotationSpeed);
+                        : Mathf.LerpAngle(currentRotation, currentTargetRotation, PM.Instance.scaledDeltaTime * rotationSpeed);
                     break;
                 case InterpolationType.Average:
                     rotateBuffer[rotateBufferIndex] = currentTargetRotation;
@@ -290,7 +290,7 @@ public class RigidBodyArrow : SensorBase
         }
         else if (recordedInterpolation == InterpolationType.Lerp)
         {
-            currentAcc = Vector2.Lerp(currentAcc, targetAcc, PM.Instance.clampedDeltaTime * valueLerpSpeed);
+            currentAcc = Vector2.Lerp(currentAcc, targetAcc, PM.Instance.scaledDeltaTime * valueLerpSpeed);
         }
         else // Average
         {

@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using Resources2;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -233,7 +232,7 @@ public class RigidBodySensor : Sensor
                 break;
 
             case RigidBodySensorType.Distance:
-                title = "Distans";
+                title = "Str<b>ä</b>cka";
                 break;
 
             case RigidBodySensorType.Position_X:
