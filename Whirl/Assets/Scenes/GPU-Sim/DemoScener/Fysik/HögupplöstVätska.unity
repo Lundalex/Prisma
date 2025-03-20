@@ -225,6 +225,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f20c516896de6d941af0611e4bca0081, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  simDevice: 0
   MaxPVel: 999999
   MaxRBRotVel: 999999
   MaxRBVel: 999999
@@ -249,6 +250,7 @@ MonoBehaviour:
   DoSimulateParticleSprings: 0
   DoSimulateParticleTemperature: 0
   FloatIntPrecisionRB: 50000
+  FloatIntPrecisionRBRot: 5000000
   FloatIntPrecisionP: 5000
   AllowLinkedRBCollisions: 1
   RB_RBCollisionCorrectionFactor: 1
@@ -392,8 +394,8 @@ MonoBehaviour:
     x: 1
     y: 1
     z: 1
-  BackgroundUpScaleFactor: 1
-  MirrorRepeatBackgroundUV: 0
+  BackgroundUpScaleFactor: 1.97
+  MirrorRepeatBackgroundUV: 1
   uiTexture: {fileID: 8400000, guid: 3f8f5277ec04f5048946bcec7a320ab1, type: 2}
   dynamicCausticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
   precomputedCausticsTexture: {fileID: 18700000, guid: fd236c79f064f4d4c81170507d2e62d2, type: 2}
@@ -401,6 +403,7 @@ MonoBehaviour:
   pTypeInput: {fileID: 1543420959}
   sceneManager: {fileID: 1751344381}
   shaderHelper: {fileID: 486544}
+  fragmentTransform: {fileID: 0}
   renderShader: {fileID: 7200000, guid: ee5600fc85106194ea3f562bf40f8a95, type: 3}
   pSimShader: {fileID: 7200000, guid: 1159aacbba0e56246a49c59505ceac6b, type: 3}
   rbSimShader: {fileID: 7200000, guid: 262942b13b71cb34685c0e9873f5a06c, type: 3}
@@ -1491,6 +1494,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9532b5a5089ba4de0adbe8076186d30d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  pauseOnStart: 0
   darkMode: 0
   doHideUIInSceneView: 1
   showUserUI: 1

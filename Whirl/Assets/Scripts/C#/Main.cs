@@ -50,7 +50,7 @@ public class Main : MonoBehaviour
 
     // Variable storage precision
     public float FloatIntPrecisionRB = 50000.0f; // Rigid Body Simulation
-    public float FloatIntPrecisionRBRot = 5000000.0f; // Rigid Body Simulation
+    public float FloatIntPrecisionRBRot = 500000.0f; // Rigid Body Simulation
     public float FloatIntPrecisionP = 1000.0f; // Particle Simulation
 #endregion
 

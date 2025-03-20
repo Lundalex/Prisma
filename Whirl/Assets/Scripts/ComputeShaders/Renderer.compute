@@ -459,7 +459,7 @@ float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos)
     float2 offset = (scaledTexDims - (float2)Resolution) * 0.5;
 
     // Calculate the UV coordinates
-    float2 uv = (pixelID + offset) * BackgroundUpScaleFactor / scaledTexDims;
+    float2 uv = ((pixelID + offset) * BackgroundUpScaleFactor) / scaledTexDims;
     uv = MirrorRepeatBackgroundUV ? MirrorRepeatUV(uv) : frac(uv);
 
     return uv;

@@ -522,7 +522,7 @@ public class SceneManager : MonoBehaviour
             nextPos = 0,
             nextVel = 0,
             rotVel_AsInt = rbInput.canRotate
-                ? Func.FloatAsInt(rbInput.angularVelocity, main.FloatIntPrecisionRBRot)
+                ? Func.FloatAsInt(rbInput.angularVelocity, 500000.0f)
                 : 0,
             totRot = 0,
             mass = canMove
