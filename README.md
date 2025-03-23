@@ -1,2 +1,4 @@
 # Whirl Engine
-https://www.youtube.com/watch?v=MV94e4WcRYU
+Video: https://www.youtube.com/watch?v=MV94e4WcRYU
+
+Simulations: https://itch.io/dashboard
