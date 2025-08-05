@@ -41,20 +41,3 @@ Elasticity and Plasticity vary from material to material
 
 State changes happen if abs(Temperature - StateChangeTemperatureThreshold) > StateChangePadding
 StateChangePadding hinders particles from switching state multiple times in quick succession due to being right at the threshold
-
-
-
-
---- TEMPORARY NOTE: --- !!!!!
-
-public enum RigidBodySensorType
-{
-    Mass,
-    Velocity, // old
-    Velocity_X,
-    Velocity_Y,
-    RotationalVelocity, // old
-    Position_X,
-    Position_Y,
-    SpringForce // old
-}

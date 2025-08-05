@@ -7,13 +7,13 @@ import random
 
 # --- Simulation Parameters ---
 GravityForce = 10
-Circle_radii = 10
-Max_influence_radius = 50
+Circle_radii = 20
+Max_influence_radius = 100
 Framerate_max = 1000
 Program_speed = 6
-Particle_amount = 300
-Target_density = 200
-Pressure_multiplier = 50000
+Particle_amount = 150
+Target_density = 100
+Pressure_multiplier = 300000
 Wall_collision_damping_factor = 0.8
 Smooth_Max = 150
 Smooth_derivative_koefficient = 0.1
@@ -27,13 +27,15 @@ Min_distance = math.sqrt(2)
 Min_distance_optimisations = False
 
 # --- Pygame settings ---
-w, h = 800, 600
+w, h = 1200, 900
 resolution_x, resolution_y = 50, 25
 
 Dev_density = False
 Dev_density_update_frequency = 100
 Background_color_factor = 0.5
 Dev_chunks = False
+
+Background_color = (180, 180, 180)
 
 # --- Automatic ---
 sign = lambda a: 1 if a>0 else -1 if a<0 else 0
@@ -383,7 +385,7 @@ while running:
         if event.type == pygame.QUIT:
             running = False
     # Clear the screen
-    screen.fill((255, 255, 255))
+    screen.fill(Background_color)
     # Set ΔTime
     current_time = pygame.time.get_ticks()
     delta_time = (current_time - start_time) * Program_speed / 1000.0
