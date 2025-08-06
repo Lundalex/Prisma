@@ -8,7 +8,7 @@ using PM = ProgramManager;
 
 namespace Resources2
 {
-#region Constants
+    #region Constants
     public static class Const
     {
         public static readonly Vector2 Vector2Half = new(0.5f, 0.5f);
@@ -18,9 +18,9 @@ namespace Resources2
         public static readonly float LARGE_FLOAT = 1e6f;
         public static readonly Vector2 Vector2Epsilon = new(1e-6f, 1e-6f);
     }
-#endregion
+    #endregion
 
-#region General
+    #region General
     public static class Utils
     {
         public static bool2 GetMousePressed()
@@ -66,7 +66,7 @@ namespace Resources2
         {
             return kelvinTemp - 273.15f;
         }
-        
+
         public static float2 GetParticleSpawnPosition(int pIndex, int maxIndex, int Width, int Height, int SpawnDims)
         {
             float x = (Width - SpawnDims) / 2 + Mathf.Floor(pIndex % Mathf.Sqrt(maxIndex)) * (SpawnDims / Mathf.Sqrt(maxIndex));
@@ -76,6 +76,11 @@ namespace Resources2
                 throw new ArgumentException("Particle spawn dimensions larger than either border_width or border_height");
             }
             return new float2(x, y);
+        }
+
+        public static Vector3 FloatToVector3(float a)
+        {
+            return new(a, a, a);
         }
 
         public static Vector2 Int2ToVector2(int2 a)
@@ -109,26 +114,26 @@ namespace Resources2
         {
             Color.RGBToHSV(minColor, out float h1, out float s1, out float v1);
             Color.RGBToHSV(maxColor, out float h2, out float s2, out float v2);
-                if (Mathf.Abs(h2 - h1) > 0.5f)
+            if (Mathf.Abs(h2 - h1) > 0.5f)
+            {
+                if (h1 > h2)
                 {
-                        if (h1 > h2)
-                        {
-                                h2 += 1.0f;
-                        }
-                        else
-                        {
-                                h1 += 1.0f;
-                        }
+                    h2 += 1.0f;
                 }
-                float h = Mathf.Lerp(h1, h2, t) % 1.0f;
-                float s = Mathf.Lerp(s1, s2, t);
-                float v = Mathf.Lerp(v1, v2, t);
-                return Color.HSVToRGB(h, s, v);
+                else
+                {
+                    h1 += 1.0f;
+                }
+            }
+            float h = Mathf.Lerp(h1, h2, t) % 1.0f;
+            float s = Mathf.Lerp(s1, s2, t);
+            float v = Mathf.Lerp(v1, v2, t);
+            return Color.HSVToRGB(h, s, v);
         }
     }
-#endregion
+    #endregion
 
-#region Math Functions
+    #region Math Functions
     public static class Func
     {
         public static void Log2(ref int a, bool doCeil = false)
@@ -171,7 +176,7 @@ namespace Resources2
             }
             a = nextPow2;
         }
-        
+
         public static int NextLog2(int a)
         {
             return Log2(NextPow2(a));
@@ -183,7 +188,7 @@ namespace Resources2
 
         public static float Magnitude(float2 a)
         {
-            return Mathf.Sqrt(a.x*a.x + a.y*a.y);
+            return Mathf.Sqrt(a.x * a.x + a.y * a.y);
         }
 
         public static float MaxFloat(params float[] inputArray)
@@ -267,7 +272,7 @@ namespace Resources2
         {
             return new Color(a.x, a.y, a.z);
         }
-        
+
         public static Vector3 Float2ToVector3(float2 a)
         {
             return new Vector3(a.x, a.y, 1);
@@ -279,7 +284,7 @@ namespace Resources2
 
         public static int RandInt(int min, int max)
         {
-            return UnityEngine.Random.Range(min, max+1);
+            return UnityEngine.Random.Range(min, max + 1);
         }
 
         public static Vector2 RotateDegrees2D(Vector2 point, float angleDegrees)
@@ -287,7 +292,7 @@ namespace Resources2
             float rad = angleDegrees * Mathf.Deg2Rad;
             return RotateRadians2D(point, rad);
         }
-        
+
         public static Vector2 RotateRadians2D(Vector2 point, float angle)
         {
             float cosTheta = Mathf.Cos(angle);
@@ -348,9 +353,9 @@ namespace Resources2
                         (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
         }
     }
-#endregion
+    #endregion
 
-#region Transformations
+    #region Transformations
     public static class TransformUtils
     {
         public static Vector2 SimSpaceToWorldSpace(Vector2 simCoords)
@@ -402,7 +407,7 @@ namespace Resources2
             {
                 offset.y = -maxDiff.y;
             }
-            
+
             // Apply offset
             uiPos += offset;
 
@@ -412,9 +417,9 @@ namespace Resources2
             return uiPos;
         }
     }
-#endregion
+    #endregion
 
-#region Strings
+    #region Strings
     public static class StringUtils
     {
         public static void LogIfInEditor(string message)
@@ -433,9 +438,9 @@ namespace Resources2
         public static string FloatToStr(float value, int numDecimals) => value.ToString($"F{numDecimals}", CultureInfo.InvariantCulture);
         public static string FloatToStr(float2 value, int numDecimals) => "X: " + value.x.ToString($"F{numDecimals}", CultureInfo.InvariantCulture) + "Y: " + value.y.ToString($"F{numDecimals}", CultureInfo.InvariantCulture);
     }
-#endregion
+    #endregion
 
-#region Arrays
+    #region Arrays
     public static class ArrayUtils
     {
         public static T[] RemoveElementAtIndex<T>(ref T[] array, int index)
@@ -482,7 +487,7 @@ namespace Resources2
         {
             newSize = Mathf.Max(0, newSize);
             T[] newArray = new T[newSize];
-            if(oldArray != null)
+            if (oldArray != null)
             {
                 int copyLength = Mathf.Min(oldArray.Length, newSize);
                 Array.Copy(oldArray, newArray, copyLength);
@@ -494,7 +499,7 @@ namespace Resources2
         {
             newSize = Mathf.Max(0, newSize);
             T[] newArray = new T[newSize];
-            if(oldArray != null)
+            if (oldArray != null)
             {
                 int copyLength = Mathf.Min(oldArray.Length, newSize);
                 Array.Copy(oldArray, newArray, copyLength);
@@ -502,9 +507,9 @@ namespace Resources2
             oldArray = newArray;
         }
     }
-#endregion
+    #endregion
 
-#region Geometry
+    #region Geometry
     public static class GeometryUtils
     {
         public static Vector2[] Rectangle(float top, float bottom, float left, float right, Vector2? offsetInput = null)
@@ -525,15 +530,15 @@ namespace Resources2
 
         public static Vector2[] CenteredRectangle(float width, float height)
         {
-        float halfWidth = width / 2.0f;
-        float halfHeight = height / 2.0f;
-        return new Vector2[]
-            {
+            float halfWidth = width / 2.0f;
+            float halfHeight = height / 2.0f;
+            return new Vector2[]
+                {
                 new(-halfWidth, -halfHeight),
                 new(halfWidth, -halfHeight),
                 new(halfWidth, halfHeight),
                 new(-halfWidth, halfHeight)
-            };
+                };
         }
 
         public static Vector2[] Circle(float radius, int numSegments, Vector2? centerInput = null)
@@ -566,5 +571,45 @@ namespace Resources2
             return area < 0f;
         }
     }
-#endregion
+    #endregion
+
+    #region "Interpolation Methods"
+    public static class Lerp
+    {
+        public enum Curve
+        {
+            Linear,         // constant speed
+            SmoothStep,     // built-in ease-in/out
+            EaseInQuad,     // acceleration
+            EaseOutQuad,    // deceleration
+            EaseInOutQuad   // accel-then-decel
+        }
+
+        /// <returns>Value remapped from 0‒1 using the selected curve.</returns>
+        public static float Evaluate(Curve curve, float t)
+        {
+            t = Mathf.Clamp01(t);
+
+            switch (curve)
+            {
+                case Curve.SmoothStep:
+                    return Mathf.SmoothStep(0f, 1f, t);
+
+                case Curve.EaseInQuad:
+                    return t * t;
+
+                case Curve.EaseOutQuad:
+                    return 1f - (1f - t) * (1f - t);
+
+                case Curve.EaseInOutQuad:
+                    return t < 0.5f
+                         ? 2f * t * t
+                         : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
+
+                default: // Curve.Linear
+                    return t;
+            }
+        }
+    }
+    #endregion
 }

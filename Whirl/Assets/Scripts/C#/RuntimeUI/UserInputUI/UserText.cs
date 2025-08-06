@@ -23,6 +23,6 @@ public class UserText : UserUIElement
             textField.fontSize = displayTextSize;
             textField.text = displayText;
         }
-        containerTrimImage.color = primaryColor;
+        if (containerTrimImage != null) containerTrimImage.color = primaryColor;
     }
 }

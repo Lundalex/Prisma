@@ -429,13 +429,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pointerHoverArea: {fileID: 1658657277103646107}
   containerTrimImage: {fileID: 1080856760312904413}
-  fieldModifier: {fileID: 6511790481033723711}
   title: {fileID: 4939068707254491368}
   titleText: Toggle B
-  innerFieldName: No Inner Field
   primaryColor: {r: 0.882353, g: 1, b: 0, a: 1}
-  startingValue: 1
+  onValueChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  startValue: 0
+  useInnerField: 0
+  innerFieldName: No Inner Field
   toggleManager: {fileID: 7165569518729639199}
+  fieldModifier: {fileID: 6511790481033723711}
 --- !u!114 &6511790481033723711
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -791,7 +795,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3390435097152062931, guid: aa9473ef872df4fa79950866d3678032, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -35.7
+      value: -37
       objectReference: {fileID: 0}
     - target: {fileID: 3862385142839576404, guid: aa9473ef872df4fa79950866d3678032, type: 3}
       propertyPath: m_Pivot.x
@@ -888,6 +892,26 @@ PrefabInstance:
     - target: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}
       propertyPath: m_text
       value: Toggle B
+      objectReference: {fileID: 0}
+    - target: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}
+      propertyPath: m_fontSize
+      value: 33
+      objectReference: {fileID: 0}
+    - target: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
+    - target: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}
+      propertyPath: m_fontSizeBase
+      value: 33
+      objectReference: {fileID: 0}
+    - target: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 3265098559650008404, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
+    - target: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}
+      propertyPath: m_hasFontAssetChanged
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6038371284629134417, guid: aa9473ef872df4fa79950866d3678032, type: 3}
       propertyPath: m_Name

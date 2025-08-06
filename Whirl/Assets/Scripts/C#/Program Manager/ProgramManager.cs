@@ -414,6 +414,7 @@ public class ProgramManager : ScriptableObject
         }
         foreach (UserUIElement userUIElement in userUIElements)
         {
+            if (userUIElement.pointerHoverArea == null) continue;
             if (userUIElement.pointerHoverArea.CheckIfHovering()) return true;
         }
         return false;

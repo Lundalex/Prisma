@@ -38,7 +38,7 @@ public class SmartAssistant : MonoBehaviour
     private OpenAIClient api;
     private readonly List<Message> conversation = new();
 
-    private const string apiKey = "KEYHERE";
+    private const string apiKey = "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";
 
     void Awake()
     {

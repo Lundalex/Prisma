@@ -4,7 +4,7 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 using PM = ProgramManager;
 
-public abstract class UserUIElement : EditorLifeCycle
+public class UserUIElement : EditorLifeCycle
 {
     public PointerHoverArea pointerHoverArea;
     public Image containerTrimImage;
@@ -34,5 +34,5 @@ public abstract class UserUIElement : EditorLifeCycle
         InitDisplay();
     }
 
-    public abstract void InitDisplay();
+    public virtual void InitDisplay() { }
 }
