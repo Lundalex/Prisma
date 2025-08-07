@@ -7,7 +7,7 @@ public class ContainerWithTrim : MonoBehaviour
     [SerializeField] private RectTransform trimContainer;
     [SerializeField] private RectTransform innerContainer;
 
-    private Vector2 containerSpacing = new(15, 15);
+    private Vector2 containerSpacing = new(12, 12);
 
     void Update()
     {

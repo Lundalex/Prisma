@@ -124,12 +124,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   center: {x: 0, y: 0}
+  centerOffset: {x: 0, y: 0}
   radius: 0
   rotation: 45
   scale: 1
   displayBoxScale: 1
   value: 123.45
+  valueFactor10Exp: 0
+  numIntegers: 3
   numDecimals: 2
+  overrideUnit: 0
   unit: m/s
   colorLerpFactor: 0
   radiusOscillationRadius: 0
@@ -138,12 +142,15 @@ MonoBehaviour:
   baseLength: 150
   hatSize: 120
   outlineGap: 7
+  extrudeForward: 1
+  doUseHSVColorLerp: 0
   minOutlineColor: {r: 0.0025528355, g: 0.6509434, b: 0, a: 1}
   maxOutlineColor: {r: 0.7169812, g: 0, b: 0.014058582, a: 1}
   minBodyColor: {r: 0.055943966, g: 1, b: 0, a: 1}
   maxBodyColor: {r: 1, g: 0, b: 0.013422966, a: 1}
   displayBoxColor: {r: 0.9411765, g: 1, b: 0, a: 1}
   minValueDeltaForUpdate: 0.01
+  minRadiusDeltaForUpdate: 1
   minRotationDeltaForUpdate: 3
   minBaseLengthDeltaForUpdate: 5
   minColorLerpFactorDeltaForUpdate: 0.02
@@ -463,8 +470,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: m/s
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 20763ea69a5cd4c95bc68abef7cc6f4b, type: 2}
-  m_sharedMaterial: {fileID: 1868286597377252479, guid: 20763ea69a5cd4c95bc68abef7cc6f4b, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
+  m_sharedMaterial: {fileID: 3265098559650008404, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -488,13 +495,13 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 40
-  m_fontSizeBase: 40
+  m_fontSize: 42
+  m_fontSizeBase: 42
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 4
   m_VerticalAlignment: 512
   m_textAlignment: 65535
