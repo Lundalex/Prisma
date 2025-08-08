@@ -222,32 +222,35 @@ public class ProgramManager : ScriptableObject
     private bool CheckInputs()
     {
         // Key inputs
-        if (Input.GetKeyDown(KeyCode.R) && CheckAllowRestart())
+        if (!TMPInputChecker.UserIsUsingInputField())
         {
-            Debug.Log("'R' key pressed. Scene resetting...");
-            return true;
-        }
-        else if (Input.GetKeyDown(KeyCode.Space))
-        {
-            TriggerSetPauseState(!programPaused);
-        }
-        else if (Input.GetKey(KeyCode.F) && rapidFrameSteppingTimer.Check())
-        {
-            if (!programPaused) TriggerSetPauseState(true);
-            frameStep = !frameStep;
-        }
-        else if (Input.GetKeyDown(KeyCode.S))
-        {
-            if (frameStep || programPaused)
+            if (Input.GetKeyDown(KeyCode.R) && CheckAllowRestart())
             {
-                if (programPaused) TriggerSetPauseState(false);
-                frameStep = false;
+                Debug.Log("'R' key pressed. Scene resetting...");
+                return true;
             }
-            OnSetNewSlowMotionState?.Invoke(!slowMotionActive);
-        }
-        else if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            CloseAllSensorUISettingsPanels();
+            else if (Input.GetKeyDown(KeyCode.Space))
+            {
+                TriggerSetPauseState(!programPaused);
+            }
+            else if (Input.GetKey(KeyCode.F) && rapidFrameSteppingTimer.Check())
+            {
+                if (!programPaused) TriggerSetPauseState(true);
+                frameStep = !frameStep;
+            }
+            else if (Input.GetKeyDown(KeyCode.S))
+            {
+                if (frameStep || programPaused)
+                {
+                    if (programPaused) TriggerSetPauseState(false);
+                    frameStep = false;
+                }
+                OnSetNewSlowMotionState?.Invoke(!slowMotionActive);
+            }
+            else if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseAllSensorUISettingsPanels();
+            }
         }
 
         // Screen resizing
