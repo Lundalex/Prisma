@@ -12,11 +12,13 @@ using UnityEditor;
 [ExecuteAlways]
 public class UIController : MonoBehaviour
 {
-    /* ───────── Inspector lists ───────── */
-    public List<Image>      outlines          = new();
-    public List<Image>      backgrounds       = new();
-    public List<Image>      interactColors    = new();
+    public List<Image>      outlines   = new();
+    public List<Image>      backgrounds= new();
+    public List<Image>      interacts  = new();
+    public List<Image>      contrasts  = new();
     public List<UIGradient> interactGradients = new();
+
+    public List<TMP_Text>   texts     = new();
 
     public List<TMP_Text> header1   = new();
     public List<TMP_Text> header2   = new();
@@ -28,7 +30,6 @@ public class UIController : MonoBehaviour
 
     [SerializeField] UIManager uiManager;
 
-    /* ───────── caches for restoring originals ───────── */
     readonly Dictionary<Image,      Color>    imgOrig  = new();
     readonly Dictionary<UIGradient, Gradient> gradOrig = new();
     readonly Dictionary<TMP_Text,   OriginalTextData> txtOrig = new();
@@ -43,96 +44,70 @@ public class UIController : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-/* ───────── editor-side hot-reload ───────── */
-bool   refreshQueued;
-double nextCheckTime;
-const  double CHECK_INTERVAL = 0.05;
+    bool   refreshQueued;
+    double nextCheckTime;
+    const  double CHECK_INTERVAL = 0.05;
+    int    cachedHash;
 
-int cachedHash;
-
-void OnEnable()
-{
-    if (Application.isPlaying) return;
-
-    EditorApplication.update += EditorUpdate;
-    Undo.undoRedoPerformed    += QueueRefresh;
-
-    cachedHash  = ComputeManagerHash();
-    QueueRefresh();
-}
-
-void OnDisable()
-{
-    if (Application.isPlaying) return;
-
-    EditorApplication.update -= EditorUpdate;
-    Undo.undoRedoPerformed   -= QueueRefresh;
-}
-
-void OnValidate()                        // edits on this component
-{
-    if (!Application.isPlaying) QueueRefresh();
-}
-
-void QueueRefresh() => refreshQueued = true;
-
-/* ---------- called once per editor frame ---------- */
-void EditorUpdate()
-{
-    double now = EditorApplication.timeSinceStartup;
-
-    /* 0.5-second polling for asset changes */
-    if (now >= nextCheckTime)
+    void OnEnable()
     {
-        nextCheckTime = now + CHECK_INTERVAL;
+        if (Application.isPlaying) return;
+        EditorApplication.update += EditorUpdate;
+        Undo.undoRedoPerformed    += QueueRefresh;
+        cachedHash = ComputeManagerHash();
+        QueueRefresh();
+    }
+    void OnDisable()
+    {
+        if (Application.isPlaying) return;
+        EditorApplication.update -= EditorUpdate;
+        Undo.undoRedoPerformed   -= QueueRefresh;
+    }
+    void OnValidate() { if (!Application.isPlaying) QueueRefresh(); }
+    void QueueRefresh() => refreshQueued = true;
 
-        int newHash = ComputeManagerHash();
-        if (newHash != cachedHash)
+    void EditorUpdate()
+    {
+        double now = EditorApplication.timeSinceStartup;
+        if (now >= nextCheckTime)
         {
-            cachedHash   = newHash;
-            refreshQueued = true;
+            nextCheckTime = now + CHECK_INTERVAL;
+            int newHash = ComputeManagerHash();
+            if (newHash != cachedHash) { cachedHash = newHash; refreshQueued = true; }
         }
+        if (!refreshQueued) return;
+        refreshQueued = false;
+
+        if (!uiManager) return;
+        ApplyActivePalettes();
+        RestoreIfDetached();
+        EditorUtility.SetDirty(this);
     }
 
-    if (!refreshQueued) return;
-    refreshQueued = false;
-
-    if (!uiManager) return;
-    ApplyActivePalettes();
-    RestoreIfDetached();
-    EditorUtility.SetDirty(this);
-}
-
-/* ---------- fast, allocation-free hash ---------- */
-int ComputeManagerHash()
-{
-    if (!uiManager) return 0;
-
-    unchecked
+    int ComputeManagerHash()
     {
-        int h = 17;
-        h = h * 31 + uiManager.activePaletteIndex;
-        h = h * 31 + uiManager.activeFontPaletteIndex;
-
-        foreach (var p in uiManager.palettes)
+        if (!uiManager) return 0;
+        unchecked
         {
-            h = h * 31 + p.outline.GetHashCode();
-            h = h * 31 + p.background.GetHashCode();
-            h = h * 31 + p.interactColor.GetHashCode();
-            h = h * 31 + p.text.GetHashCode();
-            h = h * 31 + p.interactGradient.GetHashCode();
-            h = h * 31 + (p.name != null ? p.name.GetHashCode() : 0);
+            int h = 17;
+            h = h * 31 + uiManager.activePaletteIndex;
+            h = h * 31 + uiManager.activeFontPaletteIndex;
+            foreach (var p in uiManager.palettes)
+            {
+                h = h * 31 + p.outline.GetHashCode();
+                h = h * 31 + p.background.GetHashCode();
+                h = h * 31 + p.interactColor.GetHashCode();
+                h = h * 31 + p.textColor.GetHashCode();
+                h = h * 31 + p.contrast.GetHashCode();
+                h = h * 31 + p.interactGradient.GetHashCode();
+                h = h * 31 + (p.name?.GetHashCode() ?? 0);
+            }
+            foreach (var f in uiManager.fontPalettes) h = h * 31 + f.GetHashCode();
+            return h;
         }
-
-        foreach (var f in uiManager.fontPalettes)
-            h = h * 31 + f.GetHashCode();
-
-        return h;
     }
-}
 #endif
 
-    /* ───────── palette application ───────── */
     void ApplyActivePalettes()
     {
         ColorPalette cp = uiManager.ActivePalette;
@@ -140,19 +115,25 @@ int ComputeManagerHash()
 
         ApplyColour(outlines,        cp.outline);
         ApplyColour(backgrounds,     cp.background);
-        ApplyColour(interactColors,  cp.interactColor);
+        ApplyColour(interacts,       cp.interactColor);
+        ApplyColour(contrasts,       cp.contrast);
         ApplyGradient(interactGradients, cp.interactGradient);
 
-        ApplyColour(header1, cp.text);  ApplyColour(header2, cp.text);
-        ApplyColour(body1,   cp.text);  ApplyColour(body2,   cp.text);
-        ApplyColour(intHeader, cp.text); ApplyColour(intSlider, cp.text); ApplyColour(intField, cp.text);
+        ApplyColour(texts,     cp.textColor);
+        ApplyColour(header1,   cp.textColor);
+        ApplyColour(header2,   cp.textColor);
+        ApplyColour(body1,     cp.textColor);
+        ApplyColour(body2,     cp.textColor);
+        ApplyColour(intHeader, cp.textColor);
+        ApplyColour(intSlider, cp.textColor);
+        ApplyColour(intField,  cp.textColor);
 
         ApplyFont(header1, fp.header1);   ApplyFont(header2, fp.header2);
         ApplyFont(body1,   fp.body1);     ApplyFont(body2,   fp.body2);
-        ApplyFont(intHeader, fp.intHeader); ApplyFont(intSlider, fp.intSlider); ApplyFont(intField, fp.intField);
+        ApplyFont(intHeader, fp.intHeader); ApplyFont(intSlider, fp.intSlider);
+        ApplyFont(intField,  fp.intField);
     }
 
-    /* ───────── colour helpers ───────── */
     void ApplyColour(List<Image> imgs, Color c)
     {
         if (imgs == null) return;
@@ -163,7 +144,6 @@ int ComputeManagerHash()
             img.color = c;
         }
     }
-
     void ApplyColour(List<TMP_Text> lbls, Color c)
     {
         if (lbls == null) return;
@@ -174,8 +154,6 @@ int ComputeManagerHash()
             lbl.color = c;
         }
     }
-
-    /* ───────── gradient helper ───────── */
     void ApplyGradient(List<UIGradient> gs, Gradient g)
     {
         if (gs == null) return;
@@ -187,7 +165,6 @@ int ComputeManagerHash()
         }
     }
 
-    /* ───────── font helper ───────── */
     void ApplyFont(List<TMP_Text> lbls, FontSettings fs)
     {
         if (lbls == null) return;
@@ -209,7 +186,6 @@ int ComputeManagerHash()
             }
         }
     }
-
     void CaptureTextOrig(TMP_Text lbl)
     {
         if (txtOrig.ContainsKey(lbl)) return;
@@ -226,14 +202,12 @@ int ComputeManagerHash()
         };
     }
 
-    /* ───────── restore detached items ───────── */
     void RestoreIfDetached()
     {
         RestoreImages();
         RestoreGradients();
         RestoreTexts();
     }
-
     void RestoreImages()
     {
         var keys = new List<Image>(imgOrig.Keys);
@@ -246,7 +220,6 @@ int ComputeManagerHash()
             }
         }
     }
-
     void RestoreGradients()
     {
         var keys = new List<UIGradient>(gradOrig.Keys);
@@ -259,7 +232,6 @@ int ComputeManagerHash()
             }
         }
     }
-
     void RestoreTexts()
     {
         var keys = new List<TMP_Text>(txtOrig.Keys);
@@ -284,14 +256,12 @@ int ComputeManagerHash()
         }
     }
 
-    /* ───────── membership helpers ───────── */
     bool IsInAnyImageList(Image img) =>
-        outlines.Contains(img) ||
-        backgrounds.Contains(img) ||
-        interactColors.Contains(img);
+        outlines.Contains(img)  || backgrounds.Contains(img) ||
+        interacts.Contains(img) || contrasts.Contains(img);
 
     bool IsInAnyTextList(TMP_Text lbl) =>
-        header1.Contains(lbl) || header2.Contains(lbl) ||
-        body1.Contains(lbl)   || body2.Contains(lbl)   ||
+        texts.Contains(lbl)  || header1.Contains(lbl) || header2.Contains(lbl) ||
+        body1.Contains(lbl)  || body2.Contains(lbl)   ||
         intHeader.Contains(lbl) || intSlider.Contains(lbl) || intField.Contains(lbl);
 }

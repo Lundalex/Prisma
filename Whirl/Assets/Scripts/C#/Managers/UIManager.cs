@@ -1,11 +1,6 @@
-// UIManager.cs  (ScriptableObject)
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
-
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 [CreateAssetMenu(
     fileName = "UIManagerAsset",
@@ -46,11 +41,14 @@ public class UIManager : ScriptableObject
 public struct ColorPalette
 {
     public string  name;
+
     [ColorUsage(true, true)] public Color outline;
     [ColorUsage(true, true)] public Color background;
     [ColorUsage(true, true)] public Color interactColor;
-    public Gradient interactGradient;
-    [ColorUsage(true, true)] public Color text;
+    public Gradient           interactGradient;
+
+    [ColorUsage(true, true)] public Color textColor;
+    [ColorUsage(true, true)] public Color contrast;
 }
 
 [System.Serializable]
@@ -75,7 +73,7 @@ public struct FontSettings
 [System.Serializable]
 public struct FontPalette
 {
-    public string       name;
+    public string name;
     public FontSettings header1;
     public FontSettings header2;
     public FontSettings body1;
