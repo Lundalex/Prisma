@@ -25,7 +25,6 @@ public class UserButtonInput : UserUIElement
 
     public override void InitDisplay()
     {
-        containerTrimImage.color = primaryColor;
         button.textSize = textSize;
         button.SetText(text);
     }

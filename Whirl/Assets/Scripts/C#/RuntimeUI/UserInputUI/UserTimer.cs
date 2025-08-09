@@ -1,4 +1,6 @@
 using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
 
 [ExecuteInEditMode]
 public class UserTimer : MonoBehaviour
@@ -8,13 +10,15 @@ public class UserTimer : MonoBehaviour
     [SerializeField] private float updateFrequency = 50f;
 
     [Header("Color")]
-    [SerializeField] private Color integerTextColor = Color.white;
-    [SerializeField] private Color decimalTextColor = Color.white;
+    [ColorUsage(true, true), SerializeField] private Color integerTextColor = Color.white;
+    [ColorUsage(true, true), SerializeField] private Color decimalTextColor = Color.white;
+    [ColorUsage(true, true), SerializeField] private Color primaryColor = Color.white;
 
     [Header("References")]
-    [SerializeField] private TMPro.TMP_Text integerText;
-    [SerializeField] private TMPro.TMP_Text decimalText;
-    [SerializeField] private TMPro.TMP_Text unitText;
+    [SerializeField] private TMP_Text integerText;
+    [SerializeField] private TMP_Text decimalText;
+    [SerializeField] private TMP_Text unitText;
+    [SerializeField] private Image containerTrim;
 
     private Timer timer;
     private float currentValue;
@@ -56,6 +60,7 @@ public class UserTimer : MonoBehaviour
         integerText.color = integerTextColor;
         decimalText.color = decimalTextColor;
         unitText.text = "s";
+        containerTrim.color = primaryColor;
     }
 
     private void Update()

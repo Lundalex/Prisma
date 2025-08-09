@@ -1,3 +1,4 @@
+// UIManager.cs
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
@@ -40,24 +41,26 @@ public class UIManager : ScriptableObject
 [System.Serializable]
 public struct ColorPalette
 {
-    public string  name;
+    public string name;
 
     [ColorUsage(true, true)] public Color outline;
     [ColorUsage(true, true)] public Color background;
     [ColorUsage(true, true)] public Color interactColor;
-    public Gradient           interactGradient;
+    public Gradient interactGradient;
 
-    [ColorUsage(true, true)] public Color textColor;
+    [ColorUsage(true, true)] public Color text;
     [ColorUsage(true, true)] public Color contrast;
+    
+    [ColorUsage(true, true)] public Color notification;
 }
 
 [System.Serializable]
 public struct FontSettings
 {
-    public bool          overrideFontAsset;
+    public bool overrideFontAsset;
     public TMP_FontAsset fontAsset;
 
-    public bool       overrideFontStyle;
+    public bool overrideFontStyle;
     public FontStyles fontStyle;
 
     public bool  overrideFontSize;
@@ -78,7 +81,9 @@ public struct FontPalette
     public FontSettings header2;
     public FontSettings body1;
     public FontSettings body2;
-    public FontSettings intHeader;
-    public FontSettings intSlider;
-    public FontSettings intField;
+    public FontSettings notificationHeader;
+    public FontSettings notificationBody;
+    public FontSettings interactHeader;
+    public FontSettings interactSlider;
+    public FontSettings interactField;
 }

@@ -60,8 +60,7 @@ MonoBehaviour:
   onValueChanged:
     m_PersistentCalls:
       m_Calls: []
-  displayText: "Unders\xF6k frekvenserna <color=orange><u>1,2,3</u></color>. <u>Vad
-    m\xE4rker du?</u>"
+  displayText: "Unders\xF6k frekvenserna 1,2,3. Vad m\xE4rker du?"
   displayTextSize: 18
   textField: {fileID: 8282535602872075279}
 --- !u!1 &3973238783954923678
@@ -131,8 +130,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "Unders\xF6k frekvenserna <color=orange><u>1,2,3</u></color>. <u>Vad m\xE4rker
-    du?</u>"
+  m_text: "Unders\xF6k frekvenserna 1,2,3. Vad m\xE4rker du?"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
   m_sharedMaterial: {fileID: 3265098559650008404, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
@@ -165,12 +163,12 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
-  m_characterSpacing: 5
-  m_wordSpacing: 6
+  m_characterSpacing: 7.5
+  m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
@@ -476,8 +474,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Laboration - Egenfrekvens
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
-  m_sharedMaterial: {fileID: 3265098559650008404, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 882b290641175384184c44cc6868f7d1, type: 2}
+  m_sharedMaterial: {fileID: 1034206784395487844, guid: 882b290641175384184c44cc6868f7d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -511,7 +509,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 10
+  m_characterSpacing: 3
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -686,6 +684,14 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6904256768211435784, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: m_Color.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6904256768211435784, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: m_Color.g
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6904256768211435784, guid: 5d4737114fad748469f7803ee7438546, type: 3}
       propertyPath: m_Color.r
       value: 0
       objectReference: {fileID: 0}
@@ -697,6 +703,46 @@ PrefabInstance:
       propertyPath: m_SizeDelta.y
       value: 183
       objectReference: {fileID: 0}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: texts.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: body1s.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: header1s.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: outlines.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: 'texts.Array.data[0]'
+      value: 
+      objectReference: {fileID: 5446492934369288677}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: 'texts.Array.data[1]'
+      value: 
+      objectReference: {fileID: 8282535602872075279}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: 'body1s.Array.data[0]'
+      value: 
+      objectReference: {fileID: 8282535602872075279}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: 'header1s.Array.data[0]'
+      value: 
+      objectReference: {fileID: 5446492934369288677}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: interactGradients.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: 'interactGradients.Array.data[0]'
+      value: 
+      objectReference: {fileID: 8340132138971378526}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

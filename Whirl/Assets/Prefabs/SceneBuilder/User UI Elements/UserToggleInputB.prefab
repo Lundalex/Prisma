@@ -386,6 +386,7 @@ GameObject:
   - component: {fileID: 7554640727141529506}
   - component: {fileID: 2630672824785132725}
   - component: {fileID: 6511790481033723711}
+  - component: {fileID: 4867823408055383266}
   m_Layer: 5
   m_Name: UserToggleInputB
   m_TagString: Untagged
@@ -455,6 +456,39 @@ MonoBehaviour:
   fieldReference:
     targetScript: {fileID: 0}
     fieldName: 
+--- !u!114 &4867823408055383266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3347045327236077100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d51281f56fbcc2459793857deaa5b02, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  outlines: []
+  backgrounds: []
+  contrasts: []
+  interactColors: []
+  interactGradients:
+  - {fileID: 1503785103435818870}
+  interactGradientTexts: []
+  texts:
+  - {fileID: 4939068707254491368}
+  notifications: []
+  header1s: []
+  header2s: []
+  body1s: []
+  body2s: []
+  notificationHeaders: []
+  notificationBodies: []
+  interactHeaders:
+  - {fileID: 4939068707254491368}
+  interactSliders: []
+  interactFields: []
+  uiManager: {fileID: 11400000, guid: 09694218b3d8a5246b4e7c413bb47eb0, type: 2}
 --- !u!1 &3570895629258637272
 GameObject:
   m_ObjectHideFlags: 0
@@ -742,6 +776,14 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6904256768211435784, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: m_Color.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6904256768211435784, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: m_Color.g
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6904256768211435784, guid: 5d4737114fad748469f7803ee7438546, type: 3}
       propertyPath: m_Color.r
       value: 0.882353
       objectReference: {fileID: 0}
@@ -752,6 +794,10 @@ PrefabInstance:
     - target: {fileID: 7570431356015010846, guid: 5d4737114fad748469f7803ee7438546, type: 3}
       propertyPath: m_SizeDelta.y
       value: 133
+      objectReference: {fileID: 0}
+    - target: {fileID: 8279961661806446908, guid: 5d4737114fad748469f7803ee7438546, type: 3}
+      propertyPath: outlines.Array.size
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -982,6 +1028,17 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
+--- !u!114 &1503785103435818870 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7631624099993627151, guid: aa9473ef872df4fa79950866d3678032, type: 3}
+  m_PrefabInstance: {fileID: 9022536595298766201}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9d2f9067277ade4e9b47012ea4d9e17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &4939068707254491368 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}

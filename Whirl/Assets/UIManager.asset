@@ -47,8 +47,9 @@ MonoBehaviour:
       m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
-    textColor: {r: 1, g: 1, b: 1, a: 1}
+    text: {r: 1, g: 1, b: 1, a: 1}
     contrast: {r: 1, g: 1, b: 1, a: 1}
+    notification: {r: 0.18039216, g: 0.2509804, b: 0.33333334, a: 1}
   - name: Dark
     outline: {r: 1, g: 1, b: 1, a: 1}
     background: {r: 0.16470589, g: 0.16470589, b: 0.16470589, a: 1}
@@ -83,8 +84,9 @@ MonoBehaviour:
       m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
-    textColor: {r: 1, g: 1, b: 1, a: 1}
+    text: {r: 1, g: 1, b: 1, a: 1}
     contrast: {r: 1, g: 1, b: 1, a: 1}
+    notification: {r: 0.18039216, g: 0.2509804, b: 0.33333334, a: 1}
   - name: White
     outline: {r: 0, g: 0, b: 0, a: 1}
     background: {r: 1, g: 1, b: 1, a: 1}
@@ -119,10 +121,11 @@ MonoBehaviour:
       m_ColorSpace: -1
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
-    textColor: {r: 0, g: 0, b: 0, a: 1}
+    text: {r: 0, g: 0, b: 0, a: 1}
     contrast: {r: 0, g: 0, b: 0, a: 1}
+    notification: {r: 0.18039216, g: 0.2509804, b: 0.33333334, a: 1}
   fontPalettes:
-  - name: Medium
+  - name: Medium size
     header1:
       overrideFontAsset: 1
       fontAsset: {fileID: 11400000, guid: 882b290641175384184c44cc6868f7d1, type: 2}
@@ -171,7 +174,31 @@ MonoBehaviour:
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
-    intHeader:
+    notificationHeader:
+      overrideFontAsset: 1
+      fontAsset: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
+      overrideFontStyle: 1
+      fontStyle: 0
+      overrideFontSize: 1
+      fontSize: 26
+      overrideSpacing: 1
+      characterSpacing: 5
+      wordSpacing: 0
+      lineSpacing: 0
+      paragraphSpacing: 0
+    notificationBody:
+      overrideFontAsset: 1
+      fontAsset: {fileID: 11400000, guid: af0115def58ecf945bff46dd4b97593c, type: 2}
+      overrideFontStyle: 1
+      fontStyle: 0
+      overrideFontSize: 1
+      fontSize: 18.5
+      overrideSpacing: 1
+      characterSpacing: 0
+      wordSpacing: 0
+      lineSpacing: 0
+      paragraphSpacing: 0
+    interactHeader:
       overrideFontAsset: 0
       fontAsset: {fileID: 0}
       overrideFontStyle: 0
@@ -183,7 +210,7 @@ MonoBehaviour:
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
-    intSlider:
+    interactSlider:
       overrideFontAsset: 0
       fontAsset: {fileID: 0}
       overrideFontStyle: 0
@@ -195,7 +222,7 @@ MonoBehaviour:
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
-    intField:
+    interactField:
       overrideFontAsset: 0
       fontAsset: {fileID: 0}
       overrideFontStyle: 0
