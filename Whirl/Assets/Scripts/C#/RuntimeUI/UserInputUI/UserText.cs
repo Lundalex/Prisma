@@ -6,7 +6,6 @@ public class UserText : UserUIElement
 {
     [Header("Display")]
     [SerializeField, TextArea(3,4)] private string displayText;
-    [SerializeField] private float displayTextSize = 17;
 
     [Header("References")]
     [SerializeField] private TMP_Text textField;
@@ -20,7 +19,6 @@ public class UserText : UserUIElement
     {
         if (textField != null)
         {
-            textField.fontSize = displayTextSize;
             textField.text = displayText;
         }
         if (containerTrimImage != null) containerTrimImage.color = primaryColor;

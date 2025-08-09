@@ -1,4 +1,3 @@
-// UIManager.cs
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;

@@ -1,4 +1,3 @@
-// UIController.cs
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,6 +11,8 @@ using UnityEditor;
 [ExecuteAlways]
 public class UIController : MonoBehaviour
 {
+    public bool forceUpdateOnStart = false;
+
     [Header("Color Palette Connections")]
     public List<Image> outlines = new();
     public List<Image> backgrounds = new();
@@ -124,6 +125,14 @@ public class UIController : MonoBehaviour
     }
 #endif
 
+    void Start()
+    {
+        if (forceUpdateOnStart)
+        {
+            ApplyActivePalettes();
+        }
+    }
+
     void ApplyActivePalettes()
     {
         if (!uiManager) return;
@@ -168,9 +177,11 @@ public class UIController : MonoBehaviour
         {
             if (!img) continue;
             if (!imgOrig.ContainsKey(img)) imgOrig[img] = img.color;
-            img.color = c;
+            var nc = c; nc.a = img.color.a;
+            img.color = nc;
         }
     }
+
     void ApplyColour(List<MaskableGraphic> gfx, Color c)
     {
         if (gfx == null) return;
@@ -180,9 +191,11 @@ public class UIController : MonoBehaviour
             var t = g as TMP_Text;
             if (t) CaptureTextOrig(t);
             if (!gfxOrig.ContainsKey(g)) gfxOrig[g] = g.color;
-            g.color = c;
+            var nc = c; nc.a = g.color.a;
+            g.color = nc;
         }
     }
+
     void ApplyColour(List<TMP_Text> lbls, Color c)
     {
         if (lbls == null) return;
@@ -190,7 +203,8 @@ public class UIController : MonoBehaviour
         {
             if (!lbl) continue;
             CaptureTextOrig(lbl);
-            lbl.color = c;
+            var nc = c; nc.a = lbl.color.a;
+            lbl.color = nc;
         }
     }
     void ApplyGradient(List<UIGradient> gs, Gradient g)
