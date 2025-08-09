@@ -44,6 +44,7 @@ public struct ColorPalette
 
     [ColorUsage(true, true)] public Color outline;
     [ColorUsage(true, true)] public Color background;
+    [ColorUsage(true, true)] public Color lightBackground;
     [ColorUsage(true, true)] public Color interactColor;
     public Gradient interactGradient;
 

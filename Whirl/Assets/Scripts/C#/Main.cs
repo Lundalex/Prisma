@@ -1,12 +1,15 @@
 using UnityEngine;
 using Unity.Mathematics;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 using Resources2;
-using System.Collections.Generic;
 using PM = ProgramManager;
 using Debug = UnityEngine.Debug;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 public class Main : MonoBehaviour
 {
@@ -272,6 +275,10 @@ public class Main : MonoBehaviour
     private bool gpuDataSorted = false;
     [NonSerialized] public static bool2 MousePressed = false; // (left, right)
 
+    // Addressables (caustics) state
+    private AsyncOperationHandle<Texture2DArray> _causticsHandle;
+    private bool _causticsLoadStarted;
+
     public void SubmitParticlesToSimulation(PData[] particlesToAdd) => NewPDatas.AddRange(particlesToAdd);
 
     public void StartScript()
@@ -325,8 +332,6 @@ public class Main : MonoBehaviour
         SetShaderKeywords();
         InitCausticsGen();
 
-        // Only use the shader debugger if running in the program in the Unity editor
-        // This is because WebGPU doesn't support using the GetData(buffer) function without async
         #if UNITY_EDITOR
             ComputeShaderDebugger.CheckShaderConstants(this, debugShader, pTypeInput);
         #endif
@@ -339,6 +344,9 @@ public class Main : MonoBehaviour
         UpdateScript();
 
         StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
+
+        // If an addressable caustics texture is assigned, load it and set precomputedCausticsTexture.
+        TryLoadAddressableCaustics();
     }
     
     public void UpdateScript()
@@ -633,6 +641,7 @@ public class Main : MonoBehaviour
         PTypesNum = pTypeInput.particleTypeStates.Length * 3;
 
         CausticsType = Application.isEditor ? CausticsTypeEditor : CausticsTypeBuild;
+        if (precomputedCausticsTexture.name == "PrecomputedCaustics_400xy_120z") Debug.LogError("Heavy caustics texture should be loaded as an addressable for lower load times");
         if (precomputedCausticsTexture == null && CausticsType == CausticsType.Precomputed)
         {
             Debug.LogWarning("Precomputed caustics texture 2D array not assigned in inspector. Defaulting to CausticsType.None");
@@ -816,6 +825,58 @@ public class Main : MonoBehaviour
         else Graphics.Blit(src, dest);
     }
 
+    private void TryLoadAddressableCaustics()
+    {
+        if (_causticsLoadStarted) return;
+        AssetReferenceT<Texture2DArray> addressableCausticsTexture = shaderHelper.addressableCausticsTexture;
+        if (addressableCausticsTexture == null) return;
+        if (!addressableCausticsTexture.RuntimeKeyIsValid()) return;
+
+        _causticsLoadStarted = true;
+        StartCoroutine(LoadAddressableCaustics_Coroutine());
+    }
+
+    private IEnumerator LoadAddressableCaustics_Coroutine()
+    {
+        // Wait 2s to let other processes run before loading the addressable.
+        if (!PM.hasBeenReset) yield return new WaitForSecondsRealtime(2f);
+        
+        var init = Addressables.InitializeAsync();
+        yield return init;
+
+        _causticsHandle = shaderHelper.addressableCausticsTexture.LoadAssetAsync<Texture2DArray>();
+        yield return _causticsHandle;
+
+        if (_causticsHandle.Status == AsyncOperationStatus.Succeeded)
+        {
+            var newTex = _causticsHandle.Result;
+
+            // Always set the field as requested
+            precomputedCausticsTexture = newTex;
+
+            // Maintain existing behavior: only apply to shader when in Precomputed mode
+            if (CausticsType != CausticsType.Precomputed)
+            {
+                Debug.LogWarning("Addressable caustics texture loaded, but CausticsType in Main is NOT set to CausticsType.Precomputed.");
+                yield break;
+            }
+
+            ApplyPrecomputedCausticsToShader(newTex);
+        }
+        else
+        {
+            Debug.LogError(_causticsHandle.OperationException ?? new System.Exception("Failed to load Addressable caustics texture."));
+        }
+    }
+
+    private void ApplyPrecomputedCausticsToShader(Texture2DArray tex)
+    {
+        if (tex == null) { Debug.LogError("ApplyPrecomputedCausticsToShader texture is null."); return; }
+        PrecomputedCausticsDims = new(tex.width, tex.height, tex.depth);
+        renderShader.SetVector("PrecomputedCausticsDims", Utils.Int3ToVector3(PrecomputedCausticsDims));
+        renderShader.SetTexture(1, "PrecomputedCaustics", tex);
+    }
+
     private void OnDestroy()
     {
         ComputeHelper.Release(
@@ -835,5 +896,8 @@ public class Main : MonoBehaviour
             RBVectorBuffer,
             MaterialBuffer
         );
+
+        // Release addressable caustics if loaded
+        if (_causticsHandle.IsValid()) Addressables.Release(_causticsHandle);
     }
 }

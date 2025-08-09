@@ -220,7 +220,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 584659465}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cab0dc7cb01d9484b90334064fe876d1, type: 3}
   m_Name: 
@@ -228,9 +228,9 @@ MonoBehaviour:
   framesPerZ: 8
   upscaleFactor: 1
   use_true2DArray_false3D: 1
-  outputDims: {x: 256, y: 512, z: 120}
+  outputDims: {x: 512, y: 512, z: 120}
   computeShader: {fileID: 7200000, guid: 21faacb8432adf14a8d06f99a61cf2a5, type: 3}
-  my2DArray: {fileID: 18700000, guid: bd14d7b8dd486c94592446b3a06aa211, type: 2}
+  my2DArray: {fileID: 18700000, guid: 52d80ac5393fa684da835deb90bc33d9, type: 2}
   my3D: {fileID: 0}
 --- !u!114 &584659470
 MonoBehaviour:
@@ -244,12 +244,68 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 830629bc4ac33784ebc40fb280be0145, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  texDims: {x: 300, y: 300, z: 90}
+  texDims: {x: 100, y: 100, z: 120}
   textureFormat: 63
   true2DArray_false3D: 1
-  suffix: R8_300_90z
+  suffix: R8_300_30z
+--- !u!1 &968066507
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 968066509}
+  - component: {fileID: 968066508}
+  m_Layer: 0
+  m_Name: DownSampleTex2DArray
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &968066508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 968066507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1eeaa311eaf6b2479599f82a3d79828, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  source: {fileID: 18700000, guid: fd236c79f064f4d4c81170507d2e62d2, type: 2}
+  output: {fileID: 18700000, guid: 367a480578c933a42adc5e654b80f87e, type: 2}
+  targetWidth: 200
+  targetHeight: 200
+  targetLayers: 120
+  generateMipmaps: 0
+  outputFilter: 1
+  saveFolder: Assets
+  outputName: d4PrecomputedCaustics_200xy_120z.asset
+  overwriteExisting: 1
+  generateNow: 0
+--- !u!4 &968066509
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 968066507}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 792.6847, y: -6203.0483, z: -58.41723}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 584659468}
+  - {fileID: 968066509}

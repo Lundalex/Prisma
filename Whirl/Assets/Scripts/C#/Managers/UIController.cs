@@ -11,11 +11,10 @@ using UnityEditor;
 [ExecuteAlways]
 public class UIController : MonoBehaviour
 {
-    public bool forceUpdateOnStart = false;
-
     [Header("Color Palette Connections")]
     public List<Image> outlines = new();
     public List<Image> backgrounds = new();
+    public List<Image> lightBackgrounds = new();
     public List<Image> contrasts = new();
     public List<Image> interactColors = new();
     public List<UIGradient> interactGradients = new();
@@ -127,10 +126,7 @@ public class UIController : MonoBehaviour
 
     void Start()
     {
-        if (forceUpdateOnStart)
-        {
-            ApplyActivePalettes();
-        }
+        ApplyActivePalettes();
     }
 
     void ApplyActivePalettes()
@@ -142,6 +138,7 @@ public class UIController : MonoBehaviour
 
         ApplyColour(outlines, cp.outline);
         ApplyColour(backgrounds, cp.background);
+        ApplyColour(lightBackgrounds, cp.lightBackground);
         ApplyColour(interactColors, cp.interactColor);
         ApplyColour(contrasts, cp.contrast);
         ApplyGradient(interactGradients, cp.interactGradient);
@@ -353,8 +350,8 @@ public class UIController : MonoBehaviour
 
     bool IsInAnyImageList(Image img) =>
         outlines.Contains(img) || backgrounds.Contains(img) ||
-        interactColors.Contains(img) || contrasts.Contains(img) ||
-        notifications.Contains(img);
+        lightBackgrounds.Contains(img) || interactColors.Contains(img) ||
+        contrasts.Contains(img) || notifications.Contains(img);
 
     bool IsInAnyTextListGraphic(MaskableGraphic g) =>
         texts.Contains(g)     || header1s.Contains(g as TMP_Text) || header2s.Contains(g as TMP_Text) ||

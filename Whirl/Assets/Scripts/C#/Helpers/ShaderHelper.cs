@@ -1,16 +1,18 @@
 using Resources2;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using PM = ProgramManager;
 
 public class ShaderHelper : MonoBehaviour
 {
     public Main m;
+    public AssetReferenceT<Texture2DArray> addressableCausticsTexture;
     public void SetPSimShaderBuffers(ComputeShader pSimShader)
     {
         // Kernel PreCalculations
         pSimShader.SetBuffer(0, "PDatas", m.PDataBuffer);
         pSimShader.SetBuffer(0, "PTypes", m.PTypeBuffer);
-    
+
         // Kernel PreCalculations
         pSimShader.SetBuffer(1, "SpatialLookup", m.SpatialLookupBuffer);
         pSimShader.SetBuffer(1, "StartIndices", m.StartIndicesBuffer);
@@ -29,7 +31,7 @@ public class ShaderHelper : MonoBehaviour
         pSimShader.SetBuffer(3, "SpringStartIndices_dbA", m.SpringStartIndicesBuffer_dbA);
         pSimShader.SetBuffer(3, "SpringStartIndices_dbB", m.SpringStartIndicesBuffer_dbB);
         pSimShader.SetBuffer(3, "ParticleSpringsCombined", m.ParticleSpringsCombinedBuffer);
-        
+
         // Kernel ParticleForces - 8/8 buffers
         pSimShader.SetBuffer(4, "SpatialLookup", m.SpatialLookupBuffer);
         pSimShader.SetBuffer(4, "StartIndices", m.StartIndicesBuffer);
