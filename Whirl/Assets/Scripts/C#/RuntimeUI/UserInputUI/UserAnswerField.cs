@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+[ExecuteInEditMode]
 public class UserAnswerField : MonoBehaviour
 {
     [Header("Answer Settings")]
@@ -33,10 +34,11 @@ public class UserAnswerField : MonoBehaviour
     [Tooltip("Time to lerp to fail color.")]
     [SerializeField] private float outlineLerp = 0.06f;
 
+    [SerializeField] private RectTransform _rt;
+
     enum Verdict { None, Success, Fail }
 
     Color _outlineBaseColor;
-    RectTransform _rt;
     Coroutine _shakeCo, _flashCo;
     bool _editingOverride;
 
@@ -44,9 +46,12 @@ public class UserAnswerField : MonoBehaviour
     string _lastSubmittedText = "";
     bool _dirtySinceSubmit = false;
 
+    bool _prevEditing = false;
+    bool _lostFocusAfterSubmit = false;
+
     void Awake()
     {
-        _rt = GetComponent<RectTransform>();
+        if (_rt == null) _rt = GetComponent<RectTransform>();
         if (outlineImage != null)
         {
             _outlineBaseColor = defaultColor;
@@ -62,6 +67,8 @@ public class UserAnswerField : MonoBehaviour
         if (outlineImage != null) outlineImage.color = _outlineBaseColor;
         _editingOverride = false;
         _dirtySinceSubmit = false;
+        _prevEditing = false;
+        _lostFocusAfterSubmit = false;
     }
 
     void Update()
@@ -91,8 +98,19 @@ public class UserAnswerField : MonoBehaviour
                 }
             }
         }
-        else
+        else if (_verdict == Verdict.Success)
         {
+            if (outlineImage.color != successColor) outlineImage.color = successColor;
+            // keep success color regardless of focus/typing
+        }
+        else // Fail
+        {
+            if (!_prevEditing && editing && _lostFocusAfterSubmit)
+            {
+                outlineImage.color = editColor;
+                _editingOverride = true;
+            }
+
             if (editing && !_dirtySinceSubmit && inputField.text != _lastSubmittedText)
             {
                 outlineImage.color = editColor;
@@ -105,6 +123,13 @@ public class UserAnswerField : MonoBehaviour
                 _editingOverride = false;
             }
         }
+
+        if (_verdict != Verdict.None)
+        {
+            if (_prevEditing && !editing) _lostFocusAfterSubmit = true;
+        }
+
+        _prevEditing = editing;
     }
 
     public void ProcessAnswer()
@@ -122,6 +147,7 @@ public class UserAnswerField : MonoBehaviour
             _verdict = Verdict.Success;
             _lastSubmittedText = answer;
             _dirtySinceSubmit = false;
+            _lostFocusAfterSubmit = false;
         }
         else
         {
@@ -135,10 +161,11 @@ public class UserAnswerField : MonoBehaviour
             _verdict = Verdict.Fail;
             _lastSubmittedText = answer;
             _dirtySinceSubmit = false;
+            _lostFocusAfterSubmit = false;
         }
     }
 
-    private bool CompareWithAnswerKey(string answer, string answerKey)
+    protected virtual bool CompareWithAnswerKey(string answer, string answerKey)
     {
         if (caseSensitive) return answer == answerKey;
         return string.Equals(answer, answerKey, System.StringComparison.OrdinalIgnoreCase);
@@ -179,9 +206,9 @@ public class UserAnswerField : MonoBehaviour
                 float f = Mathf.Clamp01(t / d);
 
                 float x;
-                if (f < 0.25f)          x = Mathf.Lerp(0f,  +shakePixels, f / 0.25f);
-                else if (f < 0.75f)     x = Mathf.Lerp(+shakePixels, -shakePixels, (f - 0.25f) / 0.5f);
-                else                    x = Mathf.Lerp(-shakePixels, 0f, (f - 0.75f) / 0.25f);
+                if (f < 0.25f) x = Mathf.Lerp(0f, +shakePixels, f / 0.25f);
+                else if (f < 0.75f) x = Mathf.Lerp(+shakePixels, -shakePixels, (f - 0.25f) / 0.5f);
+                else x = Mathf.Lerp(-shakePixels, 0f, (f - 0.75f) / 0.25f);
 
                 _rt.anchoredPosition = basePos + new Vector2(x, 0f);
                 yield return null;
