@@ -7,10 +7,11 @@ public class ContainerWithTrim : MonoBehaviour
     [SerializeField] private RectTransform trimContainer;
     [SerializeField] private RectTransform innerContainer;
 
-    private Vector2 containerSpacing = new(12, 12);
+    private Vector2 containerSpacing = new(10, 10);
 
     void Update()
     {
+        containerSpacing = new(10, 10);
         if (!Application.isPlaying)
         {
             if (otherContainer != null && trimContainer != null && innerContainer != null)
@@ -23,6 +24,7 @@ public class ContainerWithTrim : MonoBehaviour
 
     void Start()
     {
+        containerSpacing = new(10, 10);
         if (otherContainer != null && trimContainer != null && innerContainer != null)
         {
             trimContainer.sizeDelta = otherContainer.sizeDelta - containerSpacing;

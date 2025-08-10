@@ -422,6 +422,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m: {fileID: 486541}
+  addressableCausticsTexture:
+    m_AssetGUID: 
+    m_SubObjectName: 
+    m_SubObjectGUID: 
+    m_SubObjectType: 
+    m_EditorAssetChanged: 0
 --- !u!224 &68767213 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 7760321446707083635, guid: 5315f5134894d421f8388df4785c1297, type: 3}
@@ -1698,8 +1704,7 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1314755308}
+  m_Children: []
   m_Father: {fileID: 1093615694}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -1899,7 +1904,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6053688486985446199, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 102
+      value: 96.00002
       objectReference: {fileID: 0}
     - target: {fileID: 6053688486985446199, guid: 97b6f669bb11c194c843f200317b8792, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -2166,6 +2171,7 @@ RectTransform:
   - {fileID: 644664866}
   - {fileID: 489021691}
   - {fileID: 623520793}
+  - {fileID: 1314755308}
   - {fileID: 553501664}
   m_Father: {fileID: 415270256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -3156,7 +3162,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -3.4285889, y: -196.03574}
+  m_AnchoredPosition: {x: -3.4285889, y: -202.0357}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1863666012956078910
@@ -3499,23 +3505,23 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 644664866}
+    m_TransformParent: {fileID: 1093615694}
     m_Modifications:
     - target: {fileID: 181129878816510678, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: bodySize.y
-      value: 1387
+      value: 1407
       objectReference: {fileID: 0}
     - target: {fileID: 292200617926659175, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 679.62994
+      value: 689.43
       objectReference: {fileID: 0}
     - target: {fileID: 536226799963296668, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 970.89996
+      value: 984.89996
       objectReference: {fileID: 0}
     - target: {fileID: 1377288269467470263, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 946.89996
+      value: 960.89996
       objectReference: {fileID: 0}
     - target: {fileID: 1442706587507177479, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_Name
@@ -3606,16 +3612,20 @@ PrefabInstance:
       value: "Varf\xF6r faller inte vikten?"
       objectReference: {fileID: 0}
     - target: {fileID: 4455916097698742162, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
+      propertyPath: m_margin.w
+      value: 90.5972
+      objectReference: {fileID: 0}
+    - target: {fileID: 4455916097698742162, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_fontStyle
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4506268344748428473, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 234.30002
+      value: 225.7
       objectReference: {fileID: 0}
     - target: {fileID: 4695899996972614979, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 958.89996
+      value: 972.89996
       objectReference: {fileID: 0}
     - target: {fileID: 4897346576236812228, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_text
@@ -3623,11 +3633,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4897346576236812228, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_characterSpacing
-      value: 3.7
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 9057787952365163653, guid: 970e019362eff8a4089f436b44c90d56, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 452
+      value: 446
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3746,7 +3756,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}
       propertyPath: m_text
-      value: "L\xE4r dig mer"
+      value: "L\xE4r dig mer!"
       objectReference: {fileID: 0}
     - target: {fileID: 4160593682004186513, guid: aa9473ef872df4fa79950866d3678032, type: 3}
       propertyPath: m_fontSize

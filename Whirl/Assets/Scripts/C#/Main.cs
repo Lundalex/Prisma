@@ -641,13 +641,16 @@ public class Main : MonoBehaviour
         PTypesNum = pTypeInput.particleTypeStates.Length * 3;
 
         CausticsType = Application.isEditor ? CausticsTypeEditor : CausticsTypeBuild;
-        if (precomputedCausticsTexture.name == "PrecomputedCaustics_400xy_120z") Debug.LogError("Heavy caustics texture should be loaded as an addressable for lower load times");
         if (precomputedCausticsTexture == null && CausticsType == CausticsType.Precomputed)
         {
             Debug.LogWarning("Precomputed caustics texture 2D array not assigned in inspector. Defaulting to CausticsType.None");
             CausticsType = CausticsType.None;
         }
-        if (precomputedCausticsTexture != null) PrecomputedCausticsDims = new(precomputedCausticsTexture.width, precomputedCausticsTexture.height, precomputedCausticsTexture.depth);
+        if (precomputedCausticsTexture != null)
+        {
+            if (precomputedCausticsTexture.name == "PrecomputedCaustics_400xy_120z") Debug.LogError("Heavy caustics texture should be loaded as an addressable for lower load times");
+            PrecomputedCausticsDims = new(precomputedCausticsTexture.width, precomputedCausticsTexture.height, precomputedCausticsTexture.depth);
+        }
     }
 
     private void InitializeBuffers(PData[] PDatas, RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas)
