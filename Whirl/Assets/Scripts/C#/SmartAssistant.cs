@@ -38,12 +38,11 @@ public class SmartAssistant : MonoBehaviour
     private OpenAIClient api;
     private readonly List<Message> conversation = new();
 
-    private const string apiKey = "";
-
     void Awake()
     {
-        if (apiKey.Length > 0) Debug.LogWarning("Remember to remove API key before pushing to branch");
-        var auth = new OpenAIAuthentication(apiKey);
+        // Build key in memory and use it to auth
+        var auth = new OpenAIAuthentication(OpenAIKey.Reconstruct());
+
         var settings = new OpenAISettings(ScriptableObject.CreateInstance<OpenAIConfiguration>());
         api = new OpenAIClient(auth, settings);
 
