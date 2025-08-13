@@ -822,12 +822,6 @@ public class Main : MonoBehaviour
         renderShader.SetInt("NextTimeSetRand", timeSetRand);
     }
 
-    public void OnRenderImage(RenderTexture src, RenderTexture dest)
-    {
-        if (simDevice == SimulationDevice.GPU) Graphics.Blit(renderTexture, dest);
-        else Graphics.Blit(src, dest);
-    }
-
     private void TryLoadAddressableCaustics()
     {
         if (_causticsLoadStarted) return;
@@ -878,6 +872,12 @@ public class Main : MonoBehaviour
         PrecomputedCausticsDims = new(tex.width, tex.height, tex.depth);
         renderShader.SetVector("PrecomputedCausticsDims", Utils.Int3ToVector3(PrecomputedCausticsDims));
         renderShader.SetTexture(1, "PrecomputedCaustics", tex);
+    }
+
+    public void OnRenderImage(RenderTexture src, RenderTexture dest)
+    {
+        if (simDevice == SimulationDevice.GPU) Graphics.Blit(renderTexture, dest);
+        else Graphics.Blit(src, dest);
     }
 
     private void OnDestroy()

@@ -304,8 +304,6 @@ namespace ChartAndGraph
             ClearEvents(); // clear previous animations
             if(true)
                 Rebuild(CanvasUpdate.PostLayout);
-            else
-                Rebuild(CanvasUpdate.PreRender);
         }
 
         protected override void UpdateMaterial()
