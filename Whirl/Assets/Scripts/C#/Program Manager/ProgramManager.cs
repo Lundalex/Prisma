@@ -18,6 +18,7 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public SensorManager sensorManager;
     [NonSerialized] public FluidSpawnerManager fluidSpawnerManager;
     [NonSerialized] public Transform languageSelectDropdown;
+    [NonSerialized] public GameObject fullscreenView;
 
     // UI elements
     [NonSerialized] public List<SensorData> sensorDatas = new();
@@ -321,6 +322,7 @@ public class ProgramManager : ScriptableObject
         notificationManager = GameObject.FindGameObjectWithTag("NotificationManager2").GetComponent<NotificationManager2>();
         fluidSpawnerManager = GameObject.FindGameObjectWithTag("FluidSpawnerManager").GetComponent<FluidSpawnerManager>();
         languageSelectDropdown = GameObject.FindGameObjectWithTag("LanguageSelect")?.GetComponent<Transform>();
+        fullscreenView = GameObject.FindGameObjectWithTag("FullscreenView");
     }
 
     public void ResetData(bool pauseOnStart)

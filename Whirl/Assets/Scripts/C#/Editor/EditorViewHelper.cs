@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEditor;
+using LeTai.Asset.TranslucentImage;
 
 [InitializeOnLoad]
 public class EditorViewHelper : Editor
@@ -40,9 +41,50 @@ public class EditorViewHelper : Editor
             Vector2 boundaryDims = new(main.BoundaryDims.x, main.BoundaryDims.y);
             sceneManagerTransform.transform.localPosition = boundaryDims * 0.5f;
             sceneManagerTransform.transform.localScale = boundaryDims;
+
+            ApplyGlobalTranslucentSource();
         }
 
         if (uiCanvasObject != null) uiCanvasObject.SetActive(!(CheckSceneViewActive() && lifeCycleManager.doHideUIInSceneView));
+    }
+
+    // Assign the MainCamera's TranslucentImageSource to every TranslucentImage in loaded scenes
+    private static void ApplyGlobalTranslucentSource()
+    {
+        if (!main) return;
+
+        var source = main.GetComponent<TranslucentImageSource>();
+        if (!source)
+        {
+            Debug.Log("Simulation game object lacks the TranslucentImageSource component.");
+            return;
+        }
+
+        TranslucentImage[] images;
+
+        #if UNITY_2023_1_OR_NEWER
+            // New API: choose whether to include inactive and whether to sort
+            images = Object.FindObjectsByType<TranslucentImage>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None
+            );
+        #else
+        
+        #pragma warning disable CS0618
+            images = Object.FindObjectsOfType<TranslucentImage>(includeInactive: true);
+        #pragma warning restore CS0618
+        #endif
+
+        foreach (var img in images)
+        {
+            if (!img || img.source == source) continue;
+
+            #if UNITY_EDITOR
+                Undo.RecordObject(img, "Assign Global Translucent Image Source");
+            #endif
+            img.source = source;
+            EditorUtility.SetDirty(img);
+        }
     }
 
     private static bool CheckSceneViewActive()

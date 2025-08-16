@@ -91,6 +91,7 @@ public class SensorUI : MonoBehaviour
     private void Update()
     {
         if (PM.Instance.isAnySensorSettingsViewActive) return;
+        if (PM.Instance.fullscreenView != null && PM.Instance.fullscreenView.activeSelf) return;
 
         bool isTryingToMove = Input.GetMouseButton(0) && !Main.MousePressed.x && !PM.Instance.CheckAnySensorBeingMoved(this);
         if (isTryingToMove)

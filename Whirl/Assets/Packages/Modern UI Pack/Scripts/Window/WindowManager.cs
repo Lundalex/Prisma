@@ -191,7 +191,7 @@ namespace Michsky.MUIP
                 currentWindowAnimator.Play(windowFadeOut);
                 nextWindowAnimator.Play(windowFadeIn);
 
-                if (cullWindows == true)
+                if (cullWindows == true && gameObject.activeInHierarchy)
                     StartCoroutine("DisablePreviousWindow");
 
                 currentButtonIndex = newWindowIndex;

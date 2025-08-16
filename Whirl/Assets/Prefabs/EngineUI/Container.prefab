@@ -66,8 +66,8 @@ MonoBehaviour:
   outlines:
   - {fileID: 6904256768211435784}
   backgrounds:
-  - {fileID: 1840538172606420951}
-  - {fileID: 1001757054788963836}
+  - {fileID: 8446040843368087564}
+  - {fileID: 1196357531667363308}
   lightBackgrounds: []
   contrasts: []
   interactColors: []
@@ -207,7 +207,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_PixelsPerUnitMultiplier
-      value: 3.7
+      value: 1.9
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -354,22 +354,52 @@ PrefabInstance:
       propertyPath: m_PixelsPerUnitMultiplier
       value: 4.4
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1196357531667363308}
   m_SourcePrefab: {fileID: 100100000, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
---- !u!114 &1001757054788963836 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
+--- !u!1 &4109420981584660572 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
   m_PrefabInstance: {fileID: 7331686720127870168}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+--- !u!114 &1196357531667363308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4109420981584660572}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 196bb08d6c2d3c9499c04e1281fd4ad3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  m_Material: {fileID: 2100000, guid: e40f3415208bee248a6a98b9f0010f75, type: 2}
+  m_Color: {r: 0.13338679, g: 0.16054907, b: 0.19676542, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: -7605210399553752619, guid: 852b2c75908ea9742b897f400ef4cc16, type: 3}
+  m_Type: 1
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 2
+  _source: {fileID: 0}
+  m_spriteBlending: 0.4
 --- !u!224 &4267652668880890090 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
@@ -390,6 +420,10 @@ PrefabInstance:
     - target: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_Layer
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_Pivot.x
@@ -499,25 +533,18 @@ PrefabInstance:
       propertyPath: m_PixelsPerUnitMultiplier
       value: 3
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5056308235925118542}
+    - targetCorrespondingSourceObject: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8446040843368087564}
   m_SourcePrefab: {fileID: 100100000, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
---- !u!114 &1840538172606420951 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
-  m_PrefabInstance: {fileID: 8202023825825283827}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3272863007286530679}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &3272863007286530679 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
@@ -535,6 +562,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 41c516ebd12f84af78891e33b2acda86, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &8446040843368087564
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3272863007286530679}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 196bb08d6c2d3c9499c04e1281fd4ad3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 2100000, guid: e40f3415208bee248a6a98b9f0010f75, type: 2}
+  m_Color: {r: 0.13338679, g: 0.16054907, b: 0.19676542, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: -7605210399553752619, guid: 852b2c75908ea9742b897f400ef4cc16, type: 3}
+  m_Type: 1
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1.8
+  _source: {fileID: 0}
+  m_spriteBlending: 0.4
 --- !u!224 &3410821896102752961 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}

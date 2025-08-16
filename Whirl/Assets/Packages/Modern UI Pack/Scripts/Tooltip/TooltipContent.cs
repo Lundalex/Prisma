@@ -11,7 +11,7 @@ namespace Michsky.MUIP
     {
         [Header("Content")]
         [TextArea] public string description;
-        public float delay;
+        public float delay = 0.4f;
 
         [Header("Resources")]
         public GameObject tooltipRect;
