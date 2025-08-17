@@ -125,8 +125,11 @@ namespace Michsky.MUIP
         IEnumerator ShowTooltip()
         {
             yield return new WaitForSecondsRealtime(delay);
-            tooltipAnimator.Play("In");
-            StopCoroutine("ShowTooltip");
+            if (tooltipAnimator.gameObject.activeInHierarchy)
+            {
+                tooltipAnimator.Play("In");
+                StopCoroutine("ShowTooltip");
+            }
         }
 
         IEnumerator UpdateLayoutPosition()

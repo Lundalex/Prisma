@@ -9,12 +9,7 @@ public class TMPBulletListFormatter : MonoBehaviour
 {
     [Header("Input (start bullets with \"- \", one per line)")]
     [TextArea(6, 40)]
-    [SerializeField] string sourceText =
-@"Din text här...
-- Första punkt som kan vara lång och radbrytas automatiskt
-- Andra punkt
-Vanlig rad igen.
-- Bullet där vi // går tillbaka till vänster mitt i raden";
+    [SerializeField] public string sourceText = @"Din text här...";
 
     [Header("Target")]
     [SerializeField] TMP_Text target; // TextMeshProUGUI or TextMeshPro

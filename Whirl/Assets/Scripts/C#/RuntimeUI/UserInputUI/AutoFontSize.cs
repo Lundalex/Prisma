@@ -3,17 +3,27 @@ using TMPro;
 
 public class AutoFontSize : MonoBehaviour
 {
-    [SerializeField] private bool autoAdjustSize;
+    // Inspctor settings
+    [SerializeField] private bool autoAdjustSize = true;
     [SerializeField] private TMP_Text autoText;
     [SerializeField] private TMP_Text referenceText;
     [SerializeField] private float minFontSize = 16f;
     [SerializeField] private int maxSteps = 20;
 
+    // Private settings
+    private float step = 1f; // size change per step
+
+    // State variables
     bool _isAdjusting;
+    float _maxFontSize; // original target (from reference)
 
     void OnEnable()
     {
-        autoText.fontSize = referenceText.fontSize;
+        if (!autoText || !referenceText) return;
+
+        _maxFontSize = referenceText.fontSize;
+        autoText.fontSize = _maxFontSize;
+
         if (autoAdjustSize)
         {
             TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
@@ -39,29 +49,62 @@ public class AutoFontSize : MonoBehaviour
             AdjustFontSizeToFit();
     }
 
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        if (autoText && referenceText)
+        {
+            _maxFontSize = referenceText.fontSize;
+            if (!Application.isPlaying)
+                autoText.fontSize = _maxFontSize;
+        }
+    }
+#endif
+
     void AdjustFontSizeToFit()
     {
-        if (_isAdjusting) return;
+        if (_isAdjusting || !autoText) return;
         _isAdjusting = true;
 
         TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
 
         int steps = 0;
-        while (IsTruncated() && autoText.fontSize > minFontSize && steps++ < maxSteps)
+
+        // 1) Shrink while overflowing
+        while (IsOverflowing() && autoText.fontSize > minFontSize && steps++ < maxSteps)
         {
-            autoText.fontSize -= 1f;
+            autoText.fontSize = Mathf.Max(minFontSize, autoText.fontSize - step);
             autoText.ForceMeshUpdate();
+        }
+
+        // 2) Grow back up while there's room (but never exceed _maxFontSize)
+        //    We grow until we would overflow, then back off one step.
+        while (!IsOverflowing() && autoText.fontSize + step <= _maxFontSize && steps++ < maxSteps)
+        {
+            autoText.fontSize += step;
+            autoText.ForceMeshUpdate();
+
+            if (IsOverflowing())
+            {
+                autoText.fontSize -= step; // back off if we just crossed the limit
+                autoText.ForceMeshUpdate();
+                break;
+            }
         }
 
         TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
         _isAdjusting = false;
     }
 
-    bool IsTruncated()
+    bool IsOverflowing()
     {
+        // Compare preferred size at current font size to the rect
         autoText.ForceMeshUpdate();
-        string displayed = autoText.GetParsedText();
-        // Detect Unicode ellipsis or three periods
-        return displayed.EndsWith("…");
+        var rect = autoText.rectTransform.rect;
+
+        Vector2 preferred = autoText.GetPreferredValues(autoText.text, rect.width, Mathf.Infinity);
+
+        const float epsilon = 0.01f;
+        return preferred.y > rect.height + epsilon || preferred.x > rect.width + epsilon;
     }
 }

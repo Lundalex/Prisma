@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 [ExecuteInEditMode]
 public class FullscsreenWindowManager : MonoBehaviour
@@ -7,7 +8,9 @@ public class FullscsreenWindowManager : MonoBehaviour
     [SerializeField, Min(0)] float navBarButtonScale;
     [SerializeField, Min(0)] float navBarHeight;
     [SerializeField, Min(0)] float workAreaWidth;
+    [SerializeField, Min(0)] float answerAreaPadding;
     [SerializeField, Min(0)] float separatorPadding;
+    [SerializeField, Min(0)] float switchBetweenTasksSpacing;
 
     [Header("References")]
     [SerializeField] RectTransform windowContainer;
@@ -15,7 +18,9 @@ public class FullscsreenWindowManager : MonoBehaviour
     [SerializeField] RectTransform buttonContainer;
     [SerializeField] RectTransform[] buttons;
     [SerializeField] RectTransform headerOutline;
+    [SerializeField] HorizontalLayoutGroup[] switchBetweenTasksContainer;
     [SerializeField] RectTransform[] separatorTrims;
+    [SerializeField] RectTransform[] answerAreas;
 
     void Start()
     {
@@ -123,6 +128,43 @@ public class FullscsreenWindowManager : MonoBehaviour
                 var pos = t.anchoredPosition;
                 pos.x = 0f;
                 t.anchoredPosition = pos;
+            }
+        }
+
+        // 6) Set each answer area's width to (workAreaWidth - answerAreaPadding)
+        if (answerAreas != null && answerAreas.Length > 0)
+        {
+            float targetWidth = Mathf.Max(0f, workAreaWidth - answerAreaPadding);
+            for (int i = 0; i < answerAreas.Length; i++)
+            {
+                var rt = answerAreas[i];
+                if (rt == null) continue;
+
+                rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, targetWidth);
+
+                var pos = rt.anchoredPosition;
+                pos.x = 0f;
+                rt.anchoredPosition = pos;
+            }
+        }
+
+        // 7) Set spacing for ALL "switch between tasks" HorizontalLayoutGroups
+        if (switchBetweenTasksContainer != null && switchBetweenTasksContainer.Length > 0)
+        {
+            for (int i = 0; i < switchBetweenTasksContainer.Length; i++)
+            {
+                var hlg = switchBetweenTasksContainer[i];
+                if (hlg == null) continue;
+
+                hlg.spacing = switchBetweenTasksSpacing;
+
+                #if UNITY_EDITOR
+                    if (!Application.isPlaying)
+                    {
+                        if (hlg.TryGetComponent<RectTransform>(out var rt))
+                            LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+                    }
+                #endif
             }
         }
     }
