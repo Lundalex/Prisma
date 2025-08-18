@@ -227,6 +227,12 @@ public class UserAnswerField : MonoBehaviour
             _lostFocusAfterSubmit = false;
 
             ShowCorrectMarkOnce(); // also switches window to "Next"
+
+            // >>> Switch to nextWindowName at the same moment the correct mark is activated
+            if (submitNextWindowManager != null)
+            {
+                submitNextWindowManager.OpenWindow(nextWindowName);
+            }
         }
         else
         {
@@ -305,12 +311,6 @@ public class UserAnswerField : MonoBehaviour
 
         _playedCorrectMark = true;
         correctMark.gameObject.SetActive(true);
-
-        // >>> Switch to nextWindowName at the same moment the correct mark is activated
-        if (submitNextWindowManager != null)
-        {
-            submitNextWindowManager.OpenWindow(nextWindowName);
-        }
 
         if (_correctMarkCo != null) StopCoroutine(_correctMarkCo);
         _correctMarkCo = StartCoroutine(AnimateCorrectMark());

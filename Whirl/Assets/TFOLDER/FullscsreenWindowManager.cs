@@ -15,9 +15,6 @@ public class FullscsreenWindowManager : MonoBehaviour
     [Header("References")]
     [SerializeField] RectTransform windowContainer;
     [SerializeField] RectTransform[] windows;
-    [SerializeField] RectTransform buttonContainer;
-    [SerializeField] RectTransform[] buttons;
-    [SerializeField] RectTransform headerOutline;
     [SerializeField] HorizontalLayoutGroup[] switchBetweenTasksContainer;
     [SerializeField] RectTransform[] separatorTrims;
     [SerializeField] RectTransform[] answerAreas;
@@ -39,13 +36,6 @@ public class FullscsreenWindowManager : MonoBehaviour
 
     void UpdateContents()
     {
-        // 1) Set the navbar height
-        if (buttonContainer != null)
-        {
-            buttonContainer.localScale = Vector3.one * navBarButtonScale;
-            buttonContainer.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, navBarHeight / navBarButtonScale);
-        }
-
         // 2) Set the top offset of the windowContainer to navBarHeight
         if (windowContainer != null)
         {
@@ -82,35 +72,6 @@ public class FullscsreenWindowManager : MonoBehaviour
                 pos.x = 0f;
                 w.anchoredPosition = pos;
             }
-        }
-
-        // 4) Set the rect for the header
-        if (headerOutline != null)
-        {
-            // Make sure horizontal anchors are stretch so left/right offsets apply
-            var aMin = headerOutline.anchorMin;
-            var aMax = headerOutline.anchorMax;
-            aMin.x = 0f;
-            aMax.x = 1f;
-            headerOutline.anchorMin = aMin;
-            headerOutline.anchorMax = aMax;
-
-            // Compute side inset so width equals workAreaWidth when parent is 1920 wide:
-            // k = (1920 - workAreaWidth) / 2 = 960 - 0.5 * workAreaWidth
-            float sideInset = 960f - 0.5f * workAreaWidth;
-
-            var offMin = headerOutline.offsetMin; // left/bottom
-            var offMax = headerOutline.offsetMax; // right/top
-
-            // Bottom offset: 1083 - navBarHeight
-            offMin.y = 1077f - navBarHeight;
-
-            // Left/right offsets
-            offMin.x = sideInset;      // left inset
-            offMax.x = -sideInset;     // right inset is negative
-
-            headerOutline.offsetMin = offMin;
-            headerOutline.offsetMax = offMax;
         }
 
         // 5) Set each separator trim's width to (workAreaWidth - separatorPadding)
