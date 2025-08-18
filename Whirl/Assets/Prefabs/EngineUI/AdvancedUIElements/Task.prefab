@@ -6044,9 +6044,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5480142108002456627}
+  - component: {fileID: 9198973624375219690}
   - component: {fileID: 6352123771415561390}
   - component: {fileID: 7179248911924286610}
-  - component: {fileID: 9198973624375219690}
   m_Layer: 0
   m_Name: Task
   m_TagString: Untagged
@@ -6079,6 +6079,38 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &9198973624375219690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8885101568461908008}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b8cca3872259424d8ca1daf55c3a458, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  headerText: "Fj\xE4drad kollision"
+  bodyText: "Tv\xE5 klossar, <i>A</i> och <i>B</i>, ligger p\xE5 en friktionsfri
+    yta och r\xF6r sig horisontellt.\r\n- Kloss <i>A</i> v\xE4ger 10 kg och r\xF6r
+    sig \xE5t h\xF6ger med hastigheten 0.5 m/s, mot kloss <i>B</i>.\r\n- Kloss <i>B</i>
+    v\xE4ger 5 kg och \xE4r stilla. Den \xE4r f\xE4st vid en v\xE4gg p\xE5 sin h\xF6gra
+    sida med en 85 cm l\xE5ng fj\xE4der, vars fj\xE4derkonstant, <i>k</i>, \xE4r
+    ok\xE4nd. //\nI utg\xE5ngsl\xE4get \xE4r fj\xE4dern helt avslappnad och p\xE5verkar
+    inte kloss <i>B</i> med n\xE5gon kraft. Kloss <i>A</i> krockar med kloss <i>B</i>,
+    varp\xE5 klossarna fastnar i varandra och r\xF6r sig \xE5t h\xF6ger tillsammans.
+    Fj\xE4dern komprimeras tills klossarna tillf\xE4lligt stannar, precis n\xE4r
+    kloss <i>B</i> \u201Dsnuddar\u201D det or\xF6rliga f\xF6rem\xE5let.\r\n\nBer\xE4kna
+    fj\xE4derkonstanten, <i>k</i>.\r"
+  answerKey: 100 N
+  prevActive: 1
+  nextActive: 1
+  prevButton: {fileID: 7913944380705980065}
+  nextButton: {fileID: 7892777566020928095}
+  headerTextObj: {fileID: 8039023036265469656}
+  bodyTextFormatter: {fileID: 885899770628497934}
+  answerField: {fileID: 4843939907034251894}
 --- !u!225 &6352123771415561390
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -6113,38 +6145,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &9198973624375219690
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8885101568461908008}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4b8cca3872259424d8ca1daf55c3a458, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  headerText: "Fj\xE4drad kollision"
-  bodyText: "Tv\xE5 klossar, <i>A</i> och <i>B</i>, ligger p\xE5 en friktionsfri
-    yta och r\xF6r sig horisontellt.\r\n- Kloss <i>A</i> v\xE4ger 10 kg och r\xF6r
-    sig \xE5t h\xF6ger med hastigheten 0.5 m/s, mot kloss <i>B</i>.\r\n- Kloss <i>B</i>
-    v\xE4ger 5 kg och \xE4r stilla. Den \xE4r f\xE4st vid en v\xE4gg p\xE5 sin h\xF6gra
-    sida med en 85 cm l\xE5ng fj\xE4der, vars fj\xE4derkonstant, <i>k</i>, \xE4r
-    ok\xE4nd. //\nI utg\xE5ngsl\xE4get \xE4r fj\xE4dern helt avslappnad och p\xE5verkar
-    inte kloss <i>B</i> med n\xE5gon kraft. Kloss <i>A</i> krockar med kloss <i>B</i>,
-    varp\xE5 klossarna fastnar i varandra och r\xF6r sig \xE5t h\xF6ger tillsammans.
-    Fj\xE4dern komprimeras tills klossarna tillf\xE4lligt stannar, precis n\xE4r
-    kloss <i>B</i> \u201Dsnuddar\u201D det or\xF6rliga f\xF6rem\xE5let.\r\n\nBer\xE4kna
-    fj\xE4derkonstanten, <i>k</i>.\r"
-  answerKey: 100 N
-  prevActive: 1
-  nextActive: 1
-  prevButton: {fileID: 7913944380705980065}
-  nextButton: {fileID: 7892777566020928095}
-  headerTextObj: {fileID: 8039023036265469656}
-  bodyTextFormatter: {fileID: 885899770628497934}
-  answerField: {fileID: 4843939907034251894}
 --- !u!1 &8942832190166673707
 GameObject:
   m_ObjectHideFlags: 0

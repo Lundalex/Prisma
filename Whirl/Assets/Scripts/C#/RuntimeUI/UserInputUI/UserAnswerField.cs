@@ -2,6 +2,7 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Michsky.MUIP;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -29,8 +30,12 @@ public class UserAnswerField : MonoBehaviour
 
     [Header("Input")]
     [SerializeField] private TMP_InputField inputField;
-    
+
     // ─────────────────────────────────────────────────────────────────────────────
+    [Header("Window Manager")]
+    [SerializeField] private WindowManager submitNextWindowManager;
+    [SerializeField] private string submitWindowName;
+    [SerializeField] private string nextWindowName;
 
     [Header("Fail Feedback")]
     [Tooltip("Shake amplitude in UI pixels (±X).")]
@@ -95,17 +100,8 @@ public class UserAnswerField : MonoBehaviour
     bool _prevEditing = false;
     bool _lostFocusAfterSubmit = false;
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    [Header("Button switching")]
-    [SerializeField] private bool doSwitchButtons = true;
-    [SerializeField] private GameObject submitButton;
-    [SerializeField] private GameObject nextButton;
-    // ─────────────────────────────────────────────────────────────────────────────
-
     void Awake()
     {
-        if (submitButton != null) submitButton.SetActive(true);
-        if (nextButton != null) nextButton.SetActive(false);
         if (_rt == null) _rt = GetComponent<RectTransform>();
         if (outlineImage != null)
         {
@@ -121,6 +117,12 @@ public class UserAnswerField : MonoBehaviour
             // Start inactive only in runtime
             if (Application.isPlaying)
                 correctMark.gameObject.SetActive(false);
+        }
+
+        // >>> Open submitWindowName at startup
+        if (submitNextWindowManager != null)
+        {
+            submitNextWindowManager.OpenWindow(submitWindowName);
         }
     }
 
@@ -224,7 +226,7 @@ public class UserAnswerField : MonoBehaviour
             _dirtySinceSubmit = false;
             _lostFocusAfterSubmit = false;
 
-            ShowCorrectMarkOnce();
+            ShowCorrectMarkOnce(); // also switches window to "Next"
         }
         else
         {
@@ -304,10 +306,10 @@ public class UserAnswerField : MonoBehaviour
         _playedCorrectMark = true;
         correctMark.gameObject.SetActive(true);
 
-        if (doSwitchButtons)
+        // >>> Switch to nextWindowName at the same moment the correct mark is activated
+        if (submitNextWindowManager != null)
         {
-            if (nextButton != null) nextButton.SetActive(true);
-            if (submitButton != null) submitButton.SetActive(false);
+            submitNextWindowManager.OpenWindow(nextWindowName);
         }
 
         if (_correctMarkCo != null) StopCoroutine(_correctMarkCo);

@@ -34,7 +34,7 @@ public class UserSelectorInput : UserUIElement
 
     public override void InitDisplay()
     {
-        containerTrimImage.color = primaryColor;
+        if (containerTrimImage != null) containerTrimImage.color = primaryColor;
         updateTimer = new Timer(Func.MsToSeconds(msMaxUpdateFrequency), TimeType.Clamped, true, Func.MsToSeconds(msMaxUpdateFrequency));
         lastValue = selector.index;
         if (title != null) title.text = titleText;
