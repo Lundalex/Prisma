@@ -1,18 +1,19 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Events;
 
 /// <summary>
 /// Animates a RectTransform by driving its left/right/top/bottom offsets.
 /// Expanded = offsets -> (0,0) so it fits the parent fully (requires target anchors to stretch).
 /// Minimized = target matches the world/global rect outline of another RectTransform ("minimizeTo").
-/// 
-/// Setup:
-/// - Set target anchors to stretch full parent (anchorMin = (0,0), anchorMax = (1,1)) for expand behavior.
-/// - Assign "minimizeTo" (any RectTransform in the scene; can be under a different Canvas).
-/// 
+///
 /// Notes:
-/// - Uses screen-space conversions so it works across Screen Space - Overlay, Screen Space - Camera, and World Space canvases.
-/// - X and Y have separate durations/curves; left/right (and bottom/top) animate together within each axis.
+/// - Uses screen-space conversions so it works across Overlay, Camera, and World Space canvases.
+/// - X and Y have separate durations/curves; left/right and bottom/top animate together per axis.
+/// - Minimize plays the same animation as expand, but reversed (time-reversed curve).
+/// - OnExpand/OnMinimize are invoked after a per-action delay counted from when Expand()/Minimize() is called.
+///   Tip: set the delay to Mathf.Max(expandDurationX, expandDurationY) to fire when the animation finishes.
+/// - NEW: OnEnable snaps instantly to Minimized without firing events.
 /// </summary>
 public class RectExpandMinimizeController : MonoBehaviour
 {
@@ -24,35 +25,37 @@ public class RectExpandMinimizeController : MonoBehaviour
     [Tooltip("When minimizing, the target will animate to match this RectTransform's world-space rect.")]
     [SerializeField] private RectTransform minimizeTo;
 
-    [Tooltip("Use unscaled time for animations")]
+    [Tooltip("Use unscaled time for animations and event delays")]
     [SerializeField] private bool useUnscaledTime = true;
 
-    [Header("Expand Animation")]
-    [Tooltip("Duration (seconds) for horizontal (X) expand.")]
+    [Header("Expand / Minimize Animation (shared)")]
+    [Tooltip("Duration (seconds) for horizontal (X) expand/minimize.")]
     [SerializeField] private float expandDurationX = 0.35f;
-    [Tooltip("Curve for horizontal (X) expand.")]
+    [Tooltip("Curve for horizontal (X) expand/minimize.")]
     [SerializeField] private AnimationCurve expandCurveX = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
-    [Tooltip("Duration (seconds) for vertical (Y) expand.")]
+    [Tooltip("Duration (seconds) for vertical (Y) expand/minimize.")]
     [SerializeField] private float expandDurationY = 0.35f;
-    [Tooltip("Curve for vertical (Y) expand.")]
+    [Tooltip("Curve for vertical (Y) expand/minimize.")]
     [SerializeField] private AnimationCurve expandCurveY = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
-    [Header("Minimize Animation")]
-    [Tooltip("Duration (seconds) for horizontal (X) minimize.")]
-    [SerializeField] private float minimizeDurationX = 0.30f;
-    [Tooltip("Curve for horizontal (X) minimize.")]
-    [SerializeField] private AnimationCurve minimizeCurveX = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Header("Event Timing")]
+    [Tooltip("Delay after calling Expand() before invoking OnExpand.")]
+    [SerializeField, Min(0f)] private float expandEventDelay = 0f;
+    [Tooltip("Delay after calling Minimize() before invoking OnMinimize.")]
+    [SerializeField, Min(0f)] private float minimizeEventDelay = 0f;
 
-    [Tooltip("Duration (seconds) for vertical (Y) minimize.")]
-    [SerializeField] private float minimizeDurationY = 0.30f;
-    [Tooltip("Curve for vertical (Y) minimize.")]
-    [SerializeField] private AnimationCurve minimizeCurveY = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Header("Events")]
+    [Tooltip("Invoked after 'expandEventDelay' from the time Expand() is called.")]
+    public UnityEvent OnExpand;
+    [Tooltip("Invoked after 'minimizeEventDelay' from the time Minimize() is called.")]
+    public UnityEvent OnMinimize;
 
     // Internal state
     private bool isExpanded = true;
     private Coroutine xRoutine;
     private Coroutine yRoutine;
+    private Coroutine stateEventRoutine;
 
     private void Reset()
     {
@@ -62,6 +65,12 @@ public class RectExpandMinimizeController : MonoBehaviour
     private void Awake()
     {
         if (!target) target = GetComponent<RectTransform>();
+    }
+
+    private void OnEnable()
+    {
+        // Instantly snap to minimized without animation and without triggering events.
+        SetInstantNoEvent(expanded: false);
     }
 
     /// <summary>Toggle between Expanded and Minimized states.</summary>
@@ -75,12 +84,15 @@ public class RectExpandMinimizeController : MonoBehaviour
     public void Expand()
     {
         isExpanded = true;
-        StartAxisXAnimation(0f, 0f, expandDurationX, expandCurveX); // left/right margins -> 0
-        StartAxisYAnimation(0f, 0f, expandDurationY, expandCurveY); // bottom/top margins -> 0
+        // Play forward
+        StartAxisXAnimation(0f, 0f, expandDurationX, expandCurveX, reverse:false);
+        StartAxisYAnimation(0f, 0f, expandDurationY, expandCurveY, reverse:false);
+        ScheduleStateEvent(expandEventDelay);
     }
 
     /// <summary>
     /// Animate to minimized = match the world-space rect of 'minimizeTo'.
+    /// Uses the SAME durations/curves as expand, but reversed.
     /// </summary>
     public void Minimize()
     {
@@ -105,11 +117,13 @@ public class RectExpandMinimizeController : MonoBehaviour
         float rightMargin  = -targetOffsetMax.x; // offsetMax stores as negative margin
         float topMargin    = -targetOffsetMax.y;
 
-        StartAxisXAnimation(leftMargin, rightMargin, minimizeDurationX, minimizeCurveX);
-        StartAxisYAnimation(bottomMargin, topMargin, minimizeDurationY, minimizeCurveY);
+        // Play same animation as expand, but reversed
+        StartAxisXAnimation(leftMargin, rightMargin, expandDurationX, expandCurveX, reverse:true);
+        StartAxisYAnimation(bottomMargin, topMargin, expandDurationY, expandCurveY, reverse:true);
+        ScheduleStateEvent(minimizeEventDelay);
     }
 
-    /// <summary>Instantly snap to expanded or minimized without animation.</summary>
+    /// <summary>Instantly snap to expanded or minimized and schedule the event using the configured delay.</summary>
     public void SetInstant(bool expanded)
     {
         isExpanded = expanded;
@@ -117,46 +131,89 @@ public class RectExpandMinimizeController : MonoBehaviour
         if (expanded)
         {
             SetOffsets(new Vector2(0f, 0f), new Vector2(0f, 0f));
-            return;
+            ScheduleStateEvent(expandEventDelay);
         }
-
-        if (!minimizeTo)
+        else
         {
-            Debug.LogWarning($"[{nameof(RectExpandMinimizeController)}] SetInstant(false) requested but 'minimizeTo' is not assigned.");
-            return;
-        }
+            if (!minimizeTo)
+            {
+                Debug.LogWarning($"[{nameof(RectExpandMinimizeController)}] SetInstant(false) requested but 'minimizeTo' is not assigned.");
+                return;
+            }
 
-        if (TryCalculateTargetOffsetsFor(minimizeTo, out Vector2 minOff, out Vector2 maxOff))
-        {
-            SetOffsets(minOff, maxOff);
+            if (TryCalculateTargetOffsetsFor(minimizeTo, out Vector2 minOff, out Vector2 maxOff))
+            {
+                SetOffsets(minOff, maxOff);
+                ScheduleStateEvent(minimizeEventDelay);
+            }
         }
+    }
+
+    /// <summary>
+    /// Instantly snap to expanded or minimized WITHOUT triggering any UnityEvents and WITHOUT animation.
+    /// Used by OnEnable to start minimized silently.
+    /// </summary>
+    public void SetInstantNoEvent(bool expanded)
+    {
+        // Cancel any running animations or pending event invokes
+        CancelAnimationsAndPendingEvent();
+
+        isExpanded = expanded;
+
+        if (!target) return;
+
+        if (expanded)
+        {
+            SetOffsets(Vector2.zero, Vector2.zero);
+        }
+        else
+        {
+            if (!minimizeTo)
+            {
+                Debug.LogWarning($"[{nameof(RectExpandMinimizeController)}] SetInstantNoEvent(false) requested but 'minimizeTo' is not assigned.");
+                return;
+            }
+
+            if (TryCalculateTargetOffsetsFor(minimizeTo, out Vector2 minOff, out Vector2 maxOff))
+            {
+                SetOffsets(minOff, maxOff);
+            }
+        }
+    }
+
+    private void CancelAnimationsAndPendingEvent()
+    {
+        if (xRoutine != null) { StopCoroutine(xRoutine); xRoutine = null; }
+        if (yRoutine != null) { StopCoroutine(yRoutine); yRoutine = null; }
+        if (stateEventRoutine != null) { StopCoroutine(stateEventRoutine); stateEventRoutine = null; }
     }
 
     // ---- Axis animation helpers (animate both sides together per axis) ----
 
-    private void StartAxisXAnimation(float targetLeftMargin, float targetRightMargin, float duration, AnimationCurve curve)
+    private void StartAxisXAnimation(float targetLeftMargin, float targetRightMargin, float duration, AnimationCurve curve, bool reverse)
     {
         if (xRoutine != null) StopCoroutine(xRoutine);
         float startLeft  = GetLeftMargin();
         float startRight = GetRightMargin();
         xRoutine = StartCoroutine(AnimateAxisX(startLeft, startRight, targetLeftMargin, targetRightMargin,
-                                              Mathf.Max(0f, duration), curve ?? AnimationCurve.Linear(0, 0, 1, 1)));
+                                              Mathf.Max(0f, duration), curve ?? AnimationCurve.Linear(0, 0, 1, 1), reverse));
     }
 
-    private void StartAxisYAnimation(float targetBottomMargin, float targetTopMargin, float duration, AnimationCurve curve)
+    private void StartAxisYAnimation(float targetBottomMargin, float targetTopMargin, float duration, AnimationCurve curve, bool reverse)
     {
         if (yRoutine != null) StopCoroutine(yRoutine);
         float startBottom = GetBottomMargin();
         float startTop    = GetTopMargin();
         yRoutine = StartCoroutine(AnimateAxisY(startBottom, startTop, targetBottomMargin, targetTopMargin,
-                                              Mathf.Max(0f, duration), curve ?? AnimationCurve.Linear(0, 0, 1, 1)));
+                                              Mathf.Max(0f, duration), curve ?? AnimationCurve.Linear(0, 0, 1, 1), reverse));
     }
 
-    private IEnumerator AnimateAxisX(float startLeft, float startRight, float targetLeft, float targetRight, float duration, AnimationCurve curve)
+    private IEnumerator AnimateAxisX(float startLeft, float startRight, float targetLeft, float targetRight, float duration, AnimationCurve curve, bool reverse)
     {
         if (duration <= 0f)
         {
             SetLeftRightMargins(targetLeft, targetRight);
+            xRoutine = null;
             yield break;
         }
 
@@ -164,7 +221,7 @@ public class RectExpandMinimizeController : MonoBehaviour
         while (t < 1f)
         {
             t += DeltaTime() / duration;
-            float eased = curve.Evaluate(Mathf.Clamp01(t));
+            float eased = EvaluateProgress(curve, Mathf.Clamp01(t), reverse);
             float L = Mathf.Lerp(startLeft,  targetLeft,  eased);
             float R = Mathf.Lerp(startRight, targetRight, eased);
             SetLeftRightMargins(L, R);
@@ -174,11 +231,12 @@ public class RectExpandMinimizeController : MonoBehaviour
         xRoutine = null;
     }
 
-    private IEnumerator AnimateAxisY(float startBottom, float startTop, float targetBottom, float targetTop, float duration, AnimationCurve curve)
+    private IEnumerator AnimateAxisY(float startBottom, float startTop, float targetBottom, float targetTop, float duration, AnimationCurve curve, bool reverse)
     {
         if (duration <= 0f)
         {
             SetBottomTopMargins(targetBottom, targetTop);
+            yRoutine = null;
             yield break;
         }
 
@@ -186,7 +244,7 @@ public class RectExpandMinimizeController : MonoBehaviour
         while (t < 1f)
         {
             t += DeltaTime() / duration;
-            float eased = curve.Evaluate(Mathf.Clamp01(t));
+            float eased = EvaluateProgress(curve, Mathf.Clamp01(t), reverse);
             float B = Mathf.Lerp(startBottom, targetBottom, eased);
             float T = Mathf.Lerp(startTop,    targetTop,    eased);
             SetBottomTopMargins(B, T);
@@ -194,6 +252,43 @@ public class RectExpandMinimizeController : MonoBehaviour
         }
         SetBottomTopMargins(targetBottom, targetTop);
         yRoutine = null;
+    }
+
+    /// <summary>
+    /// For reversing, we time-reverse the curve: g(t) = 1 - f(1 - t).
+    /// This guarantees minimize feels like a true reverse playback of expand.
+    /// </summary>
+    private static float EvaluateProgress(AnimationCurve curve, float t, bool reverse)
+    {
+        t = Mathf.Clamp01(t);
+        if (!reverse) return curve.Evaluate(t);
+        return 1f - curve.Evaluate(1f - t);
+    }
+
+    // ---- Event scheduling ----
+
+    private void ScheduleStateEvent(float delay)
+    {
+        if (stateEventRoutine != null) StopCoroutine(stateEventRoutine);
+        stateEventRoutine = StartCoroutine(InvokeStateEventAfterDelay(delay));
+    }
+
+    private IEnumerator InvokeStateEventAfterDelay(float delay)
+    {
+        if (delay > 0f)
+        {
+            if (useUnscaledTime) yield return new WaitForSecondsRealtime(delay);
+            else yield return new WaitForSeconds(delay);
+        }
+
+        InvokeStateEvent();
+        stateEventRoutine = null;
+    }
+
+    private void InvokeStateEvent()
+    {
+        if (isExpanded) OnExpand?.Invoke();
+        else OnMinimize?.Invoke();
     }
 
     // ---- Offset/margin utilities ----
@@ -234,10 +329,6 @@ public class RectExpandMinimizeController : MonoBehaviour
 
     // ---- Core math: compute target offsets to match an arbitrary RectTransform's world rect ----
 
-    /// <summary>
-    /// Calculates offsetMin/offsetMax for 'target' (relative to its parent) so that the target's rect
-    /// matches the world-space rect of 'other'. Works across canvases by converting via screen space.
-    /// </summary>
     private bool TryCalculateTargetOffsetsFor(RectTransform other, out Vector2 outOffsetMin, out Vector2 outOffsetMax)
     {
         outOffsetMin = default;
@@ -271,7 +362,7 @@ public class RectExpandMinimizeController : MonoBehaviour
         // Get parent's local rect corners to compute margins relative to the parent's edges
         var parentLocal = new Vector3[4];
         parent.GetLocalCorners(parentLocal);
-        Vector2 parentLL = parentLocal[0]; // lower-left in parent's local space
+        Vector2 parentLL = parentLocal[0]; // lower-left
         Vector2 parentUR = parentLocal[2]; // upper-right
 
         float leftMargin   = left   - parentLL.x;
@@ -280,7 +371,7 @@ public class RectExpandMinimizeController : MonoBehaviour
         float topMargin    = parentUR.y - top;
 
         outOffsetMin = new Vector2(leftMargin, bottomMargin);
-        outOffsetMax = new Vector2(-rightMargin, -topMargin); // store as negative margins
+        outOffsetMax = new Vector2(-rightMargin, -topMargin); // negative margins
         return true;
     }
 
@@ -296,6 +387,8 @@ public class RectExpandMinimizeController : MonoBehaviour
     private void OnValidate()
     {
         if (!target) target = GetComponent<RectTransform>();
+        if (expandEventDelay < 0f) expandEventDelay = 0f;
+        if (minimizeEventDelay < 0f) minimizeEventDelay = 0f;
     }
 #endif
 }
