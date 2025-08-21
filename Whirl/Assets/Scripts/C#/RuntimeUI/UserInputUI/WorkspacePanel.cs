@@ -1,299 +1,301 @@
-using UnityEngine;
 using System.Collections;
-using Resources2;
+using UnityEngine;
 
-[ExecuteInEditMode]
-public class WorkspacePanel : MonoBehaviour
+/// <summary>
+/// Animates a RectTransform by driving its left/right/top/bottom offsets.
+/// Expanded = offsets -> (0,0) so it fits the parent fully (requires target anchors to stretch).
+/// Minimized = target matches the world/global rect outline of another RectTransform ("minimizeTo").
+/// 
+/// Setup:
+/// - Set target anchors to stretch full parent (anchorMin = (0,0), anchorMax = (1,1)) for expand behavior.
+/// - Assign "minimizeTo" (any RectTransform in the scene; can be under a different Canvas).
+/// 
+/// Notes:
+/// - Uses screen-space conversions so it works across Screen Space - Overlay, Screen Space - Camera, and World Space canvases.
+/// - X and Y have separate durations/curves; left/right (and bottom/top) animate together within each axis.
+/// </summary>
+public class RectExpandMinimizeController : MonoBehaviour
 {
-    [Header("Panel Body")]
-    [SerializeField] private float maskSize;
-    [SerializeField] private float minPeekAmount;
-    [SerializeField] private Vector2 bodySize;
-    [SerializeField] private float lerpDuration = .35f;
-    [SerializeField] private LerpCurve lerpCurve = LerpCurve.SmoothStep;
-    [SerializeField] private ViewMode viewMode = ViewMode.Expanded;
+    [Header("Target")]
+    [SerializeField] private RectTransform target;
+    public RectTransform Target { get => target; set => target = value; }
 
-    // NOTE: ExpDir4 now supports four directions: FromLeft, FromRight, FromTop, FromBottom.
-    // Make sure your ExpDir4 enum is updated accordingly.
-    [SerializeField] private ExpDir4 expandDir = ExpDir4.FromLeft;
+    [Header("Minimize Destination")]
+    [Tooltip("When minimizing, the target will animate to match this RectTransform's world-space rect.")]
+    [SerializeField] private RectTransform minimizeTo;
 
-    [Header("Handle")]
-    public float handleBaseScale;
-    public float hoverScaleMultiplier = 1.5f;
-    public float hoverDuration = .12f;
-    public LerpCurve hoverCurve = LerpCurve.SmoothStep;
+    [Tooltip("Use unscaled time for animations")]
+    [SerializeField] private bool useUnscaledTime = true;
 
-    [Header("Persist")]
-    [SerializeField] DataStorage dataStorage;
+    [Header("Expand Animation")]
+    [Tooltip("Duration (seconds) for horizontal (X) expand.")]
+    [SerializeField] private float expandDurationX = 0.35f;
+    [Tooltip("Curve for horizontal (X) expand.")]
+    [SerializeField] private AnimationCurve expandCurveX = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
-    [Header("References")]
-    [SerializeField] private RectTransform maskTransform;
-    [SerializeField] private RectTransform outerContainerTransform;
-    [SerializeField] private Transform mainContainerTransform;
-    [SerializeField] private Transform handleTransform;
-    [SerializeField] private Transform handleIconTransform;
+    [Tooltip("Duration (seconds) for vertical (Y) expand.")]
+    [SerializeField] private float expandDurationY = 0.35f;
+    [Tooltip("Curve for vertical (Y) expand.")]
+    [SerializeField] private AnimationCurve expandCurveY = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
-    private Coroutine _switchRoutine;
-    private bool _isDragging;
-    private float _minPos, _expPos; // along active axis only
+    [Header("Minimize Animation")]
+    [Tooltip("Duration (seconds) for horizontal (X) minimize.")]
+    [SerializeField] private float minimizeDurationX = 0.30f;
+    [Tooltip("Curve for horizontal (X) minimize.")]
+    [SerializeField] private AnimationCurve minimizeCurveX = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
-    void Awake()
+    [Tooltip("Duration (seconds) for vertical (Y) minimize.")]
+    [SerializeField] private float minimizeDurationY = 0.30f;
+    [Tooltip("Curve for vertical (Y) minimize.")]
+    [SerializeField] private AnimationCurve minimizeCurveY = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+    // Internal state
+    private bool isExpanded = true;
+    private Coroutine xRoutine;
+    private Coroutine yRoutine;
+
+    private void Reset()
     {
-        if (Application.isPlaying) LoadState();
+        target = GetComponent<RectTransform>();
     }
 
-    private void Update()
+    private void Awake()
     {
-        if (!Application.isPlaying) InitDisplay();
-        if (Application.isPlaying) SaveState();
+        if (!target) target = GetComponent<RectTransform>();
     }
 
-    public void InitDisplay()
+    /// <summary>Toggle between Expanded and Minimized states.</summary>
+    public void ChangeView()
     {
-        if (outerContainerTransform != null && mainContainerTransform != null &&
-            maskTransform != null && handleTransform != null)
-        {
-            // Size the body/mask to the container
-            outerContainerTransform.sizeDelta = bodySize * mainContainerTransform.localScale;
-            maskTransform.sizeDelta = outerContainerTransform.sizeDelta * mainContainerTransform.localScale;
-
-            var dirSign = GetDirSign();
-            var horizontal = IsHorizontal();
-
-            // Offset the mask and main container so the content aligns with the mask opening
-            if (horizontal)
-            {
-                maskTransform.localPosition = new Vector3(dirSign * maskSize, 0f, 0f);
-                mainContainerTransform.localPosition = new Vector3(-dirSign * maskSize, 0f, 0f);
-
-                // Handle sits at the exposed edge
-                handleTransform.localPosition = new Vector3(dirSign * 0.5f * maskTransform.sizeDelta.x, 0f, 0f);
-            }
-            else
-            {
-                maskTransform.localPosition = new Vector3(0f, dirSign * maskSize, 0f);
-                mainContainerTransform.localPosition = new Vector3(0f, -dirSign * maskSize, 0f);
-
-                handleTransform.localPosition = new Vector3(0f, dirSign * 0.5f * maskTransform.sizeDelta.y, 0f);
-            }
-
-            handleTransform.localScale = new Vector3(handleBaseScale, handleBaseScale, 1f);
-            handleTransform.rotation = Quaternion.Euler(0f, 0f, GetHandleBaseAngle());
-
-            UpdatePositionInstant();
-        }
-        else
-        {
-            Debug.LogWarning("Missing references. Object: WorkspacePanel");
-        }
+        if (isExpanded) Minimize();
+        else Expand();
     }
 
-    public void SwitchViewMode()
+    /// <summary>Animate to expanded (offsets -> 0).</summary>
+    public void Expand()
     {
-        viewMode = viewMode == ViewMode.Minimized ? ViewMode.Expanded : ViewMode.Minimized;
+        isExpanded = true;
+        StartAxisXAnimation(0f, 0f, expandDurationX, expandCurveX); // left/right margins -> 0
+        StartAxisYAnimation(0f, 0f, expandDurationY, expandCurveY); // bottom/top margins -> 0
+    }
 
-        if (!Application.isPlaying)
+    /// <summary>
+    /// Animate to minimized = match the world-space rect of 'minimizeTo'.
+    /// </summary>
+    public void Minimize()
+    {
+        if (!minimizeTo)
         {
-            UpdatePositionInstant();
+            Debug.LogWarning($"[{nameof(RectExpandMinimizeController)}] Minimize requested but 'minimizeTo' is not assigned.");
             return;
         }
 
-        if (_switchRoutine != null) StopCoroutine(_switchRoutine);
-        _switchRoutine = StartCoroutine(SwitchRoutine());
+        isExpanded = false;
+
+        // Compute margins (left/right/bottom/top) in target's parent space that correspond to minimizeTo's world rect
+        if (!TryCalculateTargetOffsetsFor(minimizeTo, out Vector2 targetOffsetMin, out Vector2 targetOffsetMax))
+        {
+            Debug.LogWarning($"[{nameof(RectExpandMinimizeController)}] Could not calculate minimize offsets (missing parent or canvas?).");
+            return;
+        }
+
+        // Convert to margins for animation convenience
+        float leftMargin   = targetOffsetMin.x;
+        float bottomMargin = targetOffsetMin.y;
+        float rightMargin  = -targetOffsetMax.x; // offsetMax stores as negative margin
+        float topMargin    = -targetOffsetMax.y;
+
+        StartAxisXAnimation(leftMargin, rightMargin, minimizeDurationX, minimizeCurveX);
+        StartAxisYAnimation(bottomMargin, topMargin, minimizeDurationY, minimizeCurveY);
     }
 
-    private float EvaluateCurve(float t)
+    /// <summary>Instantly snap to expanded or minimized without animation.</summary>
+    public void SetInstant(bool expanded)
     {
-        return Lerp.Evaluate((Lerp.Curve)lerpCurve, t);
+        isExpanded = expanded;
+
+        if (expanded)
+        {
+            SetOffsets(new Vector2(0f, 0f), new Vector2(0f, 0f));
+            return;
+        }
+
+        if (!minimizeTo)
+        {
+            Debug.LogWarning($"[{nameof(RectExpandMinimizeController)}] SetInstant(false) requested but 'minimizeTo' is not assigned.");
+            return;
+        }
+
+        if (TryCalculateTargetOffsetsFor(minimizeTo, out Vector2 minOff, out Vector2 maxOff))
+        {
+            SetOffsets(minOff, maxOff);
+        }
     }
 
-    private IEnumerator SwitchRoutine()
+    // ---- Axis animation helpers (animate both sides together per axis) ----
+
+    private void StartAxisXAnimation(float targetLeftMargin, float targetRightMargin, float duration, AnimationCurve curve)
     {
-        (float expPos, float minPos) = GetMinExpView();
-        float start = GetAxis(transform.localPosition);
-        float target = viewMode == ViewMode.Expanded ? expPos : minPos;
+        if (xRoutine != null) StopCoroutine(xRoutine);
+        float startLeft  = GetLeftMargin();
+        float startRight = GetRightMargin();
+        xRoutine = StartCoroutine(AnimateAxisX(startLeft, startRight, targetLeftMargin, targetRightMargin,
+                                              Mathf.Max(0f, duration), curve ?? AnimationCurve.Linear(0, 0, 1, 1)));
+    }
+
+    private void StartAxisYAnimation(float targetBottomMargin, float targetTopMargin, float duration, AnimationCurve curve)
+    {
+        if (yRoutine != null) StopCoroutine(yRoutine);
+        float startBottom = GetBottomMargin();
+        float startTop    = GetTopMargin();
+        yRoutine = StartCoroutine(AnimateAxisY(startBottom, startTop, targetBottomMargin, targetTopMargin,
+                                              Mathf.Max(0f, duration), curve ?? AnimationCurve.Linear(0, 0, 1, 1)));
+    }
+
+    private IEnumerator AnimateAxisX(float startLeft, float startRight, float targetLeft, float targetRight, float duration, AnimationCurve curve)
+    {
+        if (duration <= 0f)
+        {
+            SetLeftRightMargins(targetLeft, targetRight);
+            yield break;
+        }
 
         float t = 0f;
         while (t < 1f)
         {
-            t += Time.deltaTime / lerpDuration;
-            float easedT = EvaluateCurve(Mathf.Clamp01(t));
-            float v = Mathf.Lerp(start, target, easedT);
-
-            transform.localPosition = SetAxis(transform.localPosition, v);
-
-            UpdateHandleIcon(v, expPos, minPos);
+            t += DeltaTime() / duration;
+            float eased = curve.Evaluate(Mathf.Clamp01(t));
+            float L = Mathf.Lerp(startLeft,  targetLeft,  eased);
+            float R = Mathf.Lerp(startRight, targetRight, eased);
+            SetLeftRightMargins(L, R);
             yield return null;
         }
-
-        transform.localPosition = SetAxis(transform.localPosition, target);
-        UpdateHandleIcon(target, expPos, minPos);
-        _switchRoutine = null;
+        SetLeftRightMargins(targetLeft, targetRight);
+        xRoutine = null;
     }
 
-    private void UpdatePositionInstant()
+    private IEnumerator AnimateAxisY(float startBottom, float startTop, float targetBottom, float targetTop, float duration, AnimationCurve curve)
     {
-        (float expView, float minView) = GetMinExpView();
-        float v = viewMode == ViewMode.Expanded ? expView : minView;
+        if (duration <= 0f)
+        {
+            SetBottomTopMargins(targetBottom, targetTop);
+            yield break;
+        }
 
-        transform.localPosition = SetAxis(transform.localPosition, v);
-        UpdateHandleIcon(v, expView, minView);
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += DeltaTime() / duration;
+            float eased = curve.Evaluate(Mathf.Clamp01(t));
+            float B = Mathf.Lerp(startBottom, targetBottom, eased);
+            float T = Mathf.Lerp(startTop,    targetTop,    eased);
+            SetBottomTopMargins(B, T);
+            yield return null;
+        }
+        SetBottomTopMargins(targetBottom, targetTop);
+        yRoutine = null;
     }
+
+    // ---- Offset/margin utilities ----
+
+    private void SetOffsets(Vector2 offsetMin, Vector2 offsetMax)
+    {
+        if (!target) return;
+        target.offsetMin = offsetMin;
+        target.offsetMax = offsetMax;
+    }
+
+    private void SetLeftRightMargins(float left, float right)
+    {
+        if (!target) return;
+        var min = target.offsetMin;
+        var max = target.offsetMax;
+        min.x = left;      // left margin
+        max.x = -right;    // right margin stored as negative
+        target.offsetMin = min;
+        target.offsetMax = max;
+    }
+
+    private void SetBottomTopMargins(float bottom, float top)
+    {
+        if (!target) return;
+        var min = target.offsetMin;
+        var max = target.offsetMax;
+        min.y = bottom;    // bottom margin
+        max.y = -top;      // top margin stored as negative
+        target.offsetMin = min;
+        target.offsetMax = max;
+    }
+
+    private float GetLeftMargin()   => target ? target.offsetMin.x  : 0f;
+    private float GetBottomMargin() => target ? target.offsetMin.y  : 0f;
+    private float GetRightMargin()  => target ? -target.offsetMax.x : 0f;
+    private float GetTopMargin()    => target ? -target.offsetMax.y : 0f;
+
+    // ---- Core math: compute target offsets to match an arbitrary RectTransform's world rect ----
 
     /// <summary>
-    /// Computes expanded and minimized positions ALONG THE ACTIVE AXIS only, relative to the current placement.
-    /// This removes the previous behavior of forcing the panel to a screen side.
+    /// Calculates offsetMin/offsetMax for 'target' (relative to its parent) so that the target's rect
+    /// matches the world-space rect of 'other'. Works across canvases by converting via screen space.
     /// </summary>
-    public (float expView, float minView) GetMinExpView()
+    private bool TryCalculateTargetOffsetsFor(RectTransform other, out Vector2 outOffsetMin, out Vector2 outOffsetMax)
     {
-        // Slide distance the panel needs to move to fully hide except for the peek amount
-        float scale = GetScaleAlongAxis();
-        float size = GetMaskSizeAlongAxis();
-        float slide = scale * size - maskSize * scale - minPeekAmount; // positive scalar distance
+        outOffsetMin = default;
+        outOffsetMax = default;
 
-        int sign = GetDirSign();
-        float current = GetAxis(transform.localPosition);
+        if (!target) return false;
+        var parent = target.parent as RectTransform;
+        if (!parent || !other) return false;
 
-        // Determine the expanded position regardless of current mode
-        float exp;
-        if (viewMode == ViewMode.Expanded)
-            exp = current;
-        else
-            exp = current - sign * slide; // reverse the minimize offset to get expanded
+        // Get the canvas/camera that drives the parent, for proper screen conversions
+        Canvas parentCanvas = parent.GetComponentInParent<Canvas>();
+        Camera parentCam = (parentCanvas && parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            ? parentCanvas.worldCamera
+            : null;
 
-        float min = exp + sign * slide;
-        return (exp, min);
+        // Convert 'other' world corners -> screen -> parent local
+        var otherWorld = new Vector3[4];
+        other.GetWorldCorners(otherWorld);
+
+        Vector2 otherInParentBL, otherInParentTL, otherInParentTR, otherInParentBR;
+        if (!WorldToLocalIn(parent, otherWorld[0], parentCam, out otherInParentBL)) return false; // bottom-left
+        if (!WorldToLocalIn(parent, otherWorld[1], parentCam, out otherInParentTL)) return false; // top-left
+        if (!WorldToLocalIn(parent, otherWorld[2], parentCam, out otherInParentTR)) return false; // top-right
+        if (!WorldToLocalIn(parent, otherWorld[3], parentCam, out otherInParentBR)) return false; // bottom-right
+
+        float left   = Mathf.Min(otherInParentBL.x, otherInParentTL.x, otherInParentTR.x, otherInParentBR.x);
+        float right  = Mathf.Max(otherInParentBL.x, otherInParentTL.x, otherInParentTR.x, otherInParentBR.x);
+        float bottom = Mathf.Min(otherInParentBL.y, otherInParentTL.y, otherInParentTR.y, otherInParentBR.y);
+        float top    = Mathf.Max(otherInParentBL.y, otherInParentTL.y, otherInParentTR.y, otherInParentBR.y);
+
+        // Get parent's local rect corners to compute margins relative to the parent's edges
+        var parentLocal = new Vector3[4];
+        parent.GetLocalCorners(parentLocal);
+        Vector2 parentLL = parentLocal[0]; // lower-left in parent's local space
+        Vector2 parentUR = parentLocal[2]; // upper-right
+
+        float leftMargin   = left   - parentLL.x;
+        float bottomMargin = bottom - parentLL.y;
+        float rightMargin  = parentUR.x - right;
+        float topMargin    = parentUR.y - top;
+
+        outOffsetMin = new Vector2(leftMargin, bottomMargin);
+        outOffsetMax = new Vector2(-rightMargin, -topMargin); // store as negative margins
+        return true;
     }
 
-    private void UpdateHandleIcon(float current, float exp, float min)
+    private static bool WorldToLocalIn(RectTransform parent, Vector3 world, Camera cam, out Vector2 local)
     {
-        if (handleIconTransform == null) return;
-
-        float progress = Mathf.Approximately(min, exp) ? 0f : Mathf.Abs(current - exp) / Mathf.Abs(min - exp);
-        float angle = Mathf.LerpAngle(0f, 180f, progress);
-
-        // Rotate around a base angle so the chevron/arrow points correctly for each side
-        handleIconTransform.localRotation = Quaternion.Euler(0f, 0f, angle);
+        Vector2 screen = RectTransformUtility.WorldToScreenPoint(cam, world);
+        return RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, screen, cam, out local);
     }
 
-    public void BeginDrag()
+    private float DeltaTime() => useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
+
+#if UNITY_EDITOR
+    private void OnValidate()
     {
-        if (_switchRoutine != null) StopCoroutine(_switchRoutine);
-        (_expPos, _minPos) = GetMinExpView();
-        _isDragging = true;
+        if (!target) target = GetComponent<RectTransform>();
     }
-
-    /// <summary>
-    /// Sets the dragged position along the ACTIVE AXIS. For horizontal panels pass X; for vertical panels pass Y.
-    /// </summary>
-    public void SetDraggedPosition(float newAxisPos)
-    {
-        if (!_isDragging) return;
-
-        float clamped = Mathf.Clamp(newAxisPos, Mathf.Min(_minPos, _expPos), Mathf.Max(_minPos, _expPos));
-        transform.localPosition = SetAxis(transform.localPosition, clamped);
-        UpdateHandleIcon(clamped, _expPos, _minPos);
-    }
-
-    public void EndDragSnap()
-    {
-        if (!_isDragging) return;
-        _isDragging = false;
-
-        float cur = GetAxis(transform.localPosition);
-        float distToExp = Mathf.Abs(cur - _expPos);
-        float distToMin = Mathf.Abs(cur - _minPos);
-        viewMode = distToExp < distToMin ? ViewMode.Expanded : ViewMode.Minimized;
-
-        if (_switchRoutine != null) StopCoroutine(_switchRoutine);
-        _switchRoutine = StartCoroutine(SwitchRoutine());
-    }
-
-    void SaveState()
-    {
-        if (!Application.isPlaying || dataStorage == null) return;
-        // Store the axis position and the view mode. (For vertical panels, X stores the Y-axis value.)
-        Vector2 payload = new Vector2(GetAxis(transform.localPosition), (int)viewMode);
-        dataStorage.SetValue(payload);
-    }
-
-    void LoadState()
-    {
-        if (dataStorage == null || !DataStorage.hasValue) return;
-        Vector2 payload = dataStorage.GetValue<Vector2>();
-        if (payload != default)
-        {
-            viewMode = (ViewMode)(int)payload.y;
-
-            // Restore along the active axis
-            transform.localPosition = SetAxis(transform.localPosition, payload.x);
-
-            (float exp, float min) = GetMinExpView();
-            UpdateHandleIcon(payload.x, exp, min);
-
-            if (_switchRoutine != null) StopCoroutine(_switchRoutine);
-            _switchRoutine = StartCoroutine(SwitchRoutine());
-        }
-    }
-
-    // =====================
-    // Helpers
-    // =====================
-
-    private bool IsHorizontal()
-    {
-        return expandDir == ExpDir4.FromLeft || expandDir == ExpDir4.FromRight;
-    }
-
-    private int GetDirSign()
-    {
-        // Positive means minimize moves in +axis direction, negative means -axis
-        switch (expandDir)
-        {
-            case ExpDir4.FromRight:
-            case ExpDir4.FromTop:
-                return +1;
-            case ExpDir4.FromLeft:
-            case ExpDir4.FromBottom:
-            default:
-                return -1;
-        }
-    }
-
-    private float GetScaleAlongAxis()
-    {
-        return IsHorizontal() ? transform.localScale.x : transform.localScale.y;
-    }
-
-    private float GetMaskSizeAlongAxis()
-    {
-        return IsHorizontal() ? maskTransform.sizeDelta.x : maskTransform.sizeDelta.y;
-    }
-
-    private float GetAxis(Vector3 v)
-    {
-        return IsHorizontal() ? v.x : v.y;
-    }
-
-    private Vector3 SetAxis(Vector3 v, float value)
-    {
-        if (IsHorizontal())
-            return new Vector3(value, v.y, v.z);
-        else
-            return new Vector3(v.x, value, v.z);
-    }
-
-    private float GetHandleBaseAngle()
-    {
-        switch (expandDir)
-        {
-            case ExpDir4.FromRight: return 0;
-            case ExpDir4.FromTop: return 90f;
-            case ExpDir4.FromBottom: return 270f;
-            case ExpDir4.FromLeft:
-            default: return 180;
-        }
-    }
+#endif
 }
-
-public enum ExpDir4 { FromRight, FromTop, FromBottom, FromLeft }
