@@ -67,7 +67,7 @@ public class RectExpandMinimizeController : MonoBehaviour
         if (!target) target = GetComponent<RectTransform>();
     }
 
-    private void OnEnable()
+    private void Start()
     {
         // Instantly snap to minimized without animation and without triggering events.
         SetInstantNoEvent(expanded: false);

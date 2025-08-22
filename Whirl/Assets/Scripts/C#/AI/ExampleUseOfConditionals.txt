@@ -1,0 +1,249 @@
+using System;
+using System.Collections.Generic; // TEST:
+using System.Threading;
+using UnityEngine;
+using UnityEngine.Events;
+
+public class AssistantChatManager : MonoBehaviour
+{
+    [Header("Prefabs & Parents")]
+    [SerializeField] private StreamingMessage messagePrefab;
+    [SerializeField] private RectTransform messageList;
+
+    [Header("Message Sides")]
+    [SerializeField] private StreamingMessage.StretchOrigin userStretchOrigin = StreamingMessage.StretchOrigin.Right;
+    [SerializeField] private StreamingMessage.StretchOrigin assistantStretchOrigin = StreamingMessage.StretchOrigin.Left;
+
+    [Header("Input Source")]
+    [Tooltip("Reference to the UserAssistantField that raises a no-arg onSend UnityEvent and exposes lastSentMessage.")]
+    [SerializeField] private UserAssistantField userAssistantField;
+
+    [Header("Assistant")]
+    [Tooltip("If true, answers will stream token-by-token into the assistant bubble.")]
+    [SerializeField] private bool responseStreaming = true;
+    [SerializeField] private string openAIModel = "gpt-4o";
+
+    [Header("Communication")]
+    [Tooltip("Optional: settings bundle (instructions/context/docs) used to build the combined prompt.")]
+    [SerializeField] private CommunicationSettings communicationSettings;
+
+    [Header("Placeholders")]
+    [Tooltip("Shown in the assistant bubble while waiting for the answer.")]
+    [SerializeField] private string assistantThinkingText = "…";
+
+    [Header("Events")]
+    [Tooltip("Invoked EVERY time text is applied to a message bubble (user, assistant, streaming updates, errors, etc).")]
+    public UnityEvent onMessageTextSet;  // no parameters
+
+    [Header("Resilience")]
+    [Tooltip("Max attempts for message retrieval.")]
+    [SerializeField] private int maxAttempts = 3;
+
+    [Tooltip("Text shown if all attempts fail.")]
+    [SerializeField] private string errorFallbackText = "Fel: kunde inte hämta svar.";
+
+    [Header("TEST")]
+    [SerializeField] private bool testUseAiConditions = false; // TEST:
+
+    private SmartAssistant assistant;
+    private CancellationTokenSource streamCts;
+
+    void Awake()
+    {
+        assistant = SmartAssistant.FindByTagOrNull();
+        if (assistant == null)
+            Debug.LogWarning("[AssistantChatManager] No SmartAssistant found via tag 'SmartAssistant' at Awake(). Will try again on first message.");
+    }
+
+    /// <summary>Hook this to UserAssistantField.onSend (no parameters).</summary>
+    public void OnUserSend()
+    {
+        if (userAssistantField == null)
+        {
+            Debug.LogError("[AssistantChatManager] userAssistantField is not assigned.");
+            return;
+        }
+        var userMessage = userAssistantField.lastSentMessage ?? string.Empty;
+        HandleUserMessage(userMessage);
+    }
+
+    public void OnUserMessageRecieved(string userMessage) => HandleUserMessage(userMessage);
+    public void OnUserMessageReceived(string userMessage) => HandleUserMessage(userMessage);
+
+    // Core handler used by both entry points
+    private async void HandleUserMessage(string userMessage)
+    {
+        if (messagePrefab == null || messageList == null)
+        {
+            Debug.LogError("[AssistantChatManager] messagePrefab or messageList is not assigned.");
+            return;
+        }
+
+        if (assistant == null)
+        {
+            assistant = SmartAssistant.FindByTagOrNull();
+            if (assistant == null)
+            {
+                var userMsgFallback = Instantiate(messagePrefab, messageList);
+                userMsgFallback.name = $"UserMessage_{Time.frameCount}";
+                userMsgFallback.SetStretchOrigin(userStretchOrigin);
+                ApplyText(userMsgFallback, userMessage ?? string.Empty);
+
+                var assistantMsgFallback = Instantiate(messagePrefab, messageList);
+                assistantMsgFallback.name = $"AssistantMessage_{Time.frameCount}";
+                assistantMsgFallback.SetStretchOrigin(assistantStretchOrigin);
+                ApplyText(assistantMsgFallback, "Assistant saknas i scenen (tag 'SmartAssistant').");
+
+                Debug.LogError("[AssistantChatManager] Could not find SmartAssistant (tag 'SmartAssistant').");
+                return;
+            }
+        }
+
+        // Build prompt using the CommunicationSettings (if assigned)
+        var promptToSend = assistant.BuildPrompt(communicationSettings, userMessage);
+
+        // Create user message bubble (show raw user message, not the combined prompt)
+        var userMsg = Instantiate(messagePrefab, messageList);
+        userMsg.name = $"UserMessage_{Time.frameCount}";
+        userMsg.SetStretchOrigin(userStretchOrigin);
+        ApplyText(userMsg, userMessage ?? string.Empty);
+
+        // Create assistant placeholder bubble
+        var assistantMsg = Instantiate(messagePrefab, messageList);
+        assistantMsg.name = $"AssistantMessage_{Time.frameCount}";
+        assistantMsg.SetStretchOrigin(assistantStretchOrigin);
+        ApplyText(assistantMsg, string.IsNullOrEmpty(assistantThinkingText) ? "" : assistantThinkingText);
+
+        streamCts?.Cancel();
+        streamCts?.Dispose();
+        streamCts = new CancellationTokenSource();
+
+        bool success = false;
+        Exception lastEx = null;
+
+        for (int attempt = 1; attempt <= Mathf.Max(1, maxAttempts); attempt++)
+        {
+            using (var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(streamCts.Token))
+            {
+                try
+                {
+                    // TEST: If enabled, route this attempt through the AI-conditions API
+                    if (testUseAiConditions) // TEST:
+                    {                       // TEST:
+                        var specs = new List<AiConditionSpec> // TEST:
+                        {                                      // TEST:
+                            new AiConditionSpec                // TEST:
+                            {                                  // TEST:
+                                key = "is_long",               // TEST:
+                                instruction = "Return true iff your FINAL answer is longer than 120 words; else false.", // TEST:
+                                type = CondType.Bool           // TEST:
+                            },                                 // TEST:
+                            new AiConditionSpec                // TEST:
+                            {                                  // TEST:
+                                key = "wordcount",             // TEST:
+                                instruction = "Return the number of words in your FINAL answer.", // TEST:
+                                type = CondType.Number         // TEST:
+                            }                                  // TEST:
+                        };                                     // TEST:
+
+                        // NOTE: pass the raw user message here (NOT the combined prompt) // TEST:
+                        var (answer, conds) = await assistant.SendMessageWithAiConditionsAsync( // TEST:
+                            userMessage,                                                          // TEST:
+                            specs,                                                                // TEST:
+                            comms: communicationSettings,                                         // TEST:
+                            model: openAIModel,                                                   // TEST:
+                            allowThinking: false,                                                 // TEST:
+                            ct: attemptCts.Token                                                  // TEST:
+                        );                                                                        // TEST:
+
+                        // Pull typed values out of the dictionary                                 // TEST:
+                        bool isLong = conds.TryGetValue("is_long", out var v1) && v1 is bool b && b; // TEST:
+                        int wordCount = 0;                                                           // TEST:
+                        if (conds.TryGetValue("wordcount", out var v2) && v2 != null)               // TEST:
+                        {                                                                            // TEST:
+                            try { wordCount = Convert.ToInt32(Math.Round(Convert.ToDouble(v2))); }  // TEST:
+                            catch { /* ignore parse issues */ }                                     // TEST:
+                        }                                                                            // TEST:
+
+                        // Show answer + a tiny debug footer in the assistant bubble                 // TEST:
+                        var debugFooter = $"\n\n[TEST] is_long={isLong}, wordcount={wordCount}";     // TEST:
+                        ApplyText(assistantMsg, (answer ?? string.Empty) + debugFooter);             // TEST:
+
+                        // Also log it                                                               // TEST:
+                        Debug.Log($"[TEST] Conditions => is_long={isLong}, wordcount={wordCount}");  // TEST:
+
+                        success = true; // TEST:
+                        break;          // TEST:
+                    }                   // TEST:
+
+                    // Existing paths remain unchanged
+                    if (responseStreaming)
+                    {
+                        string finalAnswer = await assistant.SendMessageStreamToCallbackAsync(
+                            promptToSend,
+                            onPartialText: (partial) =>
+                            {
+                                if (assistantMsg != null)
+                                {
+                                    ApplyText(assistantMsg, partial ?? string.Empty);
+                                }
+                            },
+                            model: openAIModel,
+                            allowThinking: false,
+                            ct: attemptCts.Token
+                        );
+
+                        ApplyText(assistantMsg, finalAnswer ?? string.Empty);
+                    }
+                    else
+                    {
+                        string answer = await assistant.SendMessageAsync(
+                            promptToSend,
+                            model: openAIModel,
+                            allowThinking: false,
+                            ct: attemptCts.Token
+                        );
+                        ApplyText(assistantMsg, answer ?? "");
+                    }
+
+                    success = true;
+                    break; // exit retry loop
+                }
+                catch (OperationCanceledException oce)
+                {
+                    lastEx = oce;
+                    Debug.LogError($"[AssistantChatManager] Attempt {attempt} canceled.");
+                }
+                catch (Exception ex)
+                {
+                    lastEx = ex;
+                    Debug.LogError($"[AssistantChatManager] Attempt {attempt} failed: {ex.Message}");
+                }
+            }
+        }
+
+        if (!success)
+        {
+            Debug.LogError($"[AssistantChatManager] All {Mathf.Max(1, maxAttempts)} attempts failed. Last error: {lastEx?.Message}");
+            ApplyText(assistantMsg, errorFallbackText);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        streamCts?.Cancel();
+        streamCts?.Dispose();
+        streamCts = null;
+    }
+
+    /// <summary>Centralized helper to set text, fit, and fire the public event (no args).</summary>
+    private void ApplyText(StreamingMessage msg, string text)
+    {
+        if (msg == null) return;
+
+        msg.SetText(text ?? string.Empty);
+        msg.FitImmediate();
+
+        onMessageTextSet?.Invoke();
+    }
+}

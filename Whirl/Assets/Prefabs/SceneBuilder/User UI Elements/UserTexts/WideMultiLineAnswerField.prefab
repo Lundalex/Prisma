@@ -2000,7 +2000,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 800, y: 157.1}
+  m_SizeDelta: {x: 660, y: 157.1}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &3268647304121571387
 MonoBehaviour:
@@ -2022,7 +2022,6 @@ MonoBehaviour:
   failColor: {r: 0.9191374, g: 0.07308492, b: 0.10919668, a: 1}
   outlineImage: {fileID: 4600831418663277922}
   outlineObject: {fileID: 992558128561811963}
-  correctMark: {fileID: 0}
   inputField: {fileID: 9106188848241285830}
   submitNextWindowManager: {fileID: 8334829311406005470}
   submitWindowName: Submit
@@ -2032,59 +2031,9 @@ MonoBehaviour:
   shakeCycles: 3
   outlineLerp: 0.06
   _rt: {fileID: 4331907830614924491}
-  correctMarkDuration: 0.5
-  correctMarkSpins: 2
-  correctMarkScaleStart: 0
-  correctMarkScaleEnd: 1
-  correctScaleCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 2
-      outSlope: 2
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  correctRotationCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 2
-      outSlope: 2
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  previewCorrectMark: 0
+  onCorrect:
+    m_PersistentCalls:
+      m_Calls: []
   t: 0
 --- !u!114 &9106188848241285830
 MonoBehaviour:
