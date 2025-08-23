@@ -106,7 +106,8 @@ public class UIController : MonoBehaviour
         {
             int h = 17;
             h = h * 31 + uiManager.activePaletteIndex;
-            h = h * 31 + uiManager.activeFontPaletteIndex;
+
+            // Hash color palettes (unchanged)
             foreach (var p in uiManager.palettes)
             {
                 h = h * 31 + p.outline.GetHashCode();
@@ -118,7 +119,40 @@ public class UIController : MonoBehaviour
                 h = h * 31 + p.notification.GetHashCode();
                 h = h * 31 + (p.name?.GetHashCode() ?? 0);
             }
-            foreach (var f in uiManager.fontPalettes) h = h * 31 + f.GetHashCode();
+
+            // Hash ACTIVE composed font palette instead of deprecated fields
+            var fp = uiManager.ActiveFontPalette;
+            h = h * 31 + (fp.name?.GetHashCode() ?? 0);
+            h = h * 31 + HashFontSettings(fp.header1);
+            h = h * 31 + HashFontSettings(fp.header2);
+            h = h * 31 + HashFontSettings(fp.body1);
+            h = h * 31 + HashFontSettings(fp.body2);
+            h = h * 31 + HashFontSettings(fp.notificationHeader);
+            h = h * 31 + HashFontSettings(fp.notificationBody);
+            h = h * 31 + HashFontSettings(fp.interactHeader);
+            h = h * 31 + HashFontSettings(fp.interactSlider);
+            h = h * 31 + HashFontSettings(fp.interactField);
+
+            return h;
+        }
+    }
+
+    static int HashFontSettings(FontSettings fs)
+    {
+        unchecked
+        {
+            int h = 23;
+            h = h * 31 + (fs.overrideFontAsset ? 1 : 0);
+            h = h * 31 + (fs.fontAsset ? fs.fontAsset.GetInstanceID() : 0);
+            h = h * 31 + (fs.overrideFontStyle ? 1 : 0);
+            h = h * 31 + (int)fs.fontStyle;
+            h = h * 31 + (fs.overrideFontSize ? 1 : 0);
+            h = h * 31 + fs.fontSize.GetHashCode();
+            h = h * 31 + (fs.overrideSpacing ? 1 : 0);
+            h = h * 31 + fs.characterSpacing.GetHashCode();
+            h = h * 31 + fs.wordSpacing.GetHashCode();
+            h = h * 31 + fs.lineSpacing.GetHashCode();
+            h = h * 31 + fs.paragraphSpacing.GetHashCode();
             return h;
         }
     }

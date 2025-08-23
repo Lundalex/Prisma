@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 32478ac0303aaba45968a642c8ecd866, type: 3}
   m_Name: UIManager
   m_EditorClassIdentifier: 
-  palettes:
+  colorPalettes:
   - name: Modern
     outline: {r: 0.08627451, g: 0.25882354, b: 0.48627454, a: 1}
     background: {r: 0.13338679, g: 0.16054907, b: 0.19676542, a: 1}
@@ -127,17 +127,26 @@ MonoBehaviour:
     text: {r: 0, g: 0, b: 0, a: 1}
     contrast: {r: 0, g: 0, b: 0, a: 1}
     notification: {r: 0.92452824, g: 0.92452824, b: 0.92452824, a: 1}
-  fontPalettes:
-  - name: Medium size
+  activeColorPaletteIndex: 0
+  fontAssetPalettes: []
+  fontStylePalettes: []
+  fontSizePalettes: []
+  fontSpacingPalettes: []
+  activeFontAssetSubPaletteIndex: 0
+  activeFontStyleSubPaletteIndex: 0
+  activeFontSizeSubPaletteIndex: 0
+  activeFontSpacingSubPaletteIndex: 0
+  composedFontPreview:
+    name: "Composed: Assets \xB7 Styles \xB7 Sizes \xB7 Spacing"
     header1:
-      overrideFontAsset: 1
-      fontAsset: {fileID: 11400000, guid: 882b290641175384184c44cc6868f7d1, type: 2}
+      overrideFontAsset: 0
+      fontAsset: {fileID: 0}
       overrideFontStyle: 0
       fontStyle: 0
-      overrideFontSize: 1
-      fontSize: 33
-      overrideSpacing: 1
-      characterSpacing: 3
+      overrideFontSize: 0
+      fontSize: 0
+      overrideSpacing: 0
+      characterSpacing: 0
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
@@ -154,14 +163,14 @@ MonoBehaviour:
       lineSpacing: 0
       paragraphSpacing: 0
     body1:
-      overrideFontAsset: 1
-      fontAsset: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
-      overrideFontStyle: 1
+      overrideFontAsset: 0
+      fontAsset: {fileID: 0}
+      overrideFontStyle: 0
       fontStyle: 0
-      overrideFontSize: 1
-      fontSize: 17
-      overrideSpacing: 1
-      characterSpacing: 7.5
+      overrideFontSize: 0
+      fontSize: 0
+      overrideSpacing: 0
+      characterSpacing: 0
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
@@ -178,64 +187,62 @@ MonoBehaviour:
       lineSpacing: 0
       paragraphSpacing: 0
     notificationHeader:
-      overrideFontAsset: 1
-      fontAsset: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
-      overrideFontStyle: 1
+      overrideFontAsset: 0
+      fontAsset: {fileID: 0}
+      overrideFontStyle: 0
       fontStyle: 0
-      overrideFontSize: 1
-      fontSize: 26
-      overrideSpacing: 1
-      characterSpacing: 5
+      overrideFontSize: 0
+      fontSize: 0
+      overrideSpacing: 0
+      characterSpacing: 0
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
     notificationBody:
-      overrideFontAsset: 1
-      fontAsset: {fileID: 11400000, guid: af0115def58ecf945bff46dd4b97593c, type: 2}
-      overrideFontStyle: 1
+      overrideFontAsset: 0
+      fontAsset: {fileID: 0}
+      overrideFontStyle: 0
       fontStyle: 0
-      overrideFontSize: 1
-      fontSize: 18.5
-      overrideSpacing: 1
+      overrideFontSize: 0
+      fontSize: 0
+      overrideSpacing: 0
       characterSpacing: 0
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
     interactHeader:
-      overrideFontAsset: 1
-      fontAsset: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
-      overrideFontStyle: 1
+      overrideFontAsset: 0
+      fontAsset: {fileID: 0}
+      overrideFontStyle: 0
       fontStyle: 0
-      overrideFontSize: 1
-      fontSize: 33
-      overrideSpacing: 1
-      characterSpacing: 5
+      overrideFontSize: 0
+      fontSize: 0
+      overrideSpacing: 0
+      characterSpacing: 0
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
     interactSlider:
-      overrideFontAsset: 1
-      fontAsset: {fileID: 11400000, guid: 2f6b0288d1f4ca842ba6512077e7bfb3, type: 2}
-      overrideFontStyle: 1
+      overrideFontAsset: 0
+      fontAsset: {fileID: 0}
+      overrideFontStyle: 0
       fontStyle: 0
-      overrideFontSize: 1
-      fontSize: 28
-      overrideSpacing: 1
+      overrideFontSize: 0
+      fontSize: 0
+      overrideSpacing: 0
       characterSpacing: 0
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
     interactField:
-      overrideFontAsset: 1
-      fontAsset: {fileID: 11400000, guid: af0115def58ecf945bff46dd4b97593c, type: 2}
+      overrideFontAsset: 0
+      fontAsset: {fileID: 0}
       overrideFontStyle: 0
       fontStyle: 0
-      overrideFontSize: 1
-      fontSize: 28
-      overrideSpacing: 1
+      overrideFontSize: 0
+      fontSize: 0
+      overrideSpacing: 0
       characterSpacing: 0
       wordSpacing: 0
       lineSpacing: 0
       paragraphSpacing: 0
-  activePaletteIndex: 0
-  activeFontPaletteIndex: 0

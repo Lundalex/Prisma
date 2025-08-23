@@ -20,7 +20,7 @@ public class UserAnswerField : MonoBehaviour
 {
     private const string TagSmartAssistant = "SmartAssistant";
     private const string TagChatManager    = "ChatManager";
-    private const string almostHeader = "<size=160%><b><u color=#FFFF00>Nästan!</u></b></size>";
+    private const string almostHeader = "<size=160%><b><u>Nästan!</u></b></size>";
 
     [Header("Answer Settings")]
     public string answerKey;
@@ -363,15 +363,18 @@ Primary rule:
 Inputs:
 - answer_key: ""{answerKey ?? ""}""
 - user_answer: ""{answer ?? ""}""
-- baseline_almost_header: ""{almostHeader ?? ""}""  (Use this as the header; translate it if the user's answer language differs from Swedish.)
+- baseline_almost_header: ""{almostHeader ?? ""}""  (This is the baseline header text ONLY.)
 
-You must determine:
+Decide:
 - is_correct: true/false
-- is_almost: true/false  (""almost"" means the answer is on the right track but misses something important, as defined by the CommunicationSettings.)
+- is_almost: true/false (""almost"" = on right track but missing something important per CommunicationSettings)
 
-If is_almost is true, ALSO provide:
-- almost_feedback: A SHORT, actionable tip that guides the learner toward the correct answer. Prefer hints over revealing the entire answer unless grading rules explicitly allow it.
-- almost_header: The header to display above the feedback. Use 'baseline_almost_header' but translate it into the detected user_answer language if that language differs from Swedish; otherwise return it unchanged. Keep it concise (~1–3 words).";
+Output policy (CRITICAL):
+- If is_almost is false: almost_feedback = """" and almost_header = """" (both empty).
+- If is_almost is true:
+  * almost_feedback: SHORT, actionable hint. PLAIN TEXT ONLY. Do NOT include any header, title, rich-text tags, or the baseline_almost_header.
+  * almost_header: A concise header (1–3 words). Use baseline_almost_header but translate into user_answer language if needed.
+- Do NOT return any extra narrative outside the specified fields.";
 
             var specs = new List<AiConditionSpec>
             {

@@ -36,7 +36,9 @@ public class UserSettingsRelayHelper : MonoBehaviour
     private Theme        _prevTheme;
     private DyslexiaMode _prevDyslexiaMode;
 
+#if UNITY_EDITOR
     private bool _initialized;
+#endif
 
     private void Start()
     {
@@ -53,11 +55,13 @@ public class UserSettingsRelayHelper : MonoBehaviour
 
     private void OnEnable()
     {
-        _prevTextSize     = _textSize;
-        _prevLineSpacing  = _lineSpacing;
-        _prevTheme        = _theme;
+        _prevTextSize = _textSize;
+        _prevLineSpacing = _lineSpacing;
+        _prevTheme = _theme;
         _prevDyslexiaMode = _dyslexiaMode;
-        _initialized      = true;
+#if UNITY_EDITOR
+        _initialized = true;
+#endif
     }
 
 #if UNITY_EDITOR

@@ -5,11 +5,12 @@
 // - Adds firstResponseTimeoutSeconds under Resilience:
 //     * streaming: cancel & retry if no partial arrives before timeout
 //     * non-streaming: cancel & retry if full answer not returned before 2x timeout
+// - NEW: Sends a single initial AI message at Start (prefab if assigned)
+// - NEW: initialMessagePrefab (inspector): instantiate this prefab for the initial message (non-streaming).
 // ─────────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections;
 using System.Threading;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -35,6 +36,7 @@ public class AssistantChatManager : MonoBehaviour
     [Header("Prefabs & Parents")]
     [SerializeField] private StreamingMessage messagePrefab;
     [SerializeField] private StreamingMessage specialMessagePrefab;
+    [SerializeField] private StreamingMessage initialMessagePrefab;
     [SerializeField] private RectTransform messageList;
 
     [Header("Message Sides")]
@@ -71,7 +73,7 @@ public class AssistantChatManager : MonoBehaviour
     [SerializeField] private int maxAttempts = 3;
 
     [Tooltip("Seconds to wait for the FIRST streamed token. If none arrives in time, cancel & retry. Non-streaming calls use 2x this value.")]
-    [Min(0.25f)]
+    [Min(2.0f)]
     [SerializeField] private float firstResponseTimeoutSeconds = 6f;
 
     [Tooltip("Text shown if all attempts fail.")]
@@ -101,6 +103,34 @@ public class AssistantChatManager : MonoBehaviour
         assistant = SmartAssistant.FindByTagOrNull();
         if (assistant == null)
             Debug.LogWarning("[AssistantChatManager] No SmartAssistant found via tag 'SmartAssistant' at Awake(). Will try again on first message.");
+    }
+
+    void Start()
+    {
+        // Post a single, initial assistant message at Start if a prefab is assigned.
+        if (initialMessagePrefab == null)
+        {
+            Debug.LogWarning("initialMessagePrefab not assigned in inspector. Skipping sending an initial message");
+            return;
+        }
+
+        if (messageList == null)
+        {
+            Debug.LogWarning("[AssistantChatManager] Cannot spawn initial assistant message: messageList is not assigned.");
+            return;
+        }
+
+        if (expandMinimizeController != null)
+            expandMinimizeController.Expand();
+
+        // Instantiate the provided prefab exactly as configured in the project.
+        var msg = Instantiate(initialMessagePrefab, messageList);
+        msg.name = "AssistantMessage_Initial";
+        msg.SetStretchOrigin(assistantStretchOrigin);
+        // Force non-streaming for the initial message
+        msg.SetStreamOptions(false);
+        // We don't override its text; it's expected to be set up inside the prefab.
+        onMessageTextSet?.Invoke();
     }
 
     /// <summary>Hook this to UserAssistantField.onSend (no parameters).</summary>
@@ -162,7 +192,7 @@ public class AssistantChatManager : MonoBehaviour
         var prefab = (specialMessagePrefab != null ? specialMessagePrefab : messagePrefab);
         if (prefab == null)
         {
-            Debug.LogError("[AssistantChatManager] Neither specialMessagePrefab nor messagePrefab is assigned.");
+            Debug.LogError($"[AssistantChatManager] Neither specialMessagePrefab nor messagePrefab is assigned.");
             return;
         }
 

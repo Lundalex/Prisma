@@ -50,6 +50,7 @@ public class UserSelectorInput : UserUIElement
 
         if (selector.index != lastValue)
         {
+            updateTimer ??= new Timer(Func.MsToSeconds(msMaxUpdateFrequency), TimeType.Clamped, true, Func.MsToSeconds(msMaxUpdateFrequency));
             if (updateTimer.Check())
             {
                 if (!disallowAutoModifyField) ModifyField();
