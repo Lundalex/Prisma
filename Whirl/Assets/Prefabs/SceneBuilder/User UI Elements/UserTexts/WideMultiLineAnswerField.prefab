@@ -2016,10 +2016,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   answerKey: 100 N
   caseSensitive: 0
+  checkMode: 0
+  gradingCommunicationSettings: {fileID: 11400000, guid: d5ab30a85c3fe994eaeff565c7df3f78, type: 2}
+  allowAiReasoning: 0
+  isCorrectInstructions: Return true iff the user_answer should be marked correct
+    according to the rules. Else false.
+  isAlmostInstructions: Return true iff the answer is 'almost' (on the right track
+    but missing something important) per the CommunicationSettings. Else false.
+  almostFeedbackInstructions: If is_almost is true, return a SHORT, actionable hint
+    guiding the user to the correct answer. Otherwise return an empty string.
+  almostHeaderInstructions: If is_almost is true, return the HEADER text. Use the
+    provided baseline header but translate it into the language of user_answer if
+    that language differs from Swedish; otherwise return it unchanged. Keep it concise
+    (max ~5 words).
+  almostHeader: Almost
+  postAlmostChatMessage: 1
   defaultColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   editColor: {r: 0.078431375, g: 0.49019608, b: 0.78431374, a: 1}
   successColor: {r: 0, g: 1, b: 0, a: 1}
   failColor: {r: 0.9191374, g: 0.07308492, b: 0.10919668, a: 1}
+  almostColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   outlineImage: {fileID: 4600831418663277922}
   outlineObject: {fileID: 992558128561811963}
   inputField: {fileID: 9106188848241285830}
@@ -2034,7 +2050,6 @@ MonoBehaviour:
   onCorrect:
     m_PersistentCalls:
       m_Calls: []
-  t: 0
 --- !u!114 &9106188848241285830
 MonoBehaviour:
   m_ObjectHideFlags: 0

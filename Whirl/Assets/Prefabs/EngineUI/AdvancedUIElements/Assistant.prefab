@@ -9466,8 +9466,13 @@ MonoBehaviour:
   userAssistantField: {fileID: 2935612868690437725}
   responseStreaming: 1
   openAIModel: gpt-4o
+  streamAlmostAssistantMessage: 0
   communicationSettings: {fileID: 11400000, guid: f5561c2d6db35ec419ef20bb475f2a92, type: 2}
   assistantThinkingText: "\u2026"
+  overrideSpecialMarking: 1
+  maxAttempts: 2
+  firstResponseTimeoutSeconds: 6
+  errorFallbackText: "Fel - kontrollera din internetanslutning och f\xF6rs\xF6k igen."
   onMessageTextSet:
     m_PersistentCalls:
       m_Calls:
@@ -9484,8 +9489,6 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   scrollBar: {fileID: 8359164348176066314}
-  maxAttempts: 2
-  errorFallbackText: "Fel - kontrollera din internetanslutning och f\xF6rs\xF6k igen."
   expandMinimizeController: {fileID: 5321376508544600093}
   specialMessagePresets: []
 --- !u!1 &8717507082461647697

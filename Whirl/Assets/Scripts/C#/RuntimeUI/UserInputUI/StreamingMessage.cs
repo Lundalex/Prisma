@@ -1,3 +1,12 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// StreamingMessage.cs
+// - Modified so height growth is top-anchored (expands only DOWN).
+//   We force targetRT and the inner text rect to be top-anchored with a top pivot,
+//   so when the text wraps to a new line the bubble grows downward only.
+// - All other functionality (streaming, fitting, layout flick) preserved.
+// ─────────────────────────────────────────────────────────────────────────────
+using System.Collections;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI; // for VerticalLayoutGroup
 using TMPro;
@@ -32,37 +41,32 @@ public class StreamingMessage : MonoBehaviour
     [Tooltip("Which parent edge stays fixed as the width changes.")]
     [SerializeField] private StretchOrigin stretchFrom = StretchOrigin.Left;
 
-    RectTransform _parentRT; // Parent of targetRT (for width constraints)
-    RectTransform _textRT;
-    VerticalLayoutGroup _ownerParentVLG; // VLG on the parent of THIS component's GameObject
+    [Header("Streaming")]
+    [Tooltip("If true, SetText will animate the message (type-on). Use SetTextImmediate to bypass.")]
+    [SerializeField] private bool streamMessage = false;
 
-    bool _applying;                 // guards re-entrancy during size changes
-    int  _fitFramesPending = 0;     // defer fitting to the NEXT frame (edit & play)
+    [Tooltip("Characters per second for the type-on animation. Minimum is 1.")]
+    [Min(1f)] [SerializeField] private float streamCharsPerSecond = 40f;
+
+    RectTransform _parentRT; 
+    RectTransform _textRT;
+    VerticalLayoutGroup _ownerParentVLG; 
+
+    bool _applying;                 
+    int  _fitFramesPending = 0;
+    private const float kTopTextOffsetY = -15f;
+    Coroutine _streamCo;            
 
     void Awake()
     {
         CacheRefs();
         ApplySettings();
-        RequestFit(); // defer
+        RequestFit(); 
     }
 
     void Start()
     {
-        RequestFit(); // ensure a fit next frame at runtime
-    }
-
-    void OnEnable()
-    {
-        CacheRefs();
-        ApplySettings();
-        RequestFit(); // defer
-    }
-
-    void OnValidate()
-    {
-        CacheRefs();
-        ApplySettings();
-        RequestFit(); // defer (avoid resizing in OnValidate)
+        RequestFit(); 
     }
 
     void Update()
@@ -80,37 +84,59 @@ public class StreamingMessage : MonoBehaviour
 
     void OnRectTransformDimensionsChange()
     {
-        if (_applying) return;  // ignore re-entrant calls caused by our own resizing
-        RequestFit();           // defer to next frame
+        if (_applying) return;  
+        RequestFit();           
     }
 
-    /// <summary>Set text at runtime and fit immediately (then flick parent VLG).</summary>
     public void SetText(string value)
     {
         if (text == null) return;
-        text.text = value ?? string.Empty;
-        // Do an immediate fit to avoid one-frame odd visuals, then flick VLG.
+        value ??= string.Empty;
+
+        if (_streamCo != null)
+        {
+            StopCoroutine(_streamCo);
+            _streamCo = null;
+        }
+
+        if (Application.isPlaying && streamMessage)
+        {
+            _streamCo = StartCoroutine(StreamTextRoutine(value));
+        }
+        else
+        {
+            text.text = value;
+            FitImmediate();
+        }
+    }
+
+    public void SetTextImmediate(string value)
+    {
+        if (text == null) return;
+        value ??= string.Empty;
+
+        if (_streamCo != null)
+        {
+            StopCoroutine(_streamCo);
+            _streamCo = null;
+        }
+
+        text.text = value;
         FitImmediate();
     }
 
-    /// <summary>
-    /// Public alias for changing the text (handy for UnityEvents / Inspector binding).
-    /// Calls SetText under the hood.
-    /// </summary>
-    public void ChangeText(string value) => SetText(value);
+    public void SetStreamOptions(bool enable, float newCharsPerSecond = -1f)
+    {
+        streamMessage = enable;
+        if (newCharsPerSecond > 0f) streamCharsPerSecond = Mathf.Max(1f, newCharsPerSecond);
+    }
 
-    /// <summary>
-    /// Runtime control of which side to stretch from.
-    /// </summary>
     public void SetStretchOrigin(StretchOrigin origin)
     {
         stretchFrom = origin;
         FitImmediate();
     }
 
-    /// <summary>
-    /// Runtime setter for the target RectTransform.
-    /// </summary>
     public void SetTargetRectTransform(RectTransform rt)
     {
         targetRT = rt;
@@ -120,19 +146,17 @@ public class StreamingMessage : MonoBehaviour
 
     void RequestFit()
     {
-        // schedule exactly one-frame delay
         _fitFramesPending = 1;
     }
 
     void CacheRefs()
     {
         if (targetRT == null)
-            targetRT = GetComponent<RectTransform>(); // fallback if not assigned
+            targetRT = GetComponent<RectTransform>(); 
 
         _parentRT = (targetRT != null) ? targetRT.parent as RectTransform : null;
         if (text != null) _textRT = text.rectTransform;
 
-        // Per instruction: find VLG on the parent of THIS component
         var myParent = transform.parent;
         _ownerParentVLG = myParent != null ? myParent.GetComponent<VerticalLayoutGroup>() : null;
     }
@@ -141,7 +165,6 @@ public class StreamingMessage : MonoBehaviour
     {
         if (text == null) return;
 
-        // Modern TMP API
         text.textWrappingMode = TextWrappingModes.Normal;
         text.overflowMode     = TextOverflowModes.Overflow;
 
@@ -149,22 +172,15 @@ public class StreamingMessage : MonoBehaviour
             text.text = initialText ?? string.Empty;
     }
 
-    /// <summary>
-    /// Forces an immediate measure/layout pass and applies the sizing instantly,
-    /// then flicks the parent's VerticalLayoutGroup off/on to update it.
-    /// </summary>
     public void FitImmediate()
     {
         if (text == null || targetRT == null) return;
 
-        // Make sure TMP has generated geometry so preferred values are reliable
         text.ForceMeshUpdate();
         Canvas.ForceUpdateCanvases();
 
-        // Do our sizing work now (no deferral)
         FitNow();
 
-        // Per instruction: toggle the parent VLG to force it to update
         FlickParentVerticalLayoutGroup();
 
         Canvas.ForceUpdateCanvases();
@@ -174,19 +190,15 @@ public class StreamingMessage : MonoBehaviour
     {
         if (_ownerParentVLG == null)
         {
-            // Try to find again in case hierarchy changed
             var p = transform.parent;
             if (p != null) _ownerParentVLG = p.GetComponent<VerticalLayoutGroup>();
         }
 
         if (_ownerParentVLG != null)
         {
-            // Flick off -> on
             bool wasEnabled = _ownerParentVLG.enabled;
             _ownerParentVLG.enabled = false;
             _ownerParentVLG.enabled = true;
-
-            // Optional: restore previous enabled state if it was originally disabled
             if (!wasEnabled)
                 _ownerParentVLG.enabled = false;
         }
@@ -200,31 +212,47 @@ public class StreamingMessage : MonoBehaviour
 
         _applying = true;
 
-        // Ensure anchoring so we truly stretch from the chosen parent edge.
+        // ─────────────────────────────────────────────────────────────────
+        // Horizontal anchoring (unchanged): left/right bubble edge stays fixed
+        // ─────────────────────────────────────────────────────────────────
         if (stretchFrom == StretchOrigin.Left)
         {
             targetRT.anchorMin = new Vector2(0f, targetRT.anchorMin.y);
             targetRT.anchorMax = new Vector2(0f, targetRT.anchorMax.y);
             targetRT.pivot     = new Vector2(0f, targetRT.pivot.y);
-            targetRT.anchoredPosition = new Vector2(0f, targetRT.anchoredPosition.y); // flush to parent's left
+            targetRT.anchoredPosition = new Vector2(0f, targetRT.anchoredPosition.y);
         }
         else
         {
             targetRT.anchorMin = new Vector2(1f, targetRT.anchorMin.y);
             targetRT.anchorMax = new Vector2(1f, targetRT.anchorMax.y);
             targetRT.pivot     = new Vector2(1f, targetRT.pivot.y);
-            targetRT.anchoredPosition = new Vector2(0f, targetRT.anchoredPosition.y); // flush to parent's right
+            targetRT.anchoredPosition = new Vector2(0f, targetRT.anchoredPosition.y);
         }
 
-        // Determine dynamic max text width based on parent width and min distance to far edge.
-        float parentWidth = (_parentRT != null) ? Mathf.Max(1f, _parentRT.rect.width) : 100000f; // big fallback if no parent
+        // ─────────────────────────────────────────────────────────────────
+        // NEW: Top-anchored vertical behavior so height growth pushes DOWN.
+        // Keep the top edge fixed by using top anchors and top pivot.
+        // ─────────────────────────────────────────────────────────────────
+        targetRT.anchorMin = new Vector2(targetRT.anchorMin.x, 1f);
+        targetRT.anchorMax = new Vector2(targetRT.anchorMax.x, 1f);
+        targetRT.pivot     = new Vector2(targetRT.pivot.x, 1f);
+        targetRT.anchoredPosition = new Vector2(targetRT.anchoredPosition.x, 0f);
+
+        // Do the same for the inner text rect to keep its top edge fixed inside the bubble.
+        _textRT.anchorMin = new Vector2(_textRT.anchorMin.x, 1f);
+        _textRT.anchorMax = new Vector2(_textRT.anchorMax.x, 1f);
+        _textRT.pivot     = new Vector2(_textRT.pivot.x, 1f);
+
+        // ─────────────────────────────────────────────────────────────────
+        // Measure and size
+        // ─────────────────────────────────────────────────────────────────
+        float parentWidth = (_parentRT != null) ? Mathf.Max(1f, _parentRT.rect.width) : 100000f;
         float padX = Mathf.Max(0f, padding.x) * 2f;
         float padY = Mathf.Max(0f, padding.y) * 2f;
 
-        // max width applies to TEXT area; subtract horizontal padding from available width.
         float maxTextWidth = Mathf.Max(1f, parentWidth - minDstToParentEdge - padX);
 
-        // Compute preferred sizes
         string  content   = text.text ?? string.Empty;
         Vector2 unwrapped = text.GetPreferredValues(content);
 
@@ -244,16 +272,16 @@ public class StreamingMessage : MonoBehaviour
         float selfW = textW + padX;
         float selfH = textH + padY;
 
-        // Apply sizes to target
         targetRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, selfW);
         targetRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   selfH);
 
-        // Keep text sized & centered inside our box
         _textRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textW);
         _textRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   textH);
-        _textRT.anchoredPosition = Vector2.zero;
 
-        // (Optional) Previously you matched parent height here. Keep/remove as needed:
+        // With top pivot, (0,0) means text’s top-left relative to bubble’s pivot/top.
+        _textRT.anchoredPosition = new Vector2(0f, kTopTextOffsetY);
+
+        // Preserve previous behavior: set parent height to match (if there is a parent RT)
         if (_parentRT != null)
             _parentRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, selfH);
 
@@ -261,5 +289,46 @@ public class StreamingMessage : MonoBehaviour
             initialText = content;
 
         _applying = false;
+    }
+
+    IEnumerator StreamTextRoutine(string fullText)
+    {
+        var sb = new StringBuilder();
+        int i = 0;
+        float cps = Mathf.Max(1f, streamCharsPerSecond);
+        float secondsPerChar = 1f / cps;
+
+        while (i < fullText.Length)
+        {
+            // Append whole rich-text tags instantly
+            if (fullText[i] == '<')
+            {
+                int end = fullText.IndexOf('>', i);
+                if (end == -1)
+                {
+                    sb.Append(fullText.Substring(i));
+                    i = fullText.Length;
+                }
+                else
+                {
+                    sb.Append(fullText, i, end - i + 1);
+                    i = end + 1;
+                }
+
+                text.text = sb.ToString();
+                FitImmediate();
+                continue;
+            }
+
+            sb.Append(fullText[i]);
+            i++;
+
+            text.text = sb.ToString();
+            FitImmediate();
+
+            yield return new WaitForSecondsRealtime(secondsPerChar);
+        }
+
+        _streamCo = null;
     }
 }

@@ -1,6 +1,14 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// UserAnswerField.cs
+// - AI controls 'almost' header; may translate based on answer language
+// - Auto-resolves AssistantChatManager by tag "ChatManager" (no Inspector ref)
+// - Prevents re-submission while an evaluation is in progress
+// - NEW CheckMode: StringCompareThenAI — try StringCompare first, then fall back to AI
+// ─────────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -10,33 +18,49 @@ using Michsky.MUIP;
 [ExecuteInEditMode]
 public class UserAnswerField : MonoBehaviour
 {
-    private const string TagSmartAssistant = "SmartAssistant"; 
+    private const string TagSmartAssistant = "SmartAssistant";
+    private const string TagChatManager    = "ChatManager";
+    private const string almostHeader = "<size=160%><b><u color=#FFFF00>Nästan!</u></b></size>";
 
     [Header("Answer Settings")]
     public string answerKey;
-    [Tooltip("Used ONLY when mode is StringCompare.")] 
-    public bool caseSensitive = false; 
+    [Tooltip("Used ONLY when mode is StringCompare.")]
+    public bool caseSensitive = false;
 
-    [Tooltip("Choose how to judge the answer: via AI or simple string comparison.")] 
-    [SerializeField] private CheckMode checkMode = CheckMode.AI; 
+    [Tooltip("Choose how to judge the answer: via AI, simple string comparison, or StringCompare then AI fallback.")]
+    [SerializeField] private CheckMode checkMode = CheckMode.StringCompareThenAI;
 
     // AI-COM: --- Begin AI fields (auto-resolved SmartAssistant; not set via Inspector) ---
-    [Header("AI")] 
-    [Tooltip("CommunicationSettings passed as the System profile to the AI when judging answers.")] 
+    [Header("AI")]
+    [Tooltip("CommunicationSettings passed as the System profile to the AI when grading answers.")]
     [SerializeField] private CommunicationSettings gradingCommunicationSettings;
 
     [Tooltip("If true, enables extra reasoning effort on models that support it.")]
-    [SerializeField] private bool allowAiReasoning = false; 
+    [SerializeField] private bool allowAiReasoning = false;
 
-    private SmartAssistant smartAssistant;
+    [Header("AI Condition Instructions")]
+    [SerializeField] private string isCorrectInstructions =
+        "Return true iff the user_answer should be marked correct according to the rules. Else false.";
+    [SerializeField] private string isAlmostInstructions =
+        "Return true iff the answer is 'almost' (on the right track but missing something important) per the CommunicationSettings. Else false.";
+    [SerializeField] private string almostFeedbackInstructions =
+        "If is_almost is true, return a SHORT, actionable hint guiding the user to the correct answer. Otherwise return an empty string.";
+    [SerializeField] private string almostHeaderInstructions =
+        "If is_almost is true, return the HEADER text. Use the provided baseline header but translate it into the language of user_answer if that language differs from Swedish; otherwise return it unchanged. Keep it concise (max ~5 words).";
     // AI-COM: --- End AI fields ---
+
+    [Tooltip("If enabled, will post a special assistant message when verdict is 'almost'.")]
+    [SerializeField] private bool postAlmostChatMessage = true;
+
+    // Auto-resolved by tag; not set via Inspector
+    private AssistantChatManager chatManager;
 
     [Header("Colors")]
     [SerializeField, ColorUsage(true, true)] private Color defaultColor = Color.gray;
     [SerializeField, ColorUsage(true, true)] private Color editColor = Color.blue;
     [SerializeField, ColorUsage(true, true)] private Color successColor = Color.green;
     [SerializeField, ColorUsage(true, true)] private Color failColor = Color.red;
-    [Tooltip("Shown when the AI deems the answer is on the right track but missing something important.")]
+    [Tooltip("Shown when the AI deems the answer is 'almost' correct but missing something important.")]
     [SerializeField, ColorUsage(true, true)] private Color almostColor = Color.yellow;
 
     [Header("Outline (UI)")]
@@ -70,8 +94,9 @@ public class UserAnswerField : MonoBehaviour
     public UnityEvent onCorrect;
 
     private enum Verdict { None, Success, Fail, Almost }
-    private enum CheckMode { AI, StringCompare } 
+    private enum CheckMode { AI, StringCompare, StringCompareThenAI }
 
+    private SmartAssistant smartAssistant;
     Color _outlineBaseColor;
     Coroutine _shakeCo, _flashCo;
 
@@ -81,6 +106,9 @@ public class UserAnswerField : MonoBehaviour
     bool _dirtySinceSubmit = false;
     bool _prevEditing = false;
     bool _lostFocusAfterSubmit = false;
+
+    // Prevents re-submission while evaluation is running
+    bool _isEvaluating = false;
 
     void Awake()
     {
@@ -96,7 +124,8 @@ public class UserAnswerField : MonoBehaviour
             submitNextWindowManager.OpenWindow(submitWindowName);
         }
 
-        ResolveSmartAssistant(); 
+        ResolveSmartAssistant();
+        ResolveChatManager();
     }
 
     void OnDisable()
@@ -111,6 +140,8 @@ public class UserAnswerField : MonoBehaviour
         _dirtySinceSubmit = false;
         _prevEditing = false;
         _lostFocusAfterSubmit = false;
+
+        _isEvaluating = false;
     }
 
     void Update()
@@ -173,38 +204,156 @@ public class UserAnswerField : MonoBehaviour
         _prevEditing = editing;
     }
 
-    // AI-COM: Now supports enum toggle. Uses AI or string compare depending on 'checkMode'.
-    public async void ProcessAnswer() 
+    // AI-COM: Uses AI, StringCompare, or StringCompareThenAI depending on 'checkMode'.
+    public async void ProcessAnswer()
     {
-        string answer = inputField.text;
+        // Guard against double-submit
+        if (_isEvaluating) return;
+        _isEvaluating = true;
 
-        if (outlineObject != null) outlineObject.SetActive(true);
-
-        bool answerIsCorrect = false; 
-        bool answerIsAlmost = false;
-
-        if (checkMode == CheckMode.StringCompare) 
+        try
         {
-            answerIsCorrect = CompareWithAnswerKey(answer, answerKey); 
-            answerIsAlmost = false; // StringCompare has no 'almost' concept
-        }
-        else // AI mode 
-        {
-            // Ensure assistant is available (e.g., if scene reloaded) 
-            if (smartAssistant == null) ResolveSmartAssistant(); 
+            string answer = inputField.text;
 
-            if (smartAssistant == null) 
+            if (outlineObject != null) outlineObject.SetActive(true);
+
+            bool answerIsCorrect = false;
+            bool answerIsAlmost = false;
+            string almostFeedbackText = null;
+            string almostHeaderFromAi = null;
+
+            if (checkMode == CheckMode.StringCompare)
             {
-                Debug.LogError("[UserAnswerField] SmartAssistant not found in scene (tag 'SmartAssistant'). Cannot validate via AI."); 
-                answerIsCorrect = false; 
+                // Pure string compare path
+                answerIsCorrect = CompareWithAnswerKey(answer, answerKey);
                 answerIsAlmost = false;
             }
-            else 
+            else if (checkMode == CheckMode.AI)
             {
-                try 
+                // Pure AI grading
+                var aiRes = await EvaluateWithAI(answer);
+                answerIsCorrect      = aiRes.isCorrect;
+                answerIsAlmost       = aiRes.isAlmost;
+                almostFeedbackText   = aiRes.almostFeedback;
+                almostHeaderFromAi   = aiRes.almostHeader;
+            }
+            else // CheckMode.StringCompareThenAI
+            {
+                // Try fast string compare first; if false, fall back to AI
+                answerIsCorrect = CompareWithAnswerKey(answer, answerKey);
+                if (!answerIsCorrect)
                 {
-                    // AI-COM: Build a strict grading prompt.
-                    var prompt =
+                    var aiRes = await EvaluateWithAI(answer);
+                    answerIsCorrect      = aiRes.isCorrect;
+                    answerIsAlmost       = aiRes.isAlmost;
+                    almostFeedbackText   = aiRes.almostFeedback;
+                    almostHeaderFromAi   = aiRes.almostHeader;
+                }
+                else
+                {
+                    answerIsAlmost = false;
+                }
+            }
+
+            // ── Apply verdict UI/logic ─────────────────────────────────────────
+            if (answerIsCorrect)
+            {
+                if (_flashCo != null) StopCoroutine(_flashCo);
+                outlineImage.color = successColor;
+                _verdict = Verdict.Success;
+                _lastSubmittedText = answer;
+                _dirtySinceSubmit = false;
+                _lostFocusAfterSubmit = false;
+
+                onCorrect?.Invoke();
+
+                if (submitNextWindowManager != null)
+                {
+                    submitNextWindowManager.OpenWindow(nextWindowName);
+                }
+            }
+            else if (answerIsAlmost)
+            {
+                // Fail-like behavior, but yellow + special message
+                if (_flashCo != null) StopCoroutine(_flashCo);
+                _flashCo = StartCoroutine(FlashOutline(almostColor));
+
+                if (_shakeCo != null) StopCoroutine(_shakeCo);
+                _shakeCo = StartCoroutine(ShakeObject());
+
+                _verdict = Verdict.Almost;
+                _lastSubmittedText = answer;
+                _dirtySinceSubmit = false;
+                _lostFocusAfterSubmit = false;
+
+                if (postAlmostChatMessage)
+                {
+                    if (chatManager == null) ResolveChatManager();
+
+                    if (chatManager != null)
+                    {
+                        var headerOut = SanitizeHeader(almostHeaderFromAi ?? almostHeader);
+                        var bodyOut = string.IsNullOrWhiteSpace(almostFeedbackText)
+                            ? "You're almost there—review the instructions and add the missing element(s)."
+                            : almostFeedbackText.Trim();
+
+                        chatManager.PostAssistantSpecialMessage(headerOut, bodyOut);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[UserAnswerField] postAlmostChatMessage is enabled, but no AssistantChatManager with tag 'ChatManager' was found.");
+                    }
+                }
+            }
+            else
+            {
+                if (_flashCo != null) StopCoroutine(_flashCo);
+                _flashCo = StartCoroutine(FlashOutline(failColor));
+
+                if (_shakeCo != null) StopCoroutine(_shakeCo);
+                _shakeCo = StartCoroutine(ShakeObject());
+
+                _verdict = Verdict.Fail;
+                _lastSubmittedText = answer;
+                _dirtySinceSubmit = false;
+                _lostFocusAfterSubmit = false;
+            }
+        }
+        finally
+        {
+            _isEvaluating = false;
+        }
+    }
+
+    // AI-COM: Brought back for StringCompare mode only.
+    protected virtual bool CompareWithAnswerKey(string answer, string key)
+    {
+        if (answer == null || key == null) return false;
+        if (caseSensitive) return answer == key;
+        return string.Equals(answer, key, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helper: AI evaluation (shared by AI and StringCompareThenAI paths)
+    // ─────────────────────────────────────────────────────────────────────────
+    private async Task<(bool isCorrect, bool isAlmost, string almostFeedback, string almostHeader)> EvaluateWithAI(string answer)
+    {
+        bool isCorrect = false;
+        bool isAlmost  = false;
+        string feedback = null;
+        string header   = null;
+
+        if (smartAssistant == null) ResolveSmartAssistant();
+
+        if (smartAssistant == null)
+        {
+            Debug.LogError("[UserAnswerField] SmartAssistant not found in scene (tag 'SmartAssistant'). Cannot validate via AI.");
+            return (false, false, null, null);
+        }
+
+        try
+        {
+            var prompt =
 $@"You are grading a single short-answer submission.
 
 Primary rule:
@@ -214,140 +363,166 @@ Primary rule:
 Inputs:
 - answer_key: ""{answerKey ?? ""}""
 - user_answer: ""{answer ?? ""}""
+- baseline_almost_header: ""{almostHeader ?? ""}""  (Use this as the header; translate it if the user's answer language differs from Swedish.)
 
-Decide if the submission should be marked correct.
+You must determine:
+- is_correct: true/false
+- is_almost: true/false  (""almost"" means the answer is on the right track but misses something important, as defined by the CommunicationSettings.)
 
-Additionally, return a brief feedback string suitable for the learner (e.g., 'Correct!' or 'Not quite. Expected ...').
+If is_almost is true, ALSO provide:
+- almost_feedback: A SHORT, actionable tip that guides the learner toward the correct answer. Prefer hints over revealing the entire answer unless grading rules explicitly allow it.
+- almost_header: The header to display above the feedback. Use 'baseline_almost_header' but translate it into the detected user_answer language if that language differs from Swedish; otherwise return it unchanged. Keep it concise (~1–3 words).";
 
-If the CommunicationSettings defines criteria for a special 'on the right track but missing something important' state, set that state accordingly.";
-
-                    // AI-COM: Define the condition spec the AI must return.
-                    var specs = new System.Collections.Generic.List<AiConditionSpec> 
-                    {
-                        new AiConditionSpec 
-                        {
-                            key = "is_correct", 
-                            instruction = "Return true iff the user_answer should be marked correct according to the rules. Else false.", 
-                            type = CondType.Bool 
-                        },
-                        new AiConditionSpec
-                        {
-                            key = "is_almost",
-                            instruction = "Return true iff the answer is on the right track but misses an important requirement per the CommunicationSettings. Else false.",
-                            type = CondType.Bool
-                        }
-                    };
-
-                    // AI-COM: Non-streaming call; returns full JSON at once.
-                    var (aiText, conds) = await smartAssistant.SendMessageWithAiConditionsAsync( 
-                        prompt,                                                       
-                        specs,                                                         
-                        gradingCommunicationSettings,                                 
-                        model: null,                                                  
-                        allowThinking: allowAiReasoning                               
-                    );                                                                
-
-                    // AI-COM: Extract booleans with robust coercion fallbacks.
-                    if (conds != null && conds.TryGetValue("is_correct", out var v) && v is bool b1) 
-                        answerIsCorrect = b1; 
-                    else 
-                        answerIsCorrect = false; 
-
-                    if (conds != null && conds.TryGetValue("is_almost", out var v2) && v2 is bool b2)
-                        answerIsAlmost = b2;
-                    else
-                        answerIsAlmost = false;
-                }
-                catch (System.Exception ex) 
-                {
-                    Debug.LogError($"[UserAnswerField] AI validation failed: {ex.Message}"); 
-                    answerIsCorrect = false; 
-                    answerIsAlmost = false;
-                }
-            }
-        }
-
-        if (answerIsCorrect) 
-        {
-            if (_flashCo != null) StopCoroutine(_flashCo);
-            outlineImage.color = successColor;
-            _verdict = Verdict.Success;
-            _lastSubmittedText = answer;
-            _dirtySinceSubmit = false;
-            _lostFocusAfterSubmit = false;
-
-            // Fire event (e.g., AnimatedPopupIcon.Play)
-            onCorrect?.Invoke();
-
-            // Optionally switch window immediately
-            if (submitNextWindowManager != null)
+            var specs = new List<AiConditionSpec>
             {
-                submitNextWindowManager.OpenWindow(nextWindowName);
+                new AiConditionSpec
+                {
+                    key = "is_correct",
+                    instruction = isCorrectInstructions,
+                    type = CondType.Bool
+                },
+                new AiConditionSpec
+                {
+                    key = "is_almost",
+                    instruction = isAlmostInstructions,
+                    type = CondType.Bool
+                },
+                new AiConditionSpec
+                {
+                    key = "almost_feedback",
+                    instruction = almostFeedbackInstructions,
+                    type = CondType.String
+                },
+                new AiConditionSpec
+                {
+                    key = "almost_header",
+                    instruction = almostHeaderInstructions,
+                    type = CondType.String
+                }
+            };
+
+            var (aiText, conds) = await smartAssistant.SendMessageWithAiConditionsAsync(
+                prompt,
+                specs,
+                gradingCommunicationSettings,
+                model: null,
+                allowThinking: allowAiReasoning
+            );
+
+            if (conds != null && conds.TryGetValue("is_correct", out var v) && v is bool b1)
+                isCorrect = b1;
+            else
+                isCorrect = false;
+
+            if (conds != null && conds.TryGetValue("is_almost", out var v2) && v2 is bool b2)
+                isAlmost = b2;
+            else
+                isAlmost = false;
+
+            if (conds != null && conds.TryGetValue("almost_feedback", out var v3))
+            {
+                feedback = v3 as string ?? v3?.ToString();
+                if (string.IsNullOrWhiteSpace(feedback))
+                    feedback = null;
+            }
+
+            if (conds != null && conds.TryGetValue("almost_header", out var v4))
+            {
+                header = v4 as string ?? v4?.ToString();
+                if (string.IsNullOrWhiteSpace(header))
+                    header = null;
+            }
+
+            if (isAlmost)
+            {
+                if (string.IsNullOrWhiteSpace(feedback))
+                    feedback = string.IsNullOrWhiteSpace(aiText)
+                        ? "You're almost there—review the requirements and address the missing part."
+                        : aiText.Trim();
+
+                if (string.IsNullOrWhiteSpace(header))
+                    header = string.IsNullOrWhiteSpace(almostHeader) ? "Almost" : almostHeader.Trim();
             }
         }
-        else if (answerIsAlmost)
+        catch (Exception ex)
         {
-            // Acts like Fail in logic (flash + shake, no window switch, edit flow identical),
-            // but displays ALMOST color (yellow).
-            if (_flashCo != null) StopCoroutine(_flashCo);
-            _flashCo = StartCoroutine(FlashOutline(almostColor));
-
-            if (_shakeCo != null) StopCoroutine(_shakeCo);
-            _shakeCo = StartCoroutine(ShakeObject());
-
-            _verdict = Verdict.Almost;
-            _lastSubmittedText = answer;
-            _dirtySinceSubmit = false;
-            _lostFocusAfterSubmit = false;
+            Debug.LogError($"[UserAnswerField] AI validation failed: {ex.Message}");
+            return (false, false, null, null);
         }
-        else
-        {
-            if (_flashCo != null) StopCoroutine(_flashCo);
-            _flashCo = StartCoroutine(FlashOutline(failColor));
 
-            if (_shakeCo != null) StopCoroutine(_shakeCo);
-            _shakeCo = StartCoroutine(ShakeObject());
-
-            _verdict = Verdict.Fail;
-            _lastSubmittedText = answer;
-            _dirtySinceSubmit = false;
-            _lostFocusAfterSubmit = false;
-        }
+        return (isCorrect, isAlmost, feedback, header);
     }
 
-    // AI-COM: Brought back for StringCompare mode only.
-    protected virtual bool CompareWithAnswerKey(string answer, string key) 
-    {
-        if (answer == null || key == null) return false; 
-        if (caseSensitive) return answer == key; 
-        return string.Equals(answer, key, StringComparison.OrdinalIgnoreCase); 
-    }
-
-    private void ResolveSmartAssistant() 
+    private void ResolveSmartAssistant()
     {
         smartAssistant = null;
 
         var objs = GameObject.FindGameObjectsWithTag(TagSmartAssistant);
         if (objs == null || objs.Length == 0)
         {
-            Debug.LogError($"[UserAnswerField] No GameObject with tag '{TagSmartAssistant}' found in the scene."); 
+            Debug.LogError($"[UserAnswerField] No GameObject with tag '{TagSmartAssistant}' found in the scene.");
             return;
         }
 
         if (objs.Length > 1)
         {
-            Debug.LogWarning($"[UserAnswerField] Multiple GameObjects with tag '{TagSmartAssistant}' found. Using the first one: {objs[0].name}"); 
+            Debug.LogWarning($"[UserAnswerField] Multiple GameObjects with tag '{TagSmartAssistant}' found. Using the first one: {objs[0].name}");
         }
 
         var comp = objs[0].GetComponent<SmartAssistant>();
         if (comp == null)
         {
-            Debug.LogError($"[UserAnswerField] GameObject '{objs[0].name}' has tag '{TagSmartAssistant}' but no SmartAssistant component."); 
+            Debug.LogError($"[UserAnswerField] GameObject '{objs[0].name}' has tag '{TagSmartAssistant}' but no SmartAssistant component.");
             return;
         }
 
         smartAssistant = comp;
-    } 
+    }
+
+    private void ResolveChatManager()
+    {
+        chatManager = null;
+
+        GameObject[] objs;
+        try
+        {
+            objs = GameObject.FindGameObjectsWithTag(TagChatManager);
+        }
+        catch (UnityException)
+        {
+            Debug.LogError($"[UserAnswerField] Tag '{TagChatManager}' is not defined in the Tag Manager.");
+            return;
+        }
+
+        if (objs == null || objs.Length == 0)
+        {
+            Debug.LogWarning($"[UserAnswerField] No GameObject with tag '{TagChatManager}' found in the scene.");
+            return;
+        }
+
+        if (objs.Length > 1)
+        {
+            Debug.LogWarning($"[UserAnswerField] Multiple GameObjects with tag '{TagChatManager}' found. Using the first one: {objs[0].name}");
+        }
+
+        var comp = objs[0].GetComponent<AssistantChatManager>();
+        if (comp == null)
+        {
+            Debug.LogError($"[UserAnswerField] GameObject '{objs[0].name}' has tag '{TagChatManager}' but no AssistantChatManager component.");
+            return;
+        }
+
+        chatManager = comp;
+    }
+
+    private string SanitizeHeader(string header)
+    {
+        if (string.IsNullOrWhiteSpace(header)) return "Almost";
+        header = header.Trim();
+        // keep header to a single line
+        header = header.Replace("\r", " ").Replace("\n", " ");
+        return header;
+    }
 
     IEnumerator FlashOutline(Color target)
     {
