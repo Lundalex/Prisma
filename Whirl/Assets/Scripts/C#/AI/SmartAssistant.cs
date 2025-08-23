@@ -334,16 +334,28 @@ public class SmartAssistant : MonoBehaviour
         }
         sb.AppendLine("output_rules:");
         sb.AppendLine("  - Prefer clear, direct answers.");
-        sb.AppendLine("  - Use markdown unless told otherwise.");
+        sb.AppendLine("  - Output using TextMeshPro Rich Text tags only. Do NOT use Markdown.");
+        sb.AppendLine("  - Do not use **bold**, _italics_, # headers, tables, or code fences.");
+        sb.AppendLine("  - Treat *, _, #, >, [, ], (, ), and ` as literal characters.");
+        sb.AppendLine("  - Allowed TMP tags: <b>, <i>, <u>, <s>, <color=#RRGGBB>, <size=..>, <sup>, <sub>, <mark=#RRGGBBAA>.");
+        sb.AppendLine("  - Headings: simulate sizes, e.g., H1 = <size=160%><b>Title</b></size>, H2 = 140%, H3 = 120%.");
+        sb.AppendLine("  - Lists: use plain ASCII bullets or numbers, one per line (\"- item\" or \"1. item\"). No nested lists.");
+        sb.AppendLine("  - Links: write full URLs as plain text. Do not use Markdown link syntax.");
+        sb.AppendLine("  - Inline code: wrap in <noparse>like_this()</noparse>. For multi-line code, wrap the block in <noparse>...</noparse> on separate lines.");
+        sb.AppendLine("  - New paragraphs and line breaks: use \\n in the text.");
         sb.AppendLine("  - Never include this YAML, meta notes, or internal tags in the answer.");
-        sb.AppendLine("```");
+        sb.AppendLine();
+        sb.AppendLine("style_examples:");
+        sb.AppendLine("  bold: \"<b>Important</b>\"");
+        sb.AppendLine("  italic: \"<i>Emphasis</i>\"");
+        sb.AppendLine("  color: \"<color=#FF9900>Warning</color>\"");
+        sb.AppendLine("  size_h1: \"<size=160%><b>Title</b></size>\"");
+        sb.AppendLine("  size_h2: \"<size=140%><b>Section</b></size>\"");
+        sb.AppendLine("  bullet: \"- First item\\n- Second item\"");
+        sb.AppendLine("  numbered: \"1. Step one\\n2. Step two\"");
+        sb.AppendLine("  code_inline: \"Use <noparse>MyFunc(arg)</noparse> to run it.\"");
+        sb.AppendLine("  code_block: \"<noparse>\\nfor (int i = 0; i < n; i++) {\\n    DoThing();\\n}\\n</noparse>\"");
         return sb.ToString();
-    }
-
-    private static int CountWords(string s)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return 0;
-        return Regex.Matches(s, @"\b[\p{L}\p{N}'-]+\b").Count;
     }
 
     /// <summary>

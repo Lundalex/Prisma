@@ -5,10 +5,20 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
+[Serializable]
+public class SpecialMessagePreset
+{
+    public string presetName;
+    [TextArea] public string visText;
+    [TextArea] public string sendText;
+    public bool spacialMessage = false;
+}
+
 public class AssistantChatManager : MonoBehaviour
 {
     [Header("Prefabs & Parents")]
     [SerializeField] private StreamingMessage messagePrefab;
+    [SerializeField] private StreamingMessage specialMessagePrefab;
     [SerializeField] private RectTransform messageList;
 
     [Header("Message Sides")]
@@ -46,6 +56,14 @@ public class AssistantChatManager : MonoBehaviour
     [Tooltip("Text shown if all attempts fail.")]
     [SerializeField] private string errorFallbackText = "Fel: kunde inte hämta svar.";
 
+    [Header("Expand/Minimize")]
+    [Tooltip("Optional. Will call Expand() every time a message is sent.")]
+    [SerializeField] private RectExpandMinimizeController expandMinimizeController;
+
+    [Header("Special Message Presets")]
+    [Tooltip("Lookup table for SendPresetUserMessage(presetName). Matching is case-insensitive and trims whitespace.")]
+    [SerializeField] private SpecialMessagePreset[] specialMessagePresets;
+
     private SmartAssistant assistant;
     private CancellationTokenSource streamCts;
     private Coroutine _scrollbarResetRoutine;
@@ -66,11 +84,33 @@ public class AssistantChatManager : MonoBehaviour
             return;
         }
         var userMessage = userAssistantField.lastSentMessage ?? string.Empty;
+        // Classic behavior: visible == sent, regular prefab
         HandleUserMessage(userMessage);
     }
 
     public void OnUserMessageRecieved(string userMessage) => HandleUserMessage(userMessage);
     public void OnUserMessageReceived(string userMessage) => HandleUserMessage(userMessage);
+
+    /// <summary>
+    /// NEW public API: Send a message by preset name. The preset defines visText, sendText, and spacialMessage.
+    /// Also calls Expand() on the configured RectExpandMinimizeController (if any).
+    /// </summary>
+    /// <param name="specialMessagePresetName">Name of the preset defined in the inspector.</param>
+    public void SendPresetUserMessage(string specialMessagePresetName)
+    {
+        var preset = FindPresetByName(specialMessagePresetName);
+        if (preset == null)
+        {
+            Debug.LogWarning($"[AssistantChatManager] No SpecialMessagePreset found with name '{specialMessagePresetName}'. Aborting SendPresetUserMessage.");
+            return;
+        }
+
+        // Fire expand on send (if assigned)
+        if (expandMinimizeController != null)
+            expandMinimizeController.Expand();
+
+        _ = HandleUserMessageCore(preset.visText ?? string.Empty, preset.sendText ?? string.Empty, preset.spacialMessage);
+    }
 
     /// <summary>
     /// Clears the chat: stops any ongoing streaming and removes all message bubbles under messageList.
@@ -127,46 +167,60 @@ public class AssistantChatManager : MonoBehaviour
         }
     }
 
-    // Core handler used by both entry points
+    // ----- Internal routing (kept for backward compatibility with existing hooks) -----
+
+    // Core handler used by both entry points; preserves old external behavior (visible == sent, regular prefab).
     private async void HandleUserMessage(string userMessage)
     {
-        if (messagePrefab == null || messageList == null)
+        // Fire expand on send (if assigned)
+        if (expandMinimizeController != null)
+            expandMinimizeController.Expand();
+
+        await HandleUserMessageCore(userMessage ?? string.Empty, userMessage ?? string.Empty, false);
+    }
+
+    // Shared implementation used by both the classic and preset-based APIs.
+    private async System.Threading.Tasks.Task HandleUserMessageCore(string visText, string sendText, bool spacialMessage)
+    {
+        if ((messagePrefab == null && specialMessagePrefab == null) || messageList == null)
         {
-            Debug.LogError("[AssistantChatManager] messagePrefab or messageList is not assigned.");
+            Debug.LogError("[AssistantChatManager] messagePrefab/specialMessagePrefab or messageList is not assigned.");
             return;
         }
 
         if (assistant == null)
         {
             assistant = SmartAssistant.FindByTagOrNull();
-            if (assistant == null)
-            {
-                var userMsgFallback = Instantiate(messagePrefab, messageList);
-                userMsgFallback.name = $"UserMessage_{Time.frameCount}";
-                userMsgFallback.SetStretchOrigin(userStretchOrigin);
-                ApplyText(userMsgFallback, userMessage ?? string.Empty);
+            // Even if assistant is missing, still render the UI messages to keep UX consistent.
+            var userPrefabToUse = ResolveUserPrefab(spacialMessage);
+            var userMsgFallback = Instantiate(userPrefabToUse, messageList);
+            userMsgFallback.name = $"UserMessage_{Time.frameCount}";
+            userMsgFallback.SetStretchOrigin(userStretchOrigin);
+            ApplyText(userMsgFallback, visText);
 
-                var assistantMsgFallback = Instantiate(messagePrefab, messageList);
-                assistantMsgFallback.name = $"AssistantMessage_{Time.frameCount}";
-                assistantMsgFallback.SetStretchOrigin(assistantStretchOrigin);
-                ApplyText(assistantMsgFallback, "Assistant saknas i scenen (tag 'SmartAssistant').");
+            var assistantPrefabToUse = messagePrefab ?? specialMessagePrefab;
+            var assistantMsgFallback = Instantiate(assistantPrefabToUse, messageList);
+            assistantMsgFallback.name = $"AssistantMessage_{Time.frameCount}";
+            assistantMsgFallback.SetStretchOrigin(assistantStretchOrigin);
+            ApplyText(assistantMsgFallback, "Assistant saknas i scenen (tag 'SmartAssistant').");
 
-                Debug.LogError("[AssistantChatManager] Could not find SmartAssistant (tag 'SmartAssistant').");
-                return;
-            }
+            Debug.LogError("[AssistantChatManager] Could not find SmartAssistant (tag 'SmartAssistant').");
+            return;
         }
 
-        // Build prompt using the CommunicationSettings (if assigned)
-        var promptToSend = assistant.BuildPrompt(communicationSettings, userMessage);
+        // Build prompt using the CommunicationSettings (if assigned) and the *sendText* (NOT visText)
+        var promptToSend = assistant.BuildPrompt(communicationSettings, sendText);
 
-        // Create user message bubble (show raw user message, not the combined prompt)
-        var userMsg = Instantiate(messagePrefab, messageList);
+        // Create user message bubble (show the desired *visible* text)
+        var userPrefab = ResolveUserPrefab(spacialMessage);
+        var userMsg = Instantiate(userPrefab, messageList);
         userMsg.name = $"UserMessage_{Time.frameCount}";
         userMsg.SetStretchOrigin(userStretchOrigin);
-        ApplyText(userMsg, userMessage ?? string.Empty);
+        ApplyText(userMsg, visText);
 
-        // Create assistant placeholder bubble
-        var assistantMsg = Instantiate(messagePrefab, messageList);
+        // Create assistant placeholder bubble (regular prefab for assistant)
+        var assistantPrefab = messagePrefab ?? specialMessagePrefab;
+        var assistantMsg = Instantiate(assistantPrefab, messageList);
         assistantMsg.name = $"AssistantMessage_{Time.frameCount}";
         assistantMsg.SetStretchOrigin(assistantStretchOrigin);
         ApplyText(assistantMsg, string.IsNullOrEmpty(assistantThinkingText) ? "" : assistantThinkingText);
@@ -234,6 +288,42 @@ public class AssistantChatManager : MonoBehaviour
             Debug.LogError($"[AssistantChatManager] All {Mathf.Max(1, maxAttempts)} attempts failed. Last error: {lastEx?.Message}");
             ApplyText(assistantMsg, errorFallbackText);
         }
+    }
+
+    private SpecialMessagePreset FindPresetByName(string name)
+    {
+        if (specialMessagePresets == null || specialMessagePresets.Length == 0) return null;
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        var trimmed = name.Trim();
+        for (int i = 0; i < specialMessagePresets.Length; i++)
+        {
+            var p = specialMessagePresets[i];
+            if (p != null && !string.IsNullOrEmpty(p.presetName) &&
+                string.Equals(p.presetName.Trim(), trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    private StreamingMessage ResolveUserPrefab(bool spacialMessage)
+    {
+        // If special requested but missing, fall back to regular and warn.
+        if (spacialMessage)
+        {
+            if (specialMessagePrefab != null) return specialMessagePrefab;
+            if (messagePrefab != null)
+            {
+                Debug.LogWarning("[AssistantChatManager] specialMessagePrefab not assigned; falling back to messagePrefab for user bubble.");
+                return messagePrefab;
+            }
+            // If both missing, return null (handled by caller earlier).
+            return null;
+        }
+        // Regular path
+        return messagePrefab ?? specialMessagePrefab;
     }
 
     private void OnDestroy()
