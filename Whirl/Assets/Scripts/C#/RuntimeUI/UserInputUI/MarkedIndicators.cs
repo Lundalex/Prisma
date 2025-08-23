@@ -5,13 +5,15 @@ using UnityEngine.UI;
 using UnityEditor;
 #endif
 
-[DisallowMultipleComponent]
-[ExecuteAlways]
 public class MarkedIndicators : MonoBehaviour
 {
     [Header("Appearance")]
     [SerializeField] private Color markedColor = Color.yellow;
     [SerializeField] private Color unmarkedColor = Color.white;
+
+    [Header("Source")]
+    [Tooltip("HorizontalSelector that holds the current index to mark.")]
+    [SerializeField] private Michsky.MUIP.HorizontalSelector selector;  // NEW
 
 #if UNITY_EDITOR
     [Header("Editor Preview")]
@@ -26,6 +28,28 @@ public class MarkedIndicators : MonoBehaviour
     void Start()
     {
         SetAllUnmarked();
+    }
+
+    /// <summary>
+    /// Marks the indicator corresponding to the HorizontalSelector's current index.
+    /// </summary>
+    public void MarkCurrentIndicator() // NEW
+    {
+        if (selector == null)
+        {
+            Debug.LogWarning($"{nameof(MarkedIndicators)} ({name}): No HorizontalSelector assigned. Call ignored.");
+            return;
+        }
+
+        int idx = selector.index;
+        int count = transform.childCount;
+        if (idx < 0 || idx >= count)
+        {
+            Debug.LogWarning($"{nameof(MarkedIndicators)} ({name}): selector index {idx} is out of range (0..{count - 1}). Call ignored.");
+            return;
+        }
+
+        SetIndicatorMarked(idx);
     }
 
     /// <summary>
@@ -58,9 +82,7 @@ public class MarkedIndicators : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Convenience: sets all indicators (all children) to unmarkedColor.
-    /// </summary>
+    /// <summary>Convenience: sets all indicators (all children) to unmarkedColor.</summary>
     public void SetAllUnmarked()
     {
         int count = transform.childCount;
@@ -74,9 +96,7 @@ public class MarkedIndicators : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Convenience: sets all indicators (all children) to markedColor.
-    /// </summary>
+    /// <summary>Convenience: sets all indicators (all children) to markedColor.</summary>
     public void SetAllMarked()
     {
         int count = transform.childCount;
@@ -90,9 +110,7 @@ public class MarkedIndicators : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Convenience: unmarks all, then marks the specified indicator.
-    /// </summary>
+    /// <summary>Convenience: unmarks all, then marks the specified indicator.</summary>
     public void SetOnlyMarked(int index)
     {
         SetAllUnmarked();
@@ -101,9 +119,6 @@ public class MarkedIndicators : MonoBehaviour
 
     // ───────────────────────────── helpers ─────────────────────────────
 
-    // Gets all Image components that are on the DIRECT CHILDREN of the child at 'index'
-    // (i.e., grandchildren of this GameObject). Does NOT include the child's own Image,
-    // and does not search deeper than one level.
     bool TryGetGrandchildImages(int index, out Image[] images)
     {
         images = null;
@@ -130,7 +145,6 @@ public class MarkedIndicators : MonoBehaviour
             var grandchild = indicator.GetChild(i);
             if (grandchild == null) continue;
 
-            // Only images directly on this grandchild (not deeper)
             var imgsOnGrandchild = grandchild.GetComponents<Image>();
             if (imgsOnGrandchild != null && imgsOnGrandchild.Length > 0)
                 list.AddRange(imgsOnGrandchild);
@@ -146,7 +160,6 @@ public class MarkedIndicators : MonoBehaviour
         return true;
     }
 
-    // Set only RGB, keep current alpha intact
     static void SetRgbPreserveAlpha(Image img, Color rgb)
     {
         var c = img.color;
@@ -158,7 +171,6 @@ public class MarkedIndicators : MonoBehaviour
     {
         if (Application.isPlaying) return;
 
-        // Start preview when the toggle is turned on
         if (previewMarkAll && !_previewRunning)
         {
             _previewRunning = true;
@@ -168,7 +180,6 @@ public class MarkedIndicators : MonoBehaviour
             SceneView.RepaintAll();
         }
 
-        // While preview is running, check timer
         if (_previewRunning)
         {
             double elapsed = EditorApplication.timeSinceStartup - _previewStart;
@@ -177,7 +188,7 @@ public class MarkedIndicators : MonoBehaviour
                 SetAllUnmarked();
 
                 _previewRunning = false;
-                previewMarkAll = false;   // reset toggle
+                previewMarkAll = false;
                 SceneView.RepaintAll();
             }
         }

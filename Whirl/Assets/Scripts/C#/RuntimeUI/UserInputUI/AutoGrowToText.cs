@@ -21,6 +21,10 @@ public class AutoGrowToText : MonoBehaviour
     [SerializeField] float minWidth = 105f;
     [SerializeField] float maxWidth = 280f;
 
+    [Header("Fit To Parent (optional)")]
+    [SerializeField] bool fitToParentContainer = false;     // toggle to use parentContainer width instead of maxWidth
+    [SerializeField] float parentPadding = 0f;              // padding subtracted from parentContainer width
+
     [Header("Texts")]
     [TextArea] [SerializeField] string leftStr = "";
     [TextArea] [SerializeField] string placeholderStr = "";
@@ -28,6 +32,11 @@ public class AutoGrowToText : MonoBehaviour
 
     TMP_InputField _input;
     TMP_InputField _leftInput;
+
+    // --- NEW: tracking + guards ---
+    float _lastParentWidth = float.NaN;
+    bool _dirtySize;
+    bool _suppressDimCallback;
 
 #if UNITY_EDITOR
     bool _pendingEditorRebuild;
@@ -39,6 +48,8 @@ public class AutoGrowToText : MonoBehaviour
         if (text == null) text = GetComponentInChildren<TMP_Text>();
         if (leftTarget != null && leftText == null) leftText = leftTarget.GetComponentInChildren<TMP_Text>();
         if (rightTarget != null && rightText == null) rightText = rightTarget.GetComponentInChildren<TMP_Text>();
+        if (parentContainer == null && transform.parent != null)
+            parentContainer = transform.parent as RectTransform; // convenient default
     }
 
     void Start()
@@ -50,6 +61,10 @@ public class AutoGrowToText : MonoBehaviour
         if (_leftInput) _leftInput.onValueChanged.AddListener(UpdateLeftSize);
 
         ApplyInspectorTexts();
+
+        // Initialize parent width cache so first LateUpdate doesn't skip
+        _lastParentWidth = parentContainer ? parentContainer.rect.width : float.NaN;
+
         UpdateLeftSize(leftText ? leftText.text : string.Empty);
         UpdateSize(text ? text.text : string.Empty);
     }
@@ -81,16 +96,46 @@ public class AutoGrowToText : MonoBehaviour
             placeholderText.text = placeholderStr;
     }
 
+    // --- NEW: parent-fit max helper
+    bool TryGetParentEffectiveMax(out float effectiveMax)
+    {
+        effectiveMax = 0f;
+        if (!fitToParentContainer) return false;
+        if (parentContainer == null) return false;
+
+        effectiveMax = Mathf.Max(1f, parentContainer.rect.width - parentPadding);
+        return true;
+    }
+
     public void UpdateSize(string newValue)
     {
         if (text == null || target == null) return;
 
-        float widthConstraint = (maxWidth > 0f) ? Mathf.Max(1f, maxWidth - padding) : Mathf.Infinity;
-        Vector2 pref = text.GetPreferredValues(newValue, widthConstraint, 0f);
-        float w = Mathf.Clamp(pref.x + padding, Mathf.Max(1f, minWidth), (maxWidth > 0f ? maxWidth : pref.x + padding));
+        float widthConstraint; // given to GetPreferredValues (content area width)
+        float upperBound;      // clamp max for final width
 
-        target.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, w);
+        if (TryGetParentEffectiveMax(out float parentMax))
+        {
+            widthConstraint = Mathf.Max(1f, parentMax - padding);
+            upperBound = parentMax;
+        }
+        else
+        {
+            widthConstraint = (maxWidth > 0f) ? Mathf.Max(1f, maxWidth - padding) : Mathf.Infinity;
+            upperBound = (maxWidth > 0f) ? maxWidth : float.PositiveInfinity;
+        }
+
+        Vector2 pref = text.GetPreferredValues(newValue, widthConstraint, 0f);
+
+        float wRaw = pref.x + padding;
+        float w = Mathf.Clamp(wRaw, Mathf.Max(1f, minWidth), float.IsInfinity(upperBound) ? wRaw : upperBound);
+
+        // Avoid feedback loops from our own size change triggering another dimension change callback.
+        _suppressDimCallback = true;
+        if (!Mathf.Approximately(target.rect.width, w))
+            target.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, w);
         LayoutRebuilder.ForceRebuildLayoutImmediate(target);
+        _suppressDimCallback = false;
 
         RepositionForLeftTarget();
         RepositionRightTarget();
@@ -111,8 +156,11 @@ public class AutoGrowToText : MonoBehaviour
         Vector2 prefL = leftText.GetPreferredValues(newLeftValue, Mathf.Infinity, 0f);
         float lw = Mathf.Max(1f, prefL.x);
 
-        leftTarget.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, lw);
+        _suppressDimCallback = true;
+        if (!Mathf.Approximately(leftTarget.rect.width, lw))
+            leftTarget.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, lw);
         LayoutRebuilder.ForceRebuildLayoutImmediate(leftTarget);
+        _suppressDimCallback = false;
 
         RepositionForLeftTarget();
         RepositionRightTarget();
@@ -155,15 +203,46 @@ public class AutoGrowToText : MonoBehaviour
         placeholderText.rectTransform.position = text.rectTransform.position;
     }
 
-#if UNITY_EDITOR
-    void Update()
+    // --- NEW: respond to rect / parent size changes ---
+    void LateUpdate()
     {
+#if UNITY_EDITOR
         if (!Application.isPlaying && _pendingEditorRebuild)
         {
             _pendingEditorRebuild = false;
             UpdateLeftSize(leftText ? leftText.text : string.Empty);
             UpdateSize(text ? text.text : string.Empty);
         }
-    }
 #endif
+        // Watch parent width and refresh only when it actually changes.
+        if (fitToParentContainer && parentContainer)
+        {
+            float pw = parentContainer.rect.width;
+            if (!Mathf.Approximately(pw, _lastParentWidth))
+            {
+                _lastParentWidth = pw;
+                _dirtySize = true;
+            }
+        }
+
+        if (_dirtySize)
+        {
+            _dirtySize = false;
+            UpdateSize(text ? text.text : string.Empty);
+        }
+    }
+
+    void OnTransformParentChanged()
+    {
+        // Parent swapped; force a refresh next frame.
+        _lastParentWidth = float.NaN;
+        _dirtySize = true;
+    }
+
+    void OnRectTransformDimensionsChange()
+    {
+        // Our own rect changed due to layout; if it wasn't caused by us, refresh.
+        if (_suppressDimCallback) return;
+        _dirtySize = true;
+    }
 }
