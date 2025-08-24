@@ -6,7 +6,9 @@ public class UserSettings : ScriptableObject
     public TextSize textSize = TextSize.Normal;
     public LineSpacing lineSpacing = LineSpacing.Normal;
     public Theme theme = Theme.Modern;
-    public DyslexiaMode dyslexiaMode = DyslexiaMode.Inactive;
+
+    // Plain boolean now
+    public bool dyslexiaMode = false;
 }
 
 public enum TextSize
@@ -28,10 +30,4 @@ public enum Theme
     Modern,
     Dark,
     Light
-}
-
-public enum DyslexiaMode
-{
-    Inactive,
-    Active
 }

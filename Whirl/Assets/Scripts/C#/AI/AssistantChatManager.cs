@@ -1,12 +1,13 @@
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────── 
 // AssistantChatManager.cs
 // - Adds overrideSpecialMarking: force user=normal, assistant=special (overrides presets)
 // - Fixes "spacialMessage" -> "specialMessage" (kept with FormerlySerializedAs for compatibility)
 // - Adds firstResponseTimeoutSeconds under Resilience:
 //     * streaming: cancel & retry if no partial arrives before timeout
 //     * non-streaming: cancel & retry if full answer not returned before 2x timeout
-// - NEW: Sends a single initial AI message at Start (prefab if assigned)
+// - NEW: Sends a single initial AI message at Start (prefab if assigned).
 // - NEW: initialMessagePrefab (inspector): instantiate this prefab for the initial message (non-streaming).
+// - CHANGE: Added expandOnInitialAssistantMessage (default false). Initial message no longer forces panel Expand().
 // ─────────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections;
@@ -87,8 +88,12 @@ public class AssistantChatManager : MonoBehaviour
     public Scrollbar scrollBar;
 
     [Header("Expand/Minimize")]
-    [Tooltip("Optional. Will call Expand() every time a message is sent.")]
+    [Tooltip("Optional. Will call Expand() every time a message is sent (user or special).")]
     [SerializeField] private RectExpandMinimizeController expandMinimizeController;
+
+    [Header("Initial Message Behavior")]
+    [Tooltip("If true, the panel will Expand() when the initial assistant message is posted at Start(). Default: false.")]
+    [SerializeField] private bool expandOnInitialAssistantMessage = false;
 
     [Header("Special Message Presets")]
     [Tooltip("Lookup table for SendPresetUserMessage(presetName). Matching is case-insensitive and trims whitespace.")]
@@ -120,7 +125,8 @@ public class AssistantChatManager : MonoBehaviour
             return;
         }
 
-        if (expandMinimizeController != null)
+        // IMPORTANT CHANGE: Do NOT auto-expand on initial message unless explicitly enabled.
+        if (expandMinimizeController != null && expandOnInitialAssistantMessage)
             expandMinimizeController.Expand();
 
         // Instantiate the provided prefab exactly as configured in the project.

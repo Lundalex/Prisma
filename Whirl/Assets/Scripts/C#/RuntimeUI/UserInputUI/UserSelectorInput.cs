@@ -48,6 +48,7 @@ public class UserSelectorInput : UserUIElement
             setupFinnished = true;
         }
 
+        if (selector == null) return;
         if (selector.index != lastValue)
         {
             updateTimer ??= new Timer(Func.MsToSeconds(msMaxUpdateFrequency), TimeType.Clamped, true, Func.MsToSeconds(msMaxUpdateFrequency));
@@ -67,6 +68,7 @@ public class UserSelectorInput : UserUIElement
 
     private void ModifyField()
     {
+        if (selector == null) return;
         if (fieldModifier == null) Debug.LogWarning("FieldModifier not set. UserSelectorInput: " + this.name);
         else
         {
