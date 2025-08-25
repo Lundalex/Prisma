@@ -2,8 +2,6 @@ using System.Collections;
 using UnityEngine;
 
 [ExecuteAlways]
-[DisallowMultipleComponent]
-[RequireComponent(typeof(RectTransform))]
 public class FullscreenWindowManager : MonoBehaviour
 {
     [Header("Children of D")]
