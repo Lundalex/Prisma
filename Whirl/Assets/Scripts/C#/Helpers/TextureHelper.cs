@@ -118,6 +118,7 @@ public class TextureHelper : MonoBehaviour
             texture.Create();
             return texture;
         }
+
         else if (channels == 2)
         {
             RenderTexture texture = new RenderTexture(resolution.x, resolution.y, 0, RenderTextureFormat.RGFloat)
@@ -132,13 +133,17 @@ public class TextureHelper : MonoBehaviour
         }
         else // channels == 3
         {
-            RenderTexture texture = new RenderTexture(resolution.x, resolution.y, 24)
+            RenderTexture texture = new RenderTexture(resolution.x, resolution.y, 0, GraphicsFormat.R8G8B8A8_UNorm)
             {
                 dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
                 enableRandomWrite = true,
                 wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Point
+                filterMode = FilterMode.Point,
+                useMipMap = false,
+                autoGenerateMips = false,
+                antiAliasing = 1
             };
+
             texture.Create();
             return texture;
         }
@@ -174,8 +179,12 @@ public class TextureHelper : MonoBehaviour
                 dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
                 enableRandomWrite = true,
                 wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Point
+                filterMode = FilterMode.Point,
+                useMipMap = false,
+                autoGenerateMips = false,
+                antiAliasing = 1
             };
+
             texture.Create();
         }
     }

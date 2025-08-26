@@ -1,0 +1,140 @@
+#pragma kernel ApplyShadowsVertical
+#pragma kernel ApplyShadowsDirectional
+
+#include "./Helpers/MathResources.hlsl"
+#include "./Helpers/DataTypes.hlsl"
+#include "./Helpers/Constants.hlsl"
+
+// Post processing
+const float ShadowDarkness;
+const float ShadowFalloff;
+
+// Other
+const uint2 Resolution;
+const float2 ShadowDirection;
+
+// Textures
+Texture2D<unorm float4> Result;
+RWTexture2D<unorm float4> PPResult;
+
+// Buffers
+StructuredBuffer<float> ShadowBuffer;
+
+uint GetPixelKey(uint2 threadID)
+{
+    return threadID.y * Resolution.x + threadID.x;
+}
+
+bool IsOutsideResolutionDims(uint2 threadID)
+{
+    return threadID.x > Resolution.x || threadID.y > Resolution.y;
+}
+
+[numthreads(TN_PP, 1, 1)]
+void ApplyShadowsVertical(uint3 id : SV_DispatchThreadID)
+{
+    uint x = id.x;
+    if (x >= Resolution.x) return;
+
+    float carry = 0.0;
+
+    // Sweep top -> bottom (light from above)
+    for (int y = Resolution.y - 1; y >= 0; --y)
+    {
+        float pixelShadow = ShadowBuffer[GetPixelKey(int2(x, y))];
+
+        // Springs write -3; treat any negative as "inside spring" and neutralize contribution
+        bool insideSpring = (pixelShadow < 0.0);
+        if (insideSpring) pixelShadow += 3.0; // -3 => 0
+
+        bool outsideRB = (pixelShadow < 1.0 - 1e-6);
+
+        // Accumulate with falloff
+        carry = clamp(carry * (1.0 - ShadowFalloff) + pixelShadow, 0.0, 1.0);
+
+        // Only shade when not over RB pixel and not inside a spring
+        float effectiveLight = (outsideRB && !insideSpring) ? (1.0 - carry * ShadowDarkness) : 1.0;
+
+        float4 src = Result[uint2(x, y)];
+        PPResult[uint2(x, y)] = float4(src.rgb * effectiveLight, src.a);
+    }
+}
+
+[numthreads(TN_PP, 1, 1)]
+void ApplyShadowsDirectional(uint3 id : SV_DispatchThreadID)
+{
+    const int W = (int)Resolution.x;
+    const int H = (int)Resolution.y;
+
+    // Normalize and enforce |dir.y| >= |dir.x| (>= 45° to X)
+    float2 dir = ShadowDirection;
+    if (all(dir == 0.0)) return;
+    dir = normalize(dir);
+    float ax0 = abs(dir.x), ay0 = abs(dir.y);
+    if (ax0 > ay0)
+    {
+        dir.x = copysign(ay0, dir.x);
+        dir = normalize(dir);
+        ax0 = abs(dir.x); ay0 = abs(dir.y);
+    }
+
+    const bool dyPos = (dir.y >= 0.0);
+    const int  stepX = (dir.x >= 0.0) ?  1 : -1;
+    const int  stepY =  dyPos         ?  1 : -1;
+
+    // One ray per column: start along the entering top/bottom edge
+    uint x0 = id.x;
+    if (x0 >= Resolution.x) return;
+
+    int x = (int)x0;
+    int y = dyPos ? 0 : (H - 1);
+
+    // Horizontal drift per row (in pixels)
+    const float drift = (ay0 > 1e-6) ? (ax0 / ay0) : 0.0;
+    float acc = 0.0;
+
+    float carry = 0.0;
+
+    // ≤ 2*H as required; we only need H steps
+    const uint maxIters = (uint)H;
+
+    for (uint i = 0; i < maxIters; ++i)
+    {
+        // ---- Shade this pixel (match vertical logic) ----
+        uint2 up = (uint2)int2(x, y);
+
+        float pixelShadow = ShadowBuffer[GetPixelKey(up)];
+        bool  insideSpring = (pixelShadow < 0.0);
+        if (insideSpring) pixelShadow += 3.0; // -3 => 0
+        bool  outsideRB    = (pixelShadow < 1.0 - 1e-6);
+
+        carry = clamp(carry * (1.0 - ShadowFalloff) + pixelShadow, 0.0, 1.0);
+
+        float effectiveLight = (outsideRB && !insideSpring) ? (1.0 - carry * ShadowDarkness) : 1.0;
+
+        float4 src = Result[up];
+        PPResult[up] = float4(src.rgb * effectiveLight, src.a);
+        // -----------------------------------------------
+
+        // Advance one row in the light direction
+        y += stepY;
+        if (y < 0 || y >= H) break;
+
+        // Apply horizontal drift for this row
+        acc += drift;
+        if (acc >= 1.0)
+        {
+            int steps = (int)floor(acc);
+            acc -= steps;
+
+            x += stepX * steps;
+
+            // Wrap X and reset carry on wrap
+            bool wrapped = false;
+            if (x < 0)          { x = (x % W + W) % W; wrapped = true; }
+            else if (x >= W)    { x = x % W;          wrapped = true; }
+
+            if (wrapped) carry = 0.0;
+        }
+    }
+}

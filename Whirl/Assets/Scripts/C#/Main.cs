@@ -113,7 +113,17 @@ public class Main : MonoBehaviour
     };
 #endregion
 
-#region Render Display
+#region Post Processing
+    public ShadowType ShadowType;
+    public float ShadowDarkness = 0.5f;
+    public float ShadowFalloff = 0.01f;
+    public float RBShadowStrength = 1.0f;
+    public float LiquidShadowStrength = 0.5f;
+    public float GasShadowStrength = 0.2f;
+    public float ShadowDirection = 45f;
+#endregion
+
+    #region Render Display
     public int2 Resolution;
     public Vector2 UIPadding;
     public LightingSettings LightingSettings;
@@ -195,6 +205,7 @@ public class Main : MonoBehaviour
 
     // Compute Shaders
     public ComputeShader renderShader;
+    public ComputeShader ppShader;
     public ComputeShader pSimShader;
     public ComputeShader rbSimShader;
     public ComputeShader sortShader;
@@ -228,6 +239,9 @@ public class Main : MonoBehaviour
     // Materials
     public ComputeBuffer MaterialBuffer;
 
+    // Shadows
+    public ComputeBuffer ShadowBuffer;
+
     // Constants
     [NonSerialized] public int ParticlesNum;
     [NonSerialized] public int MaxInfluenceRadiusSqr;
@@ -246,6 +260,7 @@ public class Main : MonoBehaviour
 
     // Shader Thread Group Sizes
     public const int renderShaderThreadSize = 16; // /32, AxA thread groups
+    public const int ppShaderThreadSize = 32; // /1024
     public const int pSimShaderThreadSize1 = 512; // /1024
     public const int pSimShaderThreadSize2 = 512; // /1024
     public const int sortShaderThreadSize = 512; // /1024
@@ -255,6 +270,7 @@ public class Main : MonoBehaviour
 
     // Private references
     [NonSerialized] public RenderTexture renderTexture;
+    [NonSerialized] public RenderTexture ppRenderTexture;
     [NonSerialized] public Texture2D AtlasTexture;
     [NonSerialized] public Texture2D LiquidVelocityGradientTexture;
     [NonSerialized] public Texture2D GasVelocityGradientTexture;
@@ -315,18 +331,23 @@ public class Main : MonoBehaviour
         // Initialize buffers
         InitializeBuffers(PDatas, RBDatas, RBVectors, SensorAreas);
         renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
+        ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowBuffer, renderTexture.width * renderTexture.height);
 
         // Shader buffers
         shaderHelper.SetPSimShaderBuffers(pSimShader);
         shaderHelper.SetRBSimShaderBuffers(rbSimShader);
         shaderHelper.SetRenderShaderBuffers(renderShader);
         shaderHelper.SetRenderShaderTextures(renderShader);
+        shaderHelper.SetPostProcessorBuffers(ppShader);
+        shaderHelper.SetPostProcessorTextures(ppShader);
         shaderHelper.SetSortShaderBuffers(sortShader);
 
         // Shader variables
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
         shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
         shaderHelper.UpdateRenderShaderVariables(renderShader);
+        shaderHelper.SetPostProcessorVariables(ppShader);
         shaderHelper.UpdateSortShaderVariables(sortShader);
 
         SetShaderKeywords();
@@ -366,23 +387,23 @@ public class Main : MonoBehaviour
             if (i == 0) RunRenderShader();
 
             for (int j = 0; j < SubTimeStepsPerFrame; j++)
-            {
-                pSimShader.SetBool("TransferSpringData", j == 0);
-
-                RunPSimShader(j);
-
-                if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
                 {
-                    rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
-                    rbSimShader.SetFloat("RLDeltaTime", RLDeltaTime * SubTimeStepsPerRBSimUpdate);
-                    RunRbSimShader();
+                    pSimShader.SetBool("TransferSpringData", j == 0);
+
+                    RunPSimShader(j);
+
+                    if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
+                    {
+                        rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
+                        rbSimShader.SetFloat("RLDeltaTime", RLDeltaTime * SubTimeStepsPerRBSimUpdate);
+                        RunRbSimShader();
+                    }
+
+                    ComputeHelper.DispatchKernel(pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize1);
+
+                    StepCount++;
+                    SimTimeElapsed += DeltaTime;
                 }
-
-                ComputeHelper.DispatchKernel(pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize1);
-
-                StepCount++;
-                SimTimeElapsed += DeltaTime;
-            }
 
             gpuDataSorted = false;
         }
@@ -390,7 +411,7 @@ public class Main : MonoBehaviour
 
     public void RunGPUSorting()
     {
-        if (!gpuDataSorted)
+        if (!gpuDataSorted && ParticlesNum > 0)
         {
             GPUSortChunkLookUp();
             GPUSortSpringLookUp();
@@ -449,6 +470,7 @@ public class Main : MonoBehaviour
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
         shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
         shaderHelper.UpdateRenderShaderVariables(renderShader);
+        shaderHelper.SetPostProcessorVariables(ppShader);
         shaderHelper.UpdateSortShaderVariables(sortShader);
     }
 
@@ -580,21 +602,21 @@ public class Main : MonoBehaviour
                 GlobalBrightness = 1.0f;
                 Contrast = 1.1f;
                 Saturation = 1.2f;
-                Gamma = 1.2f;
+                Gamma = 0.52f;
                 SettingsViewDarkTintPercent = 0.8f;
                 break;
             case RuntimePlatform.OSXEditor:
                 GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
                 Contrast = 1.2f;
                 Saturation = 1.1f;
-                Gamma = 0.8f;
+                Gamma = 0.6f;
                 SettingsViewDarkTintPercent = 0.8f;
                 break;
             case RuntimePlatform.WebGLPlayer:
                 GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
                 Contrast = 1.2f;
                 Saturation = 1.1f;
-                Gamma = 0.8f;
+                Gamma = 0.65f;
                 SettingsViewDarkTintPercent = 0.8f;
                 break;
             default:
@@ -741,6 +763,8 @@ public class Main : MonoBehaviour
 
     private void RunPSimShader(int step)
     {
+        if (ParticlesNum <= 0) return;
+
         ComputeHelper.DispatchKernel(pSimShader, "PreCalculations", ParticlesNum, pSimShaderThreadSize1);
         ComputeHelper.DispatchKernel(pSimShader, "CalculateDensities", ParticlesNum, pSimShaderThreadSize1);
 
@@ -811,8 +835,17 @@ public class Main : MonoBehaviour
         int2 threadsNum = new(renderTexture.width, renderTexture.height);
         foreach (RenderStep step in RenderOrder)
         {
+            if (step == RenderStep.Fluids && ParticlesNum == 0) continue;
             DispatchRenderStep(step, threadsNum);
         }
+
+        RunPPShader();
+    }
+
+    public void RunPPShader()
+    {
+        if (ShadowType == ShadowType.Vertical_Unblurred) ComputeHelper.DispatchKernel(ppShader, "ApplyShadowsVertical", ppRenderTexture.width, ppShaderThreadSize);
+        else if (ShadowType == ShadowType.Directional_Unblurred) ComputeHelper.DispatchKernel(ppShader, "ApplyShadowsDirectional", ppRenderTexture.width, ppShaderThreadSize);
     }
 
     private void InitTimeSetRand()
@@ -876,7 +909,7 @@ public class Main : MonoBehaviour
 
     public void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
-        if (simDevice == SimulationDevice.GPU) Graphics.Blit(renderTexture, dest);
+        if (simDevice == SimulationDevice.GPU) Graphics.Blit(ppRenderTexture, dest);
         else Graphics.Blit(src, dest);
     }
 
@@ -897,7 +930,8 @@ public class Main : MonoBehaviour
             RBAdjustmentBuffer,
             SensorAreaBuffer,
             RBVectorBuffer,
-            MaterialBuffer
+            MaterialBuffer,
+            ShadowBuffer
         );
 
         // Release addressable caustics if loaded

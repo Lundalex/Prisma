@@ -1,4 +1,4 @@
-#pragma kernel RenderBackground; // 0
+#pragma kernel RenderBackground; // 0 
 #pragma kernel RenderFluids; // 1
 #pragma kernel RenderRigidBodies; // 2
 #pragma kernel RenderRigidBodySprings; // 3
@@ -46,6 +46,11 @@ const float RBEdgeWidth;
 const float FluidSensorEdgeWidth;
 const float SensorAreaAnimationSpeed;
 
+// ShadowBuffer
+const float RBShadowStrength;
+const float LiquidShadowStrength;
+const float GasShadowStrength;
+
 // Rigid body springs
 const int SpringRenderNumPeriods;
 const float SpringRenderWidth;
@@ -89,8 +94,8 @@ const int NextTimeSetRand;
 const float TimeSetLerpFactor;
 const int PrecomputedCausticsZ;
 
-RWStructuredBuffer<int> RecordedElements;
 RWTexture2D<unorm float4> Result;
+RWStructuredBuffer<float> ShadowBuffer;
 
 Texture2D<unorm float4> DynamicCaustics;
 Texture2DArray<unorm float> PrecomputedCaustics;
@@ -476,6 +481,10 @@ void RenderBackground(uint3 id : SV_DispatchThreadID)
 
     float3 sampleCol = SampleTexture(uv, 0, GetTexDims(Background), Background) * BackgroundBrightness;
     SetResultColor(id.xy, sampleCol);
+
+    // Reset ShadowBuffer
+    uint shadowIndex = id.y * Resolution.x + id.x;
+    ShadowBuffer[shadowIndex] = 0.0;
 }
 
 float3 BlendWithBackground(float3 color, float opacity, uint2 threadID)
@@ -698,6 +707,10 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
             if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
             SetResultColor(id.xy, result);
         #endif
+
+        // Write to ShadowBuffer
+        uint shadowIndex = id.y * Resolution.x + id.x;
+        ShadowBuffer[shadowIndex] = nearestIsNotGas ? LiquidShadowStrength : GasShadowStrength;
     }
 
     #if DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
@@ -797,6 +810,10 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
         // Blend the final color with the background
         float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);
         SetResultColor(id.xy, result);
+
+        // Write to ShadowBuffer
+        uint shadowIndexRB = id.y * Resolution.x + id.x;
+        ShadowBuffer[shadowIndexRB] = RBShadowStrength;
     }
 }
 
@@ -992,6 +1009,10 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         TintRed(result, redTint);
         
         SetResultColor(id.xy, result);
+
+        // Write to ShadowBuffer
+        uint shadowIndexRB = id.y * Resolution.x + id.x;
+        ShadowBuffer[shadowIndexRB] = ShadowBuffer[shadowIndexRB] - 3;
     }
 }
 

@@ -58,6 +58,8 @@ public class ShaderHelper : MonoBehaviour
 
     public void SetRenderShaderBuffers(ComputeShader renderShader)
     {
+        renderShader.SetBuffer(0, "ShadowBuffer", m.ShadowBuffer);
+
         if (m.ParticlesNum != 0)
         {
             renderShader.SetBuffer(1, "SpatialLookup", m.SpatialLookupBuffer);
@@ -66,6 +68,7 @@ public class ShaderHelper : MonoBehaviour
             renderShader.SetBuffer(1, "PTypes", m.PTypeBuffer);
             renderShader.SetBuffer(1, "Materials", m.MaterialBuffer);
             renderShader.SetBuffer(1, "SensorAreas", m.SensorAreaBuffer);
+            renderShader.SetBuffer(1, "ShadowBuffer", m.ShadowBuffer);
         }
 
         if (m.NumRigidBodies != 0)
@@ -73,9 +76,11 @@ public class ShaderHelper : MonoBehaviour
             renderShader.SetBuffer(2, "RigidBodies", m.RBDataBuffer);
             renderShader.SetBuffer(2, "RBVectors", m.RBVectorBuffer);
             renderShader.SetBuffer(2, "Materials", m.MaterialBuffer);
+            renderShader.SetBuffer(2, "ShadowBuffer", m.ShadowBuffer);
 
             renderShader.SetBuffer(3, "RigidBodies", m.RBDataBuffer);
             renderShader.SetBuffer(3, "Materials", m.MaterialBuffer);
+            renderShader.SetBuffer(3, "ShadowBuffer", m.ShadowBuffer);
         }
     }
 
@@ -101,6 +106,31 @@ public class ShaderHelper : MonoBehaviour
 
         renderShader.SetTexture(4, "Result", m.renderTexture);
         renderShader.SetTexture(4, "UITexture", m.uiTexture);
+    }
+
+    public void SetPostProcessorBuffers(ComputeShader ppShader)
+    {
+        ppShader.SetBuffer(0, "ShadowBuffer", m.ShadowBuffer);
+
+        ppShader.SetBuffer(1, "ShadowBuffer", m.ShadowBuffer);
+    }
+
+    public void SetPostProcessorTextures(ComputeShader ppShader)
+    {
+        ppShader.SetTexture(0, "Result", m.renderTexture);
+        ppShader.SetTexture(0, "PPResult", m.ppRenderTexture);
+
+        ppShader.SetTexture(1, "Result", m.renderTexture);
+        ppShader.SetTexture(1, "PPResult", m.ppRenderTexture);
+    }
+
+    public void SetPostProcessorVariables(ComputeShader ppShader)
+    {
+        ppShader.SetFloat("ShadowDarkness", m.ShadowDarkness);
+        ppShader.SetFloat("ShadowFalloff", m.ShadowFalloff);
+
+        ppShader.SetVector("Resolution", PM.Instance.Resolution);
+        ppShader.SetVector("ShadowDirection", new(-Mathf.Cos(Mathf.Deg2Rad * m.ShadowDirection), -Mathf.Sin(Mathf.Deg2Rad * m.ShadowDirection)));
     }
 
     public void SetSortShaderBuffers(ComputeShader sortShader)
@@ -190,6 +220,10 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("RBEdgeWidth", m.RBEdgeWidth);
         renderShader.SetFloat("FluidSensorEdgeWidth", m.FluidSensorEdgeWidth);
         renderShader.SetFloat("SensorAreaAnimationSpeed", m.SensorAreaAnimationSpeed);
+
+        renderShader.SetFloat("RBShadowStrength", m.RBShadowStrength);
+        renderShader.SetFloat("LiquidShadowStrength", m.LiquidShadowStrength);
+        renderShader.SetFloat("GasShadowStrength", m.GasShadowStrength);
 
         renderShader.SetInt("SpringRenderNumPeriods", m.SpringRenderNumPeriods);
         renderShader.SetFloat("SpringRenderWidth", m.SpringRenderWidth);

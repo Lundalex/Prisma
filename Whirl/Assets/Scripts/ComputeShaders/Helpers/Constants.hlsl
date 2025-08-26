@@ -6,6 +6,7 @@ static const int MAX_SPATIAL_LOOKUP_ITERATIONS = 10;
 static const uint TN_PS = 512; // Particle Simulation
 static const uint TN_PS2 = 512; // Particle Simulation
 static const uint TN_R = 16; // Renderer
+static const uint TN_PP = 32; // Post-processor
 static const uint TN_RBS1 = 64; // Rigid Body Simulation
 static const uint TN_RBS2 = 32; // Rigid Body Simulation
 static const uint TN_RBS3 = 512; // Rigid Body Simulation

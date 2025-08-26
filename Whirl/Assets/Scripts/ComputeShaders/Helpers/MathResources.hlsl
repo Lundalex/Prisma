@@ -196,6 +196,11 @@ float weightedAvg(float valueA, float weightA, float valueB, float weightB)
     return (valueA * weightA + valueB * weightB) / denom;
 }
 
+float copysign(float mag, float sgn)
+{
+    return (sgn >= 0.0) ? abs(mag) : -abs(mag);
+}
+
 float lerp1D(float posA, float posB, float valA, float valB, float targetVal)
 {
     float t = float(targetVal - valA) / float(valB - valA);
