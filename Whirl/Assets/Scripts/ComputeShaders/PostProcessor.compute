@@ -30,33 +30,75 @@ bool IsOutsideResolutionDims(uint2 threadID)
     return threadID.x > Resolution.x || threadID.y > Resolution.y;
 }
 
+// [numthreads(TN_PP, 1, 1)]
+// void ApplyShadowsVertical(uint3 id : SV_DispatchThreadID)
+// {
+//     uint x = id.x;
+//     if (x >= Resolution.x) return;
+
+//     float carry = 0.0;
+
+//     // Sweep top -> bottom (light from above)
+//     for (int y = Resolution.y - 1; y >= 0; --y)
+//     {
+//         float pixelShadow = ShadowBuffer[GetPixelKey(int2(x, y))];
+
+//         // Springs write -3; treat any negative as "inside spring" and neutralize contribution
+//         bool insideSpring = (pixelShadow < 0.0);
+//         if (insideSpring) pixelShadow += 3.0; // -3 => 0
+
+//         bool outsideRB = (pixelShadow < 1.0 - 1e-6);
+
+//         // Accumulate with falloff
+//         carry = clamp(carry * (1.0 - ShadowFalloff) + pixelShadow, 0.0, 1.0);
+
+//         // Only shade when not over RB pixel and not inside a spring
+//         float effectiveLight = (outsideRB && !insideSpring) ? (1.0 - carry * ShadowDarkness) : 1.0;
+
+//         float4 src = Result[uint2(x, y)];
+//         PPResult[uint2(x, y)] = float4(src.rgb * effectiveLight, src.a);
+//     }
+// }
+
 [numthreads(TN_PP, 1, 1)]
-void ApplyShadowsVertical(uint3 id : SV_DispatchThreadID)
+void ApplyShadowsDiagonal(uint3 id : SV_DispatchThreadID)
 {
-    uint x = id.x;
-    if (x >= Resolution.x) return;
+    uint xStart = id.x;
+    if (xStart >= Resolution.x) return;
+
+    const int W = (int)Resolution.x;
+    const int H = (int)Resolution.y;
+
+    int x = (int)xStart;
+    int y = 0; // start at top row; move down-right each step
 
     float carry = 0.0;
 
-    // Sweep top -> bottom (light from above)
-    for (int y = Resolution.y - 1; y >= 0; --y)
+    // Visit exactly H pixels per ray: (x + i, y + i)
+    for (int i = 0; i < H; ++i)
     {
-        float pixelShadow = ShadowBuffer[GetPixelKey(int2(x, y))];
+        uint2 px = (uint2)int2(x, y);
 
-        // Springs write -3; treat any negative as "inside spring" and neutralize contribution
-        bool insideSpring = (pixelShadow < 0.0);
+        float pixelShadow  = ShadowBuffer[GetPixelKey(px)];
+        bool  insideSpring = (pixelShadow < 0.0);
         if (insideSpring) pixelShadow += 3.0; // -3 => 0
+        bool  outsideRB    = (pixelShadow < 1.0 - 1e-6);
 
-        bool outsideRB = (pixelShadow < 1.0 - 1e-6);
-
-        // Accumulate with falloff
+        // Accumulate with falloff (match vertical variant)
         carry = clamp(carry * (1.0 - ShadowFalloff) + pixelShadow, 0.0, 1.0);
 
-        // Only shade when not over RB pixel and not inside a spring
+        // Shade unless we're directly over RB or inside a spring
         float effectiveLight = (outsideRB && !insideSpring) ? (1.0 - carry * ShadowDarkness) : 1.0;
 
-        float4 src = Result[uint2(x, y)];
-        PPResult[uint2(x, y)] = float4(src.rgb * effectiveLight, src.a);
+        float4 src = Result[px];
+        PPResult[px] = float4(src.rgb * effectiveLight, src.a);
+
+        // Step perfectly diagonal; wrap X and reset carry on wrap
+        y += 1;
+        x += 1;
+        if (x >= W) { x -= W; carry = 0.0; }
+
+        if (y >= H) break;
     }
 }
 
@@ -138,3 +180,9 @@ void ApplyShadowsDirectional(uint3 id : SV_DispatchThreadID)
         }
     }
 }
+
+
+
+1. Invert indexing of the diagonal shadow kernel
+2. Add a blurring kernel by separating shadow to own tex and then applying to result in a separate kernel
+3. Optimise shader (perhaps by implementing mip-mapping in sme way. Especially non-noticable if blur is high) (PROFILER TIME/FRAMETIME: ~20% for diagonal, 29% for directional)
