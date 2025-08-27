@@ -87,12 +87,15 @@
     <ui:Foldout text="Post-processing" name="Post-processing" value="true" style="-unity-font-style: bold; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-color: rgb(0, 0, 0); padding-top: 4px; padding-right: 4px; padding-bottom: 4px; padding-left: 4px;">
         <ui:Foldout text="Shadows" value="true" name="Shadows" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="ShadowType" label="Shadows" />
-            <ui:Slider label="Darkness" value="0" high-value="1" binding-path="ShadowDarkness" show-input-field="true" fill="true" name="Slider" low-value="0" />
-            <ui:Slider label="Falloff" value="0" high-value="1" binding-path="ShadowFalloff" show-input-field="true" fill="true" name="Slider" low-value="0" />
+            <ui:Slider label="Darkness" value="0.4" high-value="1" binding-path="ShadowDarkness" show-input-field="true" fill="true" name="Slider" low-value="0" />
+            <ui:Slider label="Falloff" value="0.01" high-value="1" binding-path="ShadowFalloff" show-input-field="true" fill="true" name="Slider" low-value="0" />
             <ui:Slider label="Rigid Bodies" value="1" high-value="1" binding-path="RBShadowStrength" tooltip="The strength of shadows casted by rigid bodies" show-input-field="true" fill="true" name="Slider" low-value="0" />
-            <ui:Slider label="Liquids" value="0" high-value="1" binding-path="LiquidShadowStrength" tooltip="The strength of shadows casted by liquids" show-input-field="true" fill="true" name="Slider" low-value="0" />
-            <ui:Slider label="Gasses" value="0" high-value="1" binding-path="GasShadowStrength" tooltip="The strength of shadows casted by gasses" show-input-field="true" fill="true" name="Slider" low-value="0" />
-            <ui:Slider label="Direction" value="0" high-value="135" binding-path="ShadowDirection" show-input-field="true" fill="true" name="Slider" low-value="45" />
+            <ui:Slider label="Liquids" value="0.5" high-value="1" binding-path="LiquidShadowStrength" tooltip="The strength of shadows casted by liquids" show-input-field="true" fill="true" name="Slider" low-value="0" />
+            <ui:Slider label="Gasses" value="0.2" high-value="1" binding-path="GasShadowStrength" tooltip="The strength of shadows casted by gasses" show-input-field="true" fill="true" name="Slider" low-value="0" />
+            <ui:Slider label="Direction" value="405" high-value="135" binding-path="ShadowDirection" show-input-field="true" fill="true" name="Slider" low-value="45" />
+            <ui:SliderInt label="Blur Radius" value="2" high-value="5" fill="true" show-input-field="true" binding-path="ShadowBlurRadius" />
+            <ui:SliderInt label="Blur Iterations" value="2" high-value="10" fill="true" show-input-field="true" binding-path="ShadowBlurIterations" low-value="1" />
+            <ui:Slider label="Diffusion" value="10" high-value="100" binding-path="ShadowDiffusion" show-input-field="true" fill="true" name="Slider" low-value="0" />
         </ui:Foldout>
     </ui:Foldout>
     <ui:Foldout text="Render Display" name="RenderDisplay" value="false" style="-unity-font-style: bold; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-color: rgb(0, 0, 0); padding-top: 4px; padding-right: 4px; padding-bottom: 4px; padding-left: 4px;">

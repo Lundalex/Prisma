@@ -115,12 +115,15 @@ public class Main : MonoBehaviour
 
 #region Post Processing
     public ShadowType ShadowType;
-    public float ShadowDarkness = 0.5f;
+    public float ShadowDarkness = 0.4f;
     public float ShadowFalloff = 0.01f;
     public float RBShadowStrength = 1.0f;
-    public float LiquidShadowStrength = 0.5f;
-    public float GasShadowStrength = 0.2f;
-    public float ShadowDirection = 45f;
+    public float LiquidShadowStrength = 0.0005f;
+    public float GasShadowStrength = 0.00003f;
+    public float ShadowDirection = 60f;
+    public int ShadowBlurRadius = 1;
+    public int ShadowBlurIterations = 4;
+    public float ShadowDiffusion = 20.0f;
 #endregion
 
     #region Render Display
@@ -243,6 +246,7 @@ public class Main : MonoBehaviour
     public ComputeBuffer ShadowMask_dbA;
     public ComputeBuffer ShadowMask_dbB;
     public ComputeBuffer SharpShadowMask;
+    public ComputeBuffer ShadowDstMark;
 
     // Constants
     [NonSerialized] public int ParticlesNum;
@@ -338,6 +342,7 @@ public class Main : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbA, renderTexture.width * renderTexture.height);
         ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbB, renderTexture.width * renderTexture.height);
         ComputeHelper.CreateStructuredBuffer<float>(ref SharpShadowMask, renderTexture.width * renderTexture.height);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowDstMark, renderTexture.width * renderTexture.height);
 
         // Shader buffers
         shaderHelper.SetPSimShaderBuffers(pSimShader);
@@ -849,16 +854,39 @@ public class Main : MonoBehaviour
 
     public void RunPPShader()
     {
-        // Create hard shadows
-        if (ShadowType == ShadowType.Vertical_Unblurred) ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", ppRenderTexture.width, ppShaderThreadSize1);
-        else if (ShadowType == ShadowType.Diagonal_Unblurred) ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDiagonal", ppRenderTexture.width, ppShaderThreadSize1);
-        else if (ShadowType == ShadowType.Directional_Unblurred) ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDirectional", ppRenderTexture.width, ppShaderThreadSize1);
-
-        // Blur shadows
-
-        // Apply shadows
         int2 threadsNum = new(renderTexture.width, renderTexture.height);
-        ComputeHelper.DispatchKernel(ppShader, "ApplyShadows", threadsNum, ppShaderThreadSize2);
+
+        if (ShadowType == ShadowType.Vertical_Sharp || ShadowType == ShadowType.Vertical_Blurred)
+        {
+            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", ppRenderTexture.width, ppShaderThreadSize1);
+        }
+        else if (ShadowType == ShadowType.Diagonal_Sharp || ShadowType == ShadowType.Diagonal_Blurred)
+        {
+            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDiagonal", ppRenderTexture.width, ppShaderThreadSize1);
+        }
+        else if (ShadowType == ShadowType.Directional_Sharp || ShadowType == ShadowType.Directional_Blurred)
+        {
+            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDirectional", ppRenderTexture.width, ppShaderThreadSize1);
+        }
+
+        if (ShadowType == ShadowType.Vertical_Blurred || ShadowType == ShadowType.Diagonal_Blurred || ShadowType == ShadowType.Directional_Blurred)
+        {
+            ComputeHelper.DispatchKernel(ppShader, "CopySharpShadows", threadsNum, ppShaderThreadSize2);
+
+            // Blur shadows
+            bool stepBufferCycle = true;
+            for (int i = 0; i < ShadowBlurIterations; i++)
+            {
+                ppShader.SetBool("StepBufferCycle", stepBufferCycle);
+                ppShader.SetInt("BlurOffset", Func.Pow2(ShadowBlurIterations - 1 - i));
+                ComputeHelper.DispatchKernel(ppShader, "BlurShadowsGaussian", threadsNum, ppShaderThreadSize2);
+                stepBufferCycle = !stepBufferCycle;
+            }
+
+            // Apply shadows
+            ComputeHelper.DispatchKernel(ppShader, "ApplyBlurredShadows", threadsNum, ppShaderThreadSize2);
+        }
+        else ComputeHelper.DispatchKernel(ppShader, "ApplySharpShadows", threadsNum, ppShaderThreadSize2);
     }
 
     private void InitTimeSetRand()
@@ -946,7 +974,8 @@ public class Main : MonoBehaviour
             MaterialBuffer,
             ShadowMask_dbA,
             ShadowMask_dbB,
-            SharpShadowMask
+            SharpShadowMask,
+            ShadowDstMark
         );
 
         // Release addressable caustics if loaded

@@ -113,42 +113,43 @@ public class ShaderHelper : MonoBehaviour
         ppShader.SetBuffer(0, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(0, "ShadowMask_dbB", m.ShadowMask_dbB);
         ppShader.SetBuffer(0, "SharpShadowMask", m.SharpShadowMask);
+        ppShader.SetBuffer(0, "ShadowDstMark", m.ShadowDstMark);
 
         ppShader.SetBuffer(1, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(1, "ShadowMask_dbB", m.ShadowMask_dbB);
         ppShader.SetBuffer(1, "SharpShadowMask", m.SharpShadowMask);
+        ppShader.SetBuffer(1, "ShadowDstMark", m.ShadowDstMark);
 
         ppShader.SetBuffer(2, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(2, "ShadowMask_dbB", m.ShadowMask_dbB);
         ppShader.SetBuffer(2, "SharpShadowMask", m.SharpShadowMask);
+        ppShader.SetBuffer(2, "ShadowDstMark", m.ShadowDstMark);
 
-        ppShader.SetBuffer(6, "ShadowMask_dbA", m.ShadowMask_dbA);
-        ppShader.SetBuffer(6, "ShadowMask_dbB", m.ShadowMask_dbB);
+        ppShader.SetBuffer(3, "ShadowMask_dbA", m.ShadowMask_dbA);
+        ppShader.SetBuffer(3, "SharpShadowMask", m.SharpShadowMask);
+
+        ppShader.SetBuffer(4, "ShadowMask_dbA", m.ShadowMask_dbA);
+        ppShader.SetBuffer(4, "ShadowMask_dbB", m.ShadowMask_dbB);
+        ppShader.SetBuffer(4, "ShadowDstMark", m.ShadowDstMark);
+
+        ppShader.SetBuffer(5, "ShadowMask_dbA", m.ShadowMask_dbA);
+        ppShader.SetBuffer(5, "ShadowMask_dbB", m.ShadowMask_dbB);
+        ppShader.SetBuffer(5, "ShadowDstMark", m.ShadowDstMark);
+
         ppShader.SetBuffer(6, "SharpShadowMask", m.SharpShadowMask);
+
+        ppShader.SetBuffer(7, "ShadowMask_dbA", m.ShadowMask_dbA);
+        ppShader.SetBuffer(7, "ShadowMask_dbB", m.ShadowMask_dbB);
+        ppShader.SetBuffer(7, "SharpShadowMask", m.SharpShadowMask);
     }
 
     public void SetPostProcessorTextures(ComputeShader ppShader)
     {
-        // ppShader.SetTexture(0, "Result", m.renderTexture);
-        // ppShader.SetTexture(0, "PPResult", m.ppRenderTexture);
-
-        // ppShader.SetTexture(1, "Result", m.renderTexture);
-        // ppShader.SetTexture(1, "PPResult", m.ppRenderTexture);
-
-        // ppShader.SetTexture(2, "Result", m.renderTexture);
-        // ppShader.SetTexture(2, "PPResult", m.ppRenderTexture);
-
         ppShader.SetTexture(6, "Result", m.renderTexture);
         ppShader.SetTexture(6, "PPResult", m.ppRenderTexture);
-    }
 
-    public void SetPostProcessorVariables(ComputeShader ppShader)
-    {
-        ppShader.SetFloat("ShadowDarkness", m.ShadowDarkness);
-        ppShader.SetFloat("ShadowFalloff", m.ShadowFalloff);
-
-        ppShader.SetVector("Resolution", PM.Instance.Resolution);
-        ppShader.SetVector("ShadowDirection", new(-Mathf.Cos(Mathf.Deg2Rad * m.ShadowDirection), -Mathf.Sin(Mathf.Deg2Rad * m.ShadowDirection)));
+        ppShader.SetTexture(7, "Result", m.renderTexture);
+        ppShader.SetTexture(7, "PPResult", m.ppRenderTexture);
     }
 
     public void SetSortShaderBuffers(ComputeShader sortShader)
@@ -273,6 +274,18 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("Contrast", m.Contrast);
         renderShader.SetFloat("Saturation", m.Saturation);
         renderShader.SetFloat("Gamma", m.Gamma);
+    }
+
+    public void SetPostProcessorVariables(ComputeShader ppShader)
+    {
+        ppShader.SetFloat("ShadowDarkness", m.ShadowDarkness);
+        ppShader.SetFloat("ShadowFalloff", m.ShadowFalloff);
+
+        ppShader.SetVector("Resolution", PM.Instance.Resolution);
+        ppShader.SetVector("ShadowDirection", new(-Mathf.Cos(Mathf.Deg2Rad * m.ShadowDirection), -Mathf.Sin(Mathf.Deg2Rad * m.ShadowDirection)));
+
+        ppShader.SetInt("ShadowBlurRadius", Mathf.Max(0, m.ShadowBlurRadius));
+        ppShader.SetFloat("ShadowDiffusion", Mathf.Max(0f, m.ShadowDiffusion));
     }
 
     public void UpdateSortShaderVariables(ComputeShader sortShader)

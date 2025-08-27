@@ -1,13 +1,14 @@
-// Create shadows
+// Create shadows 
 #pragma kernel CreateShadowsVertical
 #pragma kernel CreateShadowsDiagonal
 #pragma kernel CreateShadowsDirectional
 // Blur shadows
 #pragma kernel CopySharpShadows
-#pragma kernel BlurShadowGaussian
+#pragma kernel BlurShadowsGaussian
 #pragma kernel BlurShadowsBox
 // Apply shadows
-#pragma kernel ApplyShadows
+#pragma kernel ApplySharpShadows
+#pragma kernel ApplyBlurredShadows
 
 #include "./Helpers/MathResources.hlsl"
 #include "./Helpers/DataTypes.hlsl"
@@ -20,6 +21,9 @@ const float ShadowFalloff;
 // Other
 const uint2 Resolution;
 const float2 ShadowDirection;
+const int ShadowBlurRadius;
+const float ShadowDiffusion;
+const int BlurOffset;
 
 // Textures
 Texture2D<unorm float4> Result;
@@ -30,6 +34,7 @@ const bool StepBufferCycle;
 RWStructuredBuffer<float> ShadowMask_dbA;
 RWStructuredBuffer<float> ShadowMask_dbB;
 RWStructuredBuffer<float> SharpShadowMask;
+RWStructuredBuffer<float> ShadowDstMark;
 
 uint GetPixelKey(uint2 threadID)
 {
@@ -38,7 +43,13 @@ uint GetPixelKey(uint2 threadID)
 
 bool IsOutsideResolutionDims(uint2 threadID)
 {
-    return threadID.x > Resolution.x || threadID.y > Resolution.y;
+    return threadID.x >= Resolution.x || threadID.y >= Resolution.y;
+}
+
+// --- Carry helper (kept in [0,1]) ---
+float UpdateCarry(float carry, float pixelShadow)
+{
+    return saturate(carry * (1.0 - ShadowFalloff) + pixelShadow);
 }
 
 [numthreads(TN_PP1, 1, 1)]
@@ -48,6 +59,7 @@ void CreateShadowsVertical(uint3 id : SV_DispatchThreadID)
     if (x >= Resolution.x) return;
 
     float carry = 0.0;
+    float dst = LARGE_FLOAT;
 
     for (int y = (int)Resolution.y - 1; y >= 0; --y)
     {
@@ -58,7 +70,10 @@ void CreateShadowsVertical(uint3 id : SV_DispatchThreadID)
 
         bool outsideRB = (pixelShadow < 1.0 - 1e-6);
 
-        carry = clamp(carry * (1.0 - ShadowFalloff) + pixelShadow, 0.0, 1.0);
+        dst = outsideRB ? (dst + 1.0) : 0.0;
+        ShadowDstMark[GetPixelKey(uint2(x, y))] = insideSpring ? 0.0 : dst;
+
+        carry = UpdateCarry(carry, pixelShadow);
 
         float effectiveShadow = (outsideRB && !insideSpring) ? (carry * ShadowDarkness) : 0.0;
 
@@ -79,6 +94,7 @@ void CreateShadowsDiagonal(uint3 id : SV_DispatchThreadID)
     int y = H - 1;
 
     float carry = 0.0;
+    float dst = LARGE_FLOAT;
 
     for (int i = 0; i < H; ++i)
     {
@@ -89,16 +105,22 @@ void CreateShadowsDiagonal(uint3 id : SV_DispatchThreadID)
         if (insideSpring) pixelShadow += 3.0;
         bool  outsideRB    = (pixelShadow < 1.0 - 1e-6);
 
-        carry = clamp(carry * (1.0 - ShadowFalloff) + pixelShadow, 0.0, 1.0);
+        dst = outsideRB ? (dst + 1.0) : 0.0;
+        ShadowDstMark[GetPixelKey(up)] = insideSpring ? 0.0 : dst;
+
+        carry = UpdateCarry(carry, pixelShadow);
 
         float effectiveShadow = (outsideRB && !insideSpring) ? (carry * ShadowDarkness) : 0.0;
-
         SharpShadowMask[GetPixelKey(up)] = effectiveShadow;
 
+        // march up-left
         y -= 1;
         x -= 1;
-        if (x < 0) { x += W; carry = 0.0; }
 
+        // horizontal wrap allowed, but reset state so no cross-edge leakage
+        if (x < 0) { x += W; carry = 0.0; dst = LARGE_FLOAT; }
+
+        // stop when we pass the top
         if (y < 0) break;
     }
 }
@@ -106,54 +128,54 @@ void CreateShadowsDiagonal(uint3 id : SV_DispatchThreadID)
 [numthreads(TN_PP1, 1, 1)]
 void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
 {
-    const uint W = Resolution.x;
-    const uint H = Resolution.y;
+    const uint Wu = Resolution.x;
+    const uint Hu = Resolution.y;
+    const int  W  = (int)Wu;
+    const int  H  = (int)Hu;
 
     float2 dir = ShadowDirection;
     if (all(dir == 0.0)) return;
     dir = normalize(dir);
-    float ax0 = abs(dir.x), ay0 = abs(dir.y);
-    if (ax0 > ay0)
-    {
-        dir.x = copysign(ay0, dir.x);
-        dir = normalize(dir);
-        ax0 = abs(dir.x); ay0 = abs(dir.y);
-    }
 
+    float ax = abs(dir.x), ay = abs(dir.y);
     const bool dyPos = (dir.y >= 0.0);
     const int  stepX = (dir.x >= 0.0) ?  1 : -1;
     const int  stepY =  dyPos         ?  1 : -1;
 
     uint x0 = id.x;
-    if (x0 >= Resolution.x) return;
+    if (x0 >= Wu) return;
 
     int x = (int)x0;
     int y = dyPos ? 0 : (H - 1);
 
-    const float drift = (ay0 > 1e-6) ? (ax0 / ay0) : 0.0;
-    float acc = 0.0;
+    float drift = (ay > 1e-6) ? (ax / ay) : 1e6; // robust near-horizontal
+    float acc   = 0.0;
 
     float carry = 0.0;
+    float dst   = LARGE_FLOAT;
 
     const uint maxIters = (uint)H;
-
     for (uint i = 0; i < maxIters; ++i)
     {
-        uint2 up = (uint2)int2(x, y);
+        if (x < 0 || x >= W || y < 0 || y >= H) break;
 
-        float pixelShadow = ShadowMask_dbA[GetPixelKey(up)];
+        uint2 up = uint2(x, y);
+
+        float pixelShadow  = ShadowMask_dbA[GetPixelKey(up)];
         bool  insideSpring = (pixelShadow < 0.0);
         if (insideSpring) pixelShadow += 3.0;
         bool  outsideRB    = (pixelShadow < 1.0 - 1e-6);
 
-        carry = clamp(carry * (1.0 - ShadowFalloff) + pixelShadow, 0.0, 1.0);
+        dst = outsideRB ? (dst + 1.0) : 0.0;
+        ShadowDstMark[GetPixelKey(up)] = insideSpring ? 0.0 : dst;
+
+        carry = UpdateCarry(carry, pixelShadow);
 
         float effectiveShadow = (outsideRB && !insideSpring) ? (carry * ShadowDarkness) : 0.0;
-
         SharpShadowMask[GetPixelKey(up)] = effectiveShadow;
 
         y += stepY;
-        if (y < 0 || y >= (int)H) break;
+        if (y < 0 || y >= H) break;
 
         acc += drift;
         if (acc >= 1.0)
@@ -163,11 +185,12 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
 
             x += stepX * steps;
 
+            // allow horizontal wrap, but reset accumulators so edges don't share
             bool wrapped = false;
-            if (x < 0)               { x = (x % W + W) % W; wrapped = true; }
-            else if (x >= (int)W)    { x = x % W;                   wrapped = true; }
+            if (x < 0)       { x = (x % W + W) % W; wrapped = true; }
+            else if (x >= W) { x = x % W;          wrapped = true; }
 
-            if (wrapped) carry = 0.0;
+            if (wrapped) { carry = 0.0; dst = LARGE_FLOAT; }
         }
     }
 }
@@ -176,42 +199,54 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
 void CopySharpShadows(uint3 id : SV_DispatchThreadID)
 {
     uint2 px = id.xy;
-    if (px.x >= Resolution.x || px.y >= Resolution.y) return;
+    if (IsOutsideResolutionDims(px)) return;
 
     uint idx = GetPixelKey(px);
     ShadowMask_dbA[idx] = SharpShadowMask[idx];
 }
 
 [numthreads(TN_PP2, TN_PP2, 1)]
-void BlurShadowGaussian(uint3 id : SV_DispatchThreadID)
+void BlurShadowsGaussian(uint3 id : SV_DispatchThreadID)
 {
     uint2 px = id.xy;
-    if (px.x >= Resolution.x || px.y >= Resolution.y) return;
+    uint idx = GetPixelKey(px);
+    if (IsOutsideResolutionDims(px)) return;
 
-    const int R = 2;
-    static const float w[5] = {1.0, 4.0, 6.0, 4.0, 1.0};
+    float invRadiusSqr = 1.0 / sqr(max(1, ShadowBlurRadius));
+    float minDim = (float)min(Resolution.x, Resolution.y);
+
+    float centerDst = ShadowDstMark[idx];
+    float softness  = saturate((centerDst / minDim) * ShadowDiffusion);
 
     float sum = 0.0;
     float wsum = 0.0;
 
-    for (int dy = -R; dy <= R; ++dy)
+    for (int dy = -ShadowBlurRadius; dy <= ShadowBlurRadius; ++dy)
     {
-        for (int dx = -R; dx <= R; ++dx)
+        for (int dx = -ShadowBlurRadius; dx <= ShadowBlurRadius; ++dx)
         {
-            int qx = (int)px.x + dx; if (qx < 0) qx += (int)Resolution.x; else if (qx >= (int)Resolution.x) qx -= (int)Resolution.x;
-            int qy = (int)px.y + dy; if (qy < 0) qy += (int)Resolution.y; else if (qy >= (int)Resolution.y) qy -= (int)Resolution.y;
+            // Clamp — no wrap in blur
+            int qx = (int)px.x + BlurOffset * dx;
+            int qy = (int)px.y + BlurOffset * dy;
+            qx = max(0, min(qx, (int)Resolution.x - 1));
+            qy = max(0, min(qy, (int)Resolution.y - 1));
 
-            uint2 q = uint2(qx, qy);
-            float ww = w[dx + R] * w[dy + R];
-            float s  = StepBufferCycle ? ShadowMask_dbA[GetPixelKey(q)] : ShadowMask_dbB[GetPixelKey(q)];
+            uint idx_n = GetPixelKey(uint2(qx, qy));
+
+            float d2 = (float)(dx * dx + dy * dy);
+            float baseW = exp(-d2 * invRadiusSqr);
+            float ww = lerp((dx == 0 && dy == 0) ? 1.0 : 0.0,
+                            baseW,
+                            min(softness, saturate((ShadowDstMark[idx_n] / minDim) * ShadowDiffusion)));
+
+            float s = StepBufferCycle ? ShadowMask_dbA[idx_n] : ShadowMask_dbB[idx_n];
 
             sum  += s * ww;
             wsum += ww;
         }
     }
 
-    float outv = sum / max(wsum, 1e-6);
-    uint idx = GetPixelKey(px);
+    float outv = (wsum > 0.0) ? (sum / wsum) : 0.0;
     if (StepBufferCycle) ShadowMask_dbB[idx] = outv; else ShadowMask_dbA[idx] = outv;
 }
 
@@ -219,37 +254,55 @@ void BlurShadowGaussian(uint3 id : SV_DispatchThreadID)
 void BlurShadowsBox(uint3 id : SV_DispatchThreadID)
 {
     uint2 px = id.xy;
-    if (px.x >= Resolution.x || px.y >= Resolution.y) return;
+    if (IsOutsideResolutionDims(px)) return;
 
-    const int R = 3;
+    int r = max(1, ShadowBlurRadius);
+    float minDim = (float)min(Resolution.x, Resolution.y);
+
+    uint centerIdx = GetPixelKey(px);
+    float centerDst = ShadowDstMark[centerIdx];
+    float softC     = saturate((centerDst / minDim) * ShadowDiffusion);
 
     float sum = 0.0;
-    int count = 0;
+    float wsum = 0.0;
 
-    for (int dy = -R; dy <= R; ++dy)
+    for (int dy = -r; dy <= r; ++dy)
     {
-        for (int dx = -R; dx <= R; ++dx)
+        for (int dx = -r; dx <= r; ++dx)
         {
-            int qx = (int)px.x + dx; if (qx < 0) qx += (int)Resolution.x; else if (qx >= (int)Resolution.x) qx -= (int)Resolution.x;
-            int qy = (int)px.y + dy; if (qy < 0) qy += (int)Resolution.y; else if (qy >= (int)Resolution.y) qy -= (int)Resolution.y;
+            // Clamp — no wrap in blur
+            int qx = (int)px.x + BlurOffset * dx;
+            int qy = (int)px.y + BlurOffset * dy;
+            qx = max(0, min(qx, (int)Resolution.x - 1));
+            qy = max(0, min(qy, (int)Resolution.y - 1));
 
-            uint2 q = uint2(qx, qy);
-            float s = StepBufferCycle ? ShadowMask_dbA[GetPixelKey(q)] : ShadowMask_dbB[GetPixelKey(q)];
-            sum += s;
-            count++;
+            uint idx_n = GetPixelKey(uint2(qx, qy));
+
+            float softN = saturate((ShadowDstMark[idx_n] / minDim) * ShadowDiffusion);
+            float jointSoft = min(softC, softN);
+
+            float baseW = 1.0; // box kernel
+            float centerOnly = (dx == 0 && dy == 0) ? 1.0 : 0.0;
+            float ww = lerp(centerOnly, baseW, jointSoft);
+
+            float s = StepBufferCycle ? ShadowMask_dbA[idx_n] : ShadowMask_dbB[idx_n];
+
+            sum  += s * ww;
+            wsum += ww;
         }
     }
 
-    float outv = sum / max((float)count, 1e-6);
-    uint idx = GetPixelKey(px);
-    if (StepBufferCycle) ShadowMask_dbB[idx] = outv; else ShadowMask_dbA[idx] = outv;
+    float centerVal = StepBufferCycle ? ShadowMask_dbA[centerIdx] : ShadowMask_dbB[centerIdx];
+    float outv = (wsum > 0.0) ? (sum / wsum) : centerVal;
+
+    if (StepBufferCycle) ShadowMask_dbB[centerIdx] = outv; else ShadowMask_dbA[centerIdx] = outv;
 }
 
 [numthreads(TN_PP2, TN_PP2, 1)]
-void ApplyShadows(uint3 id : SV_DispatchThreadID)
+void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
 {
     uint2 px = id.xy;
-    if (px.x >= Resolution.x || px.y >= Resolution.y) return;
+    if (IsOutsideResolutionDims(px)) return;
 
     float shadow = SharpShadowMask[GetPixelKey(px)];
     float light = 1.0 - shadow;
@@ -257,10 +310,22 @@ void ApplyShadows(uint3 id : SV_DispatchThreadID)
     PPResult[px] = float4(src.rgb * light, src.a);
 }
 
+[numthreads(TN_PP2, TN_PP2, 1)]
+void ApplyBlurredShadows(uint3 id : SV_DispatchThreadID)
+{
+    uint2 px = id.xy;
+    uint idx = GetPixelKey(id.xy);
+    if (IsOutsideResolutionDims(px)) return;
 
-// TODO:
-// 1. Add blurring
-// 2. Optimise shader (perhaps by implementing mip-mapping in sme way. Especially non-noticable if blur is high) (PROFILER TIME/FRAMETIME: ~20% for diagonal, 29% for directional)
-// 3. Add rim lighting (separate shader). Rim data is fed by the CreateShadow kernels, to an int2-Buffer of length (2*renderTexture.width - half for rim lighting coords, half for the rim darkening coords)
-
-// 4. For other shaders (not shadows), make new SHADERS, not KERNELS. Then, RENAME PostProcessor
+    float shadow = StepBufferCycle ? ShadowMask_dbB[idx] : ShadowMask_dbA[idx];
+    float light = 1.0 - shadow;
+    if (SharpShadowMask[idx] < 0)
+    {
+        PPResult[px] = Result[px];
+    }
+    else
+    {
+        float4 src  = Result[px];
+        PPResult[px] = float4(src.rgb * light, src.a);
+    }
+}

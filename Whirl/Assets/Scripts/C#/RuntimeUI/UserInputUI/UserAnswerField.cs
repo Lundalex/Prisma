@@ -497,11 +497,7 @@ Output policy (CRITICAL):
             return;
         }
 
-        if (objs == null || objs.Length == 0)
-        {
-            Debug.LogWarning($"[UserAnswerField] No GameObject with tag '{TagChatManager}' found in the scene.");
-            return;
-        }
+        if (objs == null || objs.Length == 0) return;
 
         if (objs.Length > 1)
         {
