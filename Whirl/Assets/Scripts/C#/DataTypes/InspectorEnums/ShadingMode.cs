@@ -1,10 +1,10 @@
 public enum ShadowType
 {
-    Vertical_Unblurred,
+    Vertical_Sharp,
     Vertical_Blurred,
-    Diagonal_Unblurred,
+    Diagonal_Sharp,
     Diagonal_Blurred,
-    Directional_Unblurred,
+    Directional_Sharp,
     Directional_Blurred,
     None
 }

@@ -614,7 +614,7 @@ public class Main : MonoBehaviour
                 GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
                 Contrast = 1.2f;
                 Saturation = 1.1f;
-                Gamma = 0.6f;
+                Gamma = 0.7f;
                 SettingsViewDarkTintPercent = 0.8f;
                 break;
             case RuntimePlatform.WebGLPlayer:

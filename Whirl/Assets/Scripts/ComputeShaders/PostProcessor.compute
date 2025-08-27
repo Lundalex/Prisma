@@ -258,8 +258,9 @@ void ApplyShadows(uint3 id : SV_DispatchThreadID)
 }
 
 
-// Todos eventually:
-// 1. Invert indexing of the diagonal shadow kernel
-// 2. Add a blurring kernel by separating shadow to own tex and then applying to result in a separate kernel
-// 3. Optimise shader (perhaps by implementing mip-mapping in sme way. Especially non-noticable if blur is high) (PROFILER TIME/FRAMETIME: ~20% for diagonal, 29% for directional)
+// TODO:
+// 1. Add blurring
+// 2. Optimise shader (perhaps by implementing mip-mapping in sme way. Especially non-noticable if blur is high) (PROFILER TIME/FRAMETIME: ~20% for diagonal, 29% for directional)
+// 3. Add rim lighting (separate shader). Rim data is fed by the CreateShadow kernels, to an int2-Buffer of length (2*renderTexture.width - half for rim lighting coords, half for the rim darkening coords)
+
 // 4. For other shaders (not shadows), make new SHADERS, not KERNELS. Then, RENAME PostProcessor
