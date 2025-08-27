@@ -240,7 +240,9 @@ public class Main : MonoBehaviour
     public ComputeBuffer MaterialBuffer;
 
     // Shadows
-    public ComputeBuffer ShadowBuffer;
+    public ComputeBuffer ShadowMask_dbA;
+    public ComputeBuffer ShadowMask_dbB;
+    public ComputeBuffer SharpShadowMask;
 
     // Constants
     [NonSerialized] public int ParticlesNum;
@@ -260,7 +262,8 @@ public class Main : MonoBehaviour
 
     // Shader Thread Group Sizes
     public const int renderShaderThreadSize = 16; // /32, AxA thread groups
-    public const int ppShaderThreadSize = 32; // /1024
+    public const int ppShaderThreadSize1 = 32; // /1024
+    public const int ppShaderThreadSize2 = 16; // /32
     public const int pSimShaderThreadSize1 = 512; // /1024
     public const int pSimShaderThreadSize2 = 512; // /1024
     public const int sortShaderThreadSize = 512; // /1024
@@ -332,7 +335,9 @@ public class Main : MonoBehaviour
         InitializeBuffers(PDatas, RBDatas, RBVectors, SensorAreas);
         renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
         ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
-        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowBuffer, renderTexture.width * renderTexture.height);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbA, renderTexture.width * renderTexture.height);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbB, renderTexture.width * renderTexture.height);
+        ComputeHelper.CreateStructuredBuffer<float>(ref SharpShadowMask, renderTexture.width * renderTexture.height);
 
         // Shader buffers
         shaderHelper.SetPSimShaderBuffers(pSimShader);
@@ -844,8 +849,16 @@ public class Main : MonoBehaviour
 
     public void RunPPShader()
     {
-        if (ShadowType == ShadowType.Vertical_Unblurred) ComputeHelper.DispatchKernel(ppShader, "ApplyShadowsVertical", ppRenderTexture.width, ppShaderThreadSize);
-        else if (ShadowType == ShadowType.Directional_Unblurred) ComputeHelper.DispatchKernel(ppShader, "ApplyShadowsDirectional", ppRenderTexture.width, ppShaderThreadSize);
+        // Create hard shadows
+        if (ShadowType == ShadowType.Vertical_Unblurred) ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", ppRenderTexture.width, ppShaderThreadSize1);
+        else if (ShadowType == ShadowType.Diagonal_Unblurred) ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDiagonal", ppRenderTexture.width, ppShaderThreadSize1);
+        else if (ShadowType == ShadowType.Directional_Unblurred) ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDirectional", ppRenderTexture.width, ppShaderThreadSize1);
+
+        // Blur shadows
+
+        // Apply shadows
+        int2 threadsNum = new(renderTexture.width, renderTexture.height);
+        ComputeHelper.DispatchKernel(ppShader, "ApplyShadows", threadsNum, ppShaderThreadSize2);
     }
 
     private void InitTimeSetRand()
@@ -931,7 +944,9 @@ public class Main : MonoBehaviour
             SensorAreaBuffer,
             RBVectorBuffer,
             MaterialBuffer,
-            ShadowBuffer
+            ShadowMask_dbA,
+            ShadowMask_dbB,
+            SharpShadowMask
         );
 
         // Release addressable caustics if loaded

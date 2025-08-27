@@ -85,7 +85,7 @@
         <uie:PropertyField binding-path="RenderOrder" name="PropertyField" tooltip="Recommended: Keep default settings. The render order of different program layers." />
     </ui:Foldout>
     <ui:Foldout text="Post-processing" name="Post-processing" value="true" style="-unity-font-style: bold; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-color: rgb(0, 0, 0); padding-top: 4px; padding-right: 4px; padding-bottom: 4px; padding-left: 4px;">
-        <ui:Foldout text="Shadows" value="true" style="-unity-font-style: bold;">
+        <ui:Foldout text="Shadows" value="true" name="Shadows" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="ShadowType" label="Shadows" />
             <ui:Slider label="Darkness" value="0" high-value="1" binding-path="ShadowDarkness" show-input-field="true" fill="true" name="Slider" low-value="0" />
             <ui:Slider label="Falloff" value="0" high-value="1" binding-path="ShadowFalloff" show-input-field="true" fill="true" name="Slider" low-value="0" />

@@ -46,7 +46,7 @@ const float RBEdgeWidth;
 const float FluidSensorEdgeWidth;
 const float SensorAreaAnimationSpeed;
 
-// ShadowBuffer
+// ShadowMask
 const float RBShadowStrength;
 const float LiquidShadowStrength;
 const float GasShadowStrength;
@@ -95,7 +95,7 @@ const float TimeSetLerpFactor;
 const int PrecomputedCausticsZ;
 
 RWTexture2D<unorm float4> Result;
-RWStructuredBuffer<float> ShadowBuffer;
+RWStructuredBuffer<float> ShadowMask;
 
 Texture2D<unorm float4> DynamicCaustics;
 Texture2DArray<unorm float> PrecomputedCaustics;
@@ -482,9 +482,9 @@ void RenderBackground(uint3 id : SV_DispatchThreadID)
     float3 sampleCol = SampleTexture(uv, 0, GetTexDims(Background), Background) * BackgroundBrightness;
     SetResultColor(id.xy, sampleCol);
 
-    // Reset ShadowBuffer
+    // Reset ShadowMask
     uint shadowIndex = id.y * Resolution.x + id.x;
-    ShadowBuffer[shadowIndex] = 0.0;
+    ShadowMask[shadowIndex] = 0.0;
 }
 
 float3 BlendWithBackground(float3 color, float opacity, uint2 threadID)
@@ -708,9 +708,9 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
             SetResultColor(id.xy, result);
         #endif
 
-        // Write to ShadowBuffer
+        // Write to ShadowMask
         uint shadowIndex = id.y * Resolution.x + id.x;
-        ShadowBuffer[shadowIndex] = nearestIsNotGas ? LiquidShadowStrength : GasShadowStrength;
+        ShadowMask[shadowIndex] = nearestIsNotGas ? LiquidShadowStrength : GasShadowStrength;
     }
 
     #if DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
@@ -811,9 +811,9 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
         float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);
         SetResultColor(id.xy, result);
 
-        // Write to ShadowBuffer
+        // Write to ShadowMask
         uint shadowIndexRB = id.y * Resolution.x + id.x;
-        ShadowBuffer[shadowIndexRB] = RBShadowStrength;
+        ShadowMask[shadowIndexRB] = RBShadowStrength;
     }
 }
 
@@ -1010,9 +1010,9 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         
         SetResultColor(id.xy, result);
 
-        // Write to ShadowBuffer
+        // Write to ShadowMask
         uint shadowIndexRB = id.y * Resolution.x + id.x;
-        ShadowBuffer[shadowIndexRB] = ShadowBuffer[shadowIndexRB] - 3;
+        ShadowMask[shadowIndexRB] = ShadowMask[shadowIndexRB] - 3;
     }
 }
 

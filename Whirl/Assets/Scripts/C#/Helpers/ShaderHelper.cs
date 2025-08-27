@@ -58,7 +58,7 @@ public class ShaderHelper : MonoBehaviour
 
     public void SetRenderShaderBuffers(ComputeShader renderShader)
     {
-        renderShader.SetBuffer(0, "ShadowBuffer", m.ShadowBuffer);
+        renderShader.SetBuffer(0, "ShadowMask", m.ShadowMask_dbA);
 
         if (m.ParticlesNum != 0)
         {
@@ -68,7 +68,7 @@ public class ShaderHelper : MonoBehaviour
             renderShader.SetBuffer(1, "PTypes", m.PTypeBuffer);
             renderShader.SetBuffer(1, "Materials", m.MaterialBuffer);
             renderShader.SetBuffer(1, "SensorAreas", m.SensorAreaBuffer);
-            renderShader.SetBuffer(1, "ShadowBuffer", m.ShadowBuffer);
+            renderShader.SetBuffer(1, "ShadowMask", m.ShadowMask_dbA);
         }
 
         if (m.NumRigidBodies != 0)
@@ -76,11 +76,11 @@ public class ShaderHelper : MonoBehaviour
             renderShader.SetBuffer(2, "RigidBodies", m.RBDataBuffer);
             renderShader.SetBuffer(2, "RBVectors", m.RBVectorBuffer);
             renderShader.SetBuffer(2, "Materials", m.MaterialBuffer);
-            renderShader.SetBuffer(2, "ShadowBuffer", m.ShadowBuffer);
+            renderShader.SetBuffer(2, "ShadowMask", m.ShadowMask_dbA);
 
             renderShader.SetBuffer(3, "RigidBodies", m.RBDataBuffer);
             renderShader.SetBuffer(3, "Materials", m.MaterialBuffer);
-            renderShader.SetBuffer(3, "ShadowBuffer", m.ShadowBuffer);
+            renderShader.SetBuffer(3, "ShadowMask", m.ShadowMask_dbA);
         }
     }
 
@@ -110,18 +110,36 @@ public class ShaderHelper : MonoBehaviour
 
     public void SetPostProcessorBuffers(ComputeShader ppShader)
     {
-        ppShader.SetBuffer(0, "ShadowBuffer", m.ShadowBuffer);
+        ppShader.SetBuffer(0, "ShadowMask_dbA", m.ShadowMask_dbA);
+        ppShader.SetBuffer(0, "ShadowMask_dbB", m.ShadowMask_dbB);
+        ppShader.SetBuffer(0, "SharpShadowMask", m.SharpShadowMask);
 
-        ppShader.SetBuffer(1, "ShadowBuffer", m.ShadowBuffer);
+        ppShader.SetBuffer(1, "ShadowMask_dbA", m.ShadowMask_dbA);
+        ppShader.SetBuffer(1, "ShadowMask_dbB", m.ShadowMask_dbB);
+        ppShader.SetBuffer(1, "SharpShadowMask", m.SharpShadowMask);
+
+        ppShader.SetBuffer(2, "ShadowMask_dbA", m.ShadowMask_dbA);
+        ppShader.SetBuffer(2, "ShadowMask_dbB", m.ShadowMask_dbB);
+        ppShader.SetBuffer(2, "SharpShadowMask", m.SharpShadowMask);
+
+        ppShader.SetBuffer(6, "ShadowMask_dbA", m.ShadowMask_dbA);
+        ppShader.SetBuffer(6, "ShadowMask_dbB", m.ShadowMask_dbB);
+        ppShader.SetBuffer(6, "SharpShadowMask", m.SharpShadowMask);
     }
 
     public void SetPostProcessorTextures(ComputeShader ppShader)
     {
-        ppShader.SetTexture(0, "Result", m.renderTexture);
-        ppShader.SetTexture(0, "PPResult", m.ppRenderTexture);
+        // ppShader.SetTexture(0, "Result", m.renderTexture);
+        // ppShader.SetTexture(0, "PPResult", m.ppRenderTexture);
 
-        ppShader.SetTexture(1, "Result", m.renderTexture);
-        ppShader.SetTexture(1, "PPResult", m.ppRenderTexture);
+        // ppShader.SetTexture(1, "Result", m.renderTexture);
+        // ppShader.SetTexture(1, "PPResult", m.ppRenderTexture);
+
+        // ppShader.SetTexture(2, "Result", m.renderTexture);
+        // ppShader.SetTexture(2, "PPResult", m.ppRenderTexture);
+
+        ppShader.SetTexture(6, "Result", m.renderTexture);
+        ppShader.SetTexture(6, "PPResult", m.ppRenderTexture);
     }
 
     public void SetPostProcessorVariables(ComputeShader ppShader)
