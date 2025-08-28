@@ -129,6 +129,8 @@ public class Main : MonoBehaviour
     public float RimShadingStrength = 4.0f;
     public float RimShadingBleed = 0.15f;
     public float RimShadingOpaqueBleed = 2.0f;
+
+    public int ShadowDownSampling = 2;
 #endregion
 
     #region Render Display
