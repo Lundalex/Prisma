@@ -126,9 +126,9 @@ public class Main : MonoBehaviour
     public float ShadowDiffusion = 20.0f;
 
     public CastedShadowType CastedShadowType;
-    public float RimShadingStrength = 5.0f;
-    public float RimShadingBleed = 0.05f;
-    public float RimShadingOpaqueBleed = 0.02f;
+    public float RimShadingStrength = 4.0f;
+    public float RimShadingBleed = 0.15f;
+    public float RimShadingOpaqueBleed = 2.0f;
 #endregion
 
     #region Render Display
