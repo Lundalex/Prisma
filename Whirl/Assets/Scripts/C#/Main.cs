@@ -115,22 +115,20 @@ public class Main : MonoBehaviour
 
 #region Post Processing
     public ShadowType ShadowType;
-    public float ShadowDarkness = 0.4f;
+    public float ShadowDarkness = 0.45f;
     public float ShadowFalloff = 0.01f;
     public float RBShadowStrength = 1.0f;
     public float LiquidShadowStrength = 0.0005f;
     public float GasShadowStrength = 0.00003f;
     public float ShadowDirection = 60f;
     public int ShadowBlurRadius = 1;
-    public int ShadowBlurIterations = 4;
+    public int ShadowBlurIterations = 1;
     public float ShadowDiffusion = 20.0f;
 
-    public CastedShadowType CastedShadowType;
-    public float RimShadingStrength = 4.0f;
-    public float RimShadingBleed = 0.15f;
-    public float RimShadingOpaqueBleed = 2.0f;
-
-    public int ShadowDownSampling = 2;
+    public float RimShadingStrength = 2.0f;
+    public float RimShadingBleed = 0.2f;
+    public float RimShadingOpaqueBleed = 3.0f;
+    public int ShadowDownSampling = 1;
 #endregion
 
     #region Render Display
@@ -250,6 +248,9 @@ public class Main : MonoBehaviour
     public ComputeBuffer MaterialBuffer;
 
     // Shadows
+    // Full-resolution source mask written by RenderShader; downsampled before shadow casting
+    public ComputeBuffer ShadowSrcFullRes;
+    // Low-resolution shadow working buffers (size = ShadowResolution = Resolution / 2^ShadowDownSampling)
     public ComputeBuffer ShadowMask_dbA;
     public ComputeBuffer ShadowMask_dbB;
     public ComputeBuffer SharpShadowMask;
@@ -310,6 +311,9 @@ public class Main : MonoBehaviour
     private AsyncOperationHandle<Texture2DArray> _causticsHandle;
     private bool _causticsLoadStarted;
 
+    // Cache for current shadow working resolution (to handle runtime ShadowDownSampling changes)
+    private int2 _cachedShadowRes = int2.zero;
+
     public void SubmitParticlesToSimulation(PData[] particlesToAdd) => NewPDatas.AddRange(particlesToAdd);
 
     public void StartScript()
@@ -347,18 +351,20 @@ public class Main : MonoBehaviour
         InitializeBuffers(PDatas, RBDatas, RBVectors, SensorAreas);
         renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
         ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
-        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbA, renderTexture.width * renderTexture.height);
-        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbB, renderTexture.width * renderTexture.height);
-        ComputeHelper.CreateStructuredBuffer<float>(ref SharpShadowMask, renderTexture.width * renderTexture.height);
-        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowDstMask, renderTexture.width * renderTexture.height);
-        ComputeHelper.CreateStructuredBuffer<float>(ref RimLightMask, renderTexture.width * renderTexture.height);
 
-        // Shader buffers
+        // --- Shadow buffers (full + downsampled) ---
+        // Full-res source written by renderShader
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowSrcFullRes, renderTexture.width * renderTexture.height);
+
+        // Downsampled working buffers (size depends on ShadowDownSampling, and can change at runtime)
+        AllocateOrResizeShadowWorkingBuffers();
+
+        // Shader buffers/textures
         shaderHelper.SetPSimShaderBuffers(pSimShader);
         shaderHelper.SetRBSimShaderBuffers(rbSimShader);
-        shaderHelper.SetRenderShaderBuffers(renderShader);
+        shaderHelper.SetRenderShaderBuffers(renderShader);      // will bind ShadowSrcFullRes to renderShader
         shaderHelper.SetRenderShaderTextures(renderShader);
-        shaderHelper.SetPostProcessorBuffers(ppShader);
+        shaderHelper.SetPostProcessorBuffers(ppShader);         // will bind ShadowSrcFullRes + low-res working buffers to ppShader
         shaderHelper.SetPostProcessorTextures(ppShader);
         shaderHelper.SetSortShaderBuffers(sortShader);
 
@@ -366,7 +372,7 @@ public class Main : MonoBehaviour
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
         shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
         shaderHelper.UpdateRenderShaderVariables(renderShader);
-        shaderHelper.SetPostProcessorVariables(ppShader);
+        shaderHelper.SetPostProcessorVariables(ppShader);       // will also set ShadowResolution for PP
         shaderHelper.UpdateSortShaderVariables(sortShader);
 
         SetShaderKeywords();
@@ -406,23 +412,23 @@ public class Main : MonoBehaviour
             if (i == 0) RunRenderShader();
 
             for (int j = 0; j < SubTimeStepsPerFrame; j++)
+            {
+                pSimShader.SetBool("TransferSpringData", j == 0);
+
+                RunPSimShader(j);
+
+                if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
                 {
-                    pSimShader.SetBool("TransferSpringData", j == 0);
-
-                    RunPSimShader(j);
-
-                    if (StepCount % SubTimeStepsPerRBSimUpdate == 0)
-                    {
-                        rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
-                        rbSimShader.SetFloat("RLDeltaTime", RLDeltaTime * SubTimeStepsPerRBSimUpdate);
-                        RunRbSimShader();
-                    }
-
-                    ComputeHelper.DispatchKernel(pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize1);
-
-                    StepCount++;
-                    SimTimeElapsed += DeltaTime;
+                    rbSimShader.SetFloat("DeltaTime", DeltaTime * SubTimeStepsPerRBSimUpdate);
+                    rbSimShader.SetFloat("RLDeltaTime", RLDeltaTime * SubTimeStepsPerRBSimUpdate);
+                    RunRbSimShader();
                 }
+
+                ComputeHelper.DispatchKernel(pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize1);
+
+                StepCount++;
+                SimTimeElapsed += DeltaTime;
+            }
 
             gpuDataSorted = false;
         }
@@ -472,6 +478,15 @@ public class Main : MonoBehaviour
         UpdateSettings();
         SetShaderKeywords();
         InitCausticsGen();
+
+        // Handle runtime changes to shadow working resolution (e.g., ShadowDownSampling modified by user)
+        // If buffers were resized, we must rebind them and update PP shader variables.
+        if (AllocateOrResizeShadowWorkingBuffers())
+        {
+            shaderHelper.SetRenderShaderBuffers(renderShader);
+            shaderHelper.SetPostProcessorBuffers(ppShader);
+            shaderHelper.SetPostProcessorVariables(ppShader);
+        }
     }
 
     private void InitCausticsGen()
@@ -863,44 +878,75 @@ public class Main : MonoBehaviour
 
     public void RunPPShader()
     {
-        int2 threadsNum = new(renderTexture.width, renderTexture.height);
+        // Make sure shadow buffers match current downsampling (in case user changed ShadowDownSampling at runtime)
+        if (AllocateOrResizeShadowWorkingBuffers())
+        {
+            shaderHelper.SetRenderShaderBuffers(renderShader);
+            shaderHelper.SetPostProcessorBuffers(ppShader);
+            shaderHelper.SetPostProcessorVariables(ppShader);
+        }
+
+        int2 fullThreads2D = new(renderTexture.width, renderTexture.height);
+        int2 shadowThreads2D = GetShadowResolution();
+        int  shadowThreadsX  = shadowThreads2D.x;
+
         if (ShadowType == ShadowType.None)
         {
-            ComputeHelper.DispatchKernel(ppShader, "ApplyWithoutShadows", threadsNum, ppShaderThreadSize2);
+            // No shadows — straight copy to PP
+            ComputeHelper.DispatchKernel(ppShader, "ApplyWithoutShadows", fullThreads2D, ppShaderThreadSize2);
             return;
         }
-        
+
+        // Downsample the full-res source mask into the working low-res ShadowMask_dbA
+        // (Kernel implemented in ppShader; uses ShadowResolution/Resolution/DownsampleFactor internally)
+        int kDown = ppShader.FindKernel("DownsampleShadowMask");
+        if (kDown >= 0)
+        {
+            ComputeHelper.DispatchKernel(ppShader, "DownsampleShadowMask", shadowThreads2D, ppShaderThreadSize2);
+        }
+
+        // Create shadows at LOW RES (ray march)
         if (ShadowType == ShadowType.Vertical_Sharp || ShadowType == ShadowType.Vertical_Blurred)
         {
-            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", ppRenderTexture.width, ppShaderThreadSize1);
+            // vertical kernel uses X dimension only (one ray per column)
+            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", shadowThreadsX, ppShaderThreadSize1);
         }
         else if (ShadowType == ShadowType.Diagonal_Sharp || ShadowType == ShadowType.Diagonal_Blurred)
         {
-            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDiagonal", ppRenderTexture.width, ppShaderThreadSize1);
+            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDiagonal", shadowThreadsX, ppShaderThreadSize1);
         }
         else if (ShadowType == ShadowType.Directional_Sharp || ShadowType == ShadowType.Directional_Blurred)
         {
-            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDirectional", ppRenderTexture.width, ppShaderThreadSize1);
+            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDirectional", shadowThreadsX, ppShaderThreadSize1);
         }
 
-        if (ShadowType == ShadowType.Vertical_Blurred || ShadowType == ShadowType.Diagonal_Blurred || ShadowType == ShadowType.Directional_Blurred)
-        {
-            ComputeHelper.DispatchKernel(ppShader, "CopySharpShadows", threadsNum, ppShaderThreadSize2);
+        bool isBlurred =
+            ShadowType == ShadowType.Vertical_Blurred ||
+            ShadowType == ShadowType.Diagonal_Blurred ||
+            ShadowType == ShadowType.Directional_Blurred;
 
-            // Blur shadows
+        if (isBlurred)
+        {
+            // Work in LOW RES for blur
+            ComputeHelper.DispatchKernel(ppShader, "CopySharpShadows", shadowThreads2D, ppShaderThreadSize2);
+
             bool stepBufferCycle = true;
             for (int i = 0; i < ShadowBlurIterations; i++)
             {
                 ppShader.SetBool("StepBufferCycle", stepBufferCycle);
                 ppShader.SetInt("BlurOffset", Func.Pow2(ShadowBlurIterations - 1 - i));
-                ComputeHelper.DispatchKernel(ppShader, "BlurShadowsGaussian", threadsNum, ppShaderThreadSize2);
+                ComputeHelper.DispatchKernel(ppShader, "BlurShadowsGaussian", shadowThreads2D, ppShaderThreadSize2);
                 stepBufferCycle = !stepBufferCycle;
             }
 
-            // Apply shadows
-            ComputeHelper.DispatchKernel(ppShader, "ApplyBlurredShadows", threadsNum, ppShaderThreadSize2);
+            // APPLY to FULL RES: kernel performs AA upsample (bilinear) from low-res mask
+            ComputeHelper.DispatchKernel(ppShader, "ApplyBlurredShadows", fullThreads2D, ppShaderThreadSize2);
         }
-        else ComputeHelper.DispatchKernel(ppShader, "ApplySharpShadows", threadsNum, ppShaderThreadSize2);
+        else
+        {
+            // APPLY to FULL RES: kernel performs AA upsample (bilinear) from low-res mask
+            ComputeHelper.DispatchKernel(ppShader, "ApplySharpShadows", fullThreads2D, ppShaderThreadSize2);
+        }
     }
 
     private void InitTimeSetRand()
@@ -986,6 +1032,8 @@ public class Main : MonoBehaviour
             SensorAreaBuffer,
             RBVectorBuffer,
             MaterialBuffer,
+            // Shadows
+            ShadowSrcFullRes,
             ShadowMask_dbA,
             ShadowMask_dbB,
             SharpShadowMask,
@@ -993,7 +1041,37 @@ public class Main : MonoBehaviour
             RimLightMask
         );
 
-        // Release addressable caustics if loaded
         if (_causticsHandle.IsValid()) Addressables.Release(_causticsHandle);
+    }
+
+    private int2 GetShadowResolution()
+    {
+        int factor = 1 << Mathf.Clamp(ShadowDownSampling, 0, 30);
+        int w = Mathf.Max(1, renderTexture != null ? renderTexture.width  / factor : PM.Instance.ResolutionInt2.x / factor);
+        int h = Mathf.Max(1, renderTexture != null ? renderTexture.height / factor : PM.Instance.ResolutionInt2.y / factor);
+        return new int2(w, h);
+    }
+
+    private bool AllocateOrResizeShadowWorkingBuffers()
+    {
+        int2 desired = GetShadowResolution();
+        if (_cachedShadowRes.x == desired.x && _cachedShadowRes.y == desired.y &&
+            ShadowMask_dbA != null && ShadowMask_dbB != null && SharpShadowMask != null &&
+            ShadowDstMask != null && RimLightMask != null)
+        {
+            return false;
+        }
+
+        ComputeHelper.Release(ShadowMask_dbA, ShadowMask_dbB, SharpShadowMask, ShadowDstMask, RimLightMask);
+
+        int count = Mathf.Max(1, desired.x * desired.y);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbA, count);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbB, count);
+        ComputeHelper.CreateStructuredBuffer<float>(ref SharpShadowMask, count);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowDstMask, count);
+        ComputeHelper.CreateStructuredBuffer<float>(ref RimLightMask, count);
+
+        _cachedShadowRes = desired;
+        return true;
     }
 }

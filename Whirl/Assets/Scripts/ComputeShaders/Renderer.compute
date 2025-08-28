@@ -1,6 +1,6 @@
 #pragma kernel RenderBackground; // 0 
-#pragma kernel RenderFluids; // 1
-#pragma kernel RenderRigidBodies; // 2
+#pragma kernel RenderFluids;     // 1
+#pragma kernel RenderRigidBodies;// 2
 #pragma kernel RenderRigidBodySprings; // 3
 #pragma kernel RenderUI; // 4
 
@@ -46,13 +46,13 @@ const float RBEdgeWidth;
 const float FluidSensorEdgeWidth;
 const float SensorAreaAnimationSpeed;
 
-// ShadowMask
+// ShadowMask strengths
 const float RBShadowStrength;
 const float LiquidShadowStrength;
 const float GasShadowStrength;
 
 // Rigid body springs
-const int SpringRenderNumPeriods;
+const int   SpringRenderNumPeriods;
 const float SpringRenderWidth;
 const float SpringRenderHalfMatWidth;
 const float SpringRenderRodLength;
@@ -65,36 +65,40 @@ const uint2 BoundaryDims;
 const float2 ScreenToViewFactor;
 const float2 ViewScale;
 const float2 ViewOffset;
-const float InvMaxInfluenceRadius;
-const int MaxInfluenceRadius;
-const int MaxInfluenceRadiusSqr;
-const int NumMaterials;
-const int2 ChunksNum;
-const uint ChunksNumAll;
-const int ParticlesNum;
-const uint PTypesNum;
-const uint NumRigidBodies;
-const uint NumFluidSensors;
-const int3 PrecomputedCausticsDims;
-const float PrecomputedCausticsScaleFactor;
-const float DynamicCausticsScaleFactor;
-const float PrecomputedCausticsZBlurFactor;
+const float  InvMaxInfluenceRadius;
+const int    MaxInfluenceRadius;
+const int    MaxInfluenceRadiusSqr;
+const int    NumMaterials;
+const int2   ChunksNum;
+const uint   ChunksNumAll;
+const int    ParticlesNum;
+const uint   PTypesNum;
+const uint   NumRigidBodies;
+const uint   NumFluidSensors;
+const int3   PrecomputedCausticsDims;
+const float  PrecomputedCausticsScaleFactor;
+const float  DynamicCausticsScaleFactor;
+const float  PrecomputedCausticsZBlurFactor;
 
 // Global rendering settings
 const float3 GlobalBrightness;
-const float GlobalBrightnessFactor;
-const float Contrast;
-const float Saturation;
-const float Gamma;
+const float  GlobalBrightnessFactor;
+const float  Contrast;
+const float  Saturation;
+const float  Gamma;
 
 // Per-timestep-set variables
 const float TotalScaledTimeElapsed;
-const int LastTimeSetRand;
-const int NextTimeSetRand;
+const int   LastTimeSetRand;
+const int   NextTimeSetRand;
 const float TimeSetLerpFactor;
-const int PrecomputedCausticsZ;
+const int   PrecomputedCausticsZ;
 
+// Outputs
 RWTexture2D<unorm float4> Result;
+
+// IMPORTANT: This is the FULL-RES source shadow buffer now.
+// The PP shader will downsample this into its low-res working grid.
 RWStructuredBuffer<float> ShadowMask;
 
 Texture2D<unorm float4> DynamicCaustics;
@@ -107,13 +111,13 @@ Texture2D<unorm float4> Background;
 Texture2D<unorm float4> Atlas;
 
 StructuredBuffer<int2> SpatialLookup; 
-StructuredBuffer<int> StartIndices;
+StructuredBuffer<int>  StartIndices;
 
-StructuredBuffer<PData> PDatas;
-StructuredBuffer<PType> PTypes;
+StructuredBuffer<PData>  PDatas;
+StructuredBuffer<PType>  PTypes;
 
 StructuredBuffer<RigidBody> RigidBodies;
-StructuredBuffer<RBVector> RBVectors;
+StructuredBuffer<RBVector>  RBVectors;
 
 StructuredBuffer<SensorArea> SensorAreas;
 
@@ -129,7 +133,6 @@ float2 GetTexDims(Texture2D<unorm float4> tex)
     float t;
     float2 texDims;
     tex.GetDimensions(0, texDims.x, texDims.y, t);
-
     return texDims;
 }
 
@@ -182,7 +185,6 @@ float4 SampleGradient(float u, Texture2D<unorm float4> gradientTex)
     uint x = (int)(u * gradientWidth);
     x = clamp(x, 0, gradientWidth-1);
     float4 sample = gradientTex.Load(int3(x, 0, 0));
-
     return float4(sample.rgb, sample.a);
 }
 
@@ -258,7 +260,6 @@ bool IsOutsideSimBounds(float2 pixelPos)
 // Overall, worst scenario, each thread performs at O(n^2) time (n: number of vertices of each rb)
 // For very large amounts of rb:s, the program performs in O(n^2 * k) time (n: number of vertices of each rb, k: number of rbs)
 // This is also true for RayRBDstHitInfo (rbSimShader), IsPointInsideRB (rbSimShader), and DstToRB (renderShader)
-// TODO: Implement a BVH-sort of method for improving the O-complexity for large scenes
 bool IsPointInsideRB(float2 pos, RigidBody rb)
 {
     // Shift to local space
@@ -307,7 +308,6 @@ bool IsPointInsideRB(float2 pos, RigidBody rb)
     // Odd # intersections => inside
     return ((intersections % 2) == 1);
 }
-
 
 bool IsInsideArea(float2 pos, float2 min2, float2 max2)
 {
@@ -482,7 +482,7 @@ void RenderBackground(uint3 id : SV_DispatchThreadID)
     float3 sampleCol = SampleTexture(uv, 0, GetTexDims(Background), Background) * BackgroundBrightness;
     SetResultColor(id.xy, sampleCol);
 
-    // Reset ShadowMask
+    // Reset ShadowMask (full-res)
     uint shadowIndex = id.y * Resolution.x + id.x;
     ShadowMask[shadowIndex] = 0.0;
 }
@@ -708,7 +708,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
             SetResultColor(id.xy, result);
         #endif
 
-        // Write to ShadowMask
+        // Write to ShadowMask (FULL-RES)
         uint shadowIndex = id.y * Resolution.x + id.x;
         ShadowMask[shadowIndex] = nearestIsNotGas ? LiquidShadowStrength : GasShadowStrength;
     }
@@ -734,12 +734,12 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     
     float2 pixelPos = GetPixelPos(id.xy);
 
-    int highestRenderPriority = 0;
-    bool rigidBodyFound = false;
-    bool drawOutline = false;
-    int matIndex;
+    int   highestRenderPriority = 0;
+    bool  rigidBodyFound = false;
+    bool  drawOutline    = false;
+    int   matIndex;
     float3 transformData = 0;
-    float outlineAlpha = 1.0;
+    float outlineAlpha   = 1.0;
     
     for (uint rbIndex = 0; rbIndex < NumRigidBodies; rbIndex++)
     {
@@ -811,7 +811,7 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
         float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);
         SetResultColor(id.xy, result);
 
-        // Write to ShadowMask
+        // Write to ShadowMask (FULL-RES)
         uint shadowIndexRB = id.y * Resolution.x + id.x;
         ShadowMask[shadowIndexRB] = RBShadowStrength;
     }
@@ -894,7 +894,6 @@ bool IsOnSpring(float2 localPos, float springLength, float halfSpringWidth)
 void TintRed(inout float3 color, float redTint)
 {
     redTint = saturate(redTint);
-
     color = lerp(color, float3(1.0, 0.0, 0.0), redTint);
 }
 
@@ -930,11 +929,12 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
 
     float2 pixelPos = GetPixelPos(id.xy);
 
-    bool springFound = false;
-    float2 posNorm = 0;
+    bool  springFound = false;
+    float2 posNorm    = 0;
     float springForce = 0;
-    int matIndex = 0;
-    int highestRenderPriority = -1;
+    int   matIndex    = 0;
+    int   highestRenderPriority = -1;
+
     #if !DO_USE_FAST_COMPILATION
         // Improves performance slightly, but significantly increases build times, even when DO_USE_FAST_COMPILATION = false
         // Only uncomment this for final builds
@@ -982,7 +982,6 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         // Now the spring starts at (0,0), ends at (springLength, 0)
         // Check if the pixel is within the spring's area
         float halfSpringWidth = SpringRenderWidth * 0.5;
-        float springRenderHalfMatWidthSqr = SpringRenderHalfMatWidth*SpringRenderHalfMatWidth;
 
         bool isOnSpring = IsOnSpring(localPixelPos, springLength, halfSpringWidth);
         if (isOnSpring)
@@ -1010,7 +1009,6 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         
         SetResultColor(id.xy, result);
 
-        // Write to ShadowMask
         uint shadowIndexRB = id.y * Resolution.x + id.x;
         ShadowMask[shadowIndexRB] = ShadowMask[shadowIndexRB] - 3;
     }

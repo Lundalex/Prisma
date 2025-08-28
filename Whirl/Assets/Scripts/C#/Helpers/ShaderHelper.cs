@@ -7,6 +7,7 @@ public class ShaderHelper : MonoBehaviour
 {
     public Main m;
     public AssetReferenceT<Texture2DArray> addressableCausticsTexture;
+
     public void SetPSimShaderBuffers(ComputeShader pSimShader)
     {
         // Kernel PreCalculations
@@ -58,7 +59,9 @@ public class ShaderHelper : MonoBehaviour
 
     public void SetRenderShaderBuffers(ComputeShader renderShader)
     {
-        renderShader.SetBuffer(0, "ShadowMask", m.ShadowMask_dbA);
+        // NOTE: The render shader writes the full-resolution source shadow mask (ShadowMask) which
+        //       will be downsampled in the PP shader. Always bind the FULL-RES buffer here.
+        renderShader.SetBuffer(0, "ShadowMask", m.ShadowSrcFullRes);
 
         if (m.ParticlesNum != 0)
         {
@@ -68,7 +71,7 @@ public class ShaderHelper : MonoBehaviour
             renderShader.SetBuffer(1, "PTypes", m.PTypeBuffer);
             renderShader.SetBuffer(1, "Materials", m.MaterialBuffer);
             renderShader.SetBuffer(1, "SensorAreas", m.SensorAreaBuffer);
-            renderShader.SetBuffer(1, "ShadowMask", m.ShadowMask_dbA);
+            renderShader.SetBuffer(1, "ShadowMask", m.ShadowSrcFullRes);
         }
 
         if (m.NumRigidBodies != 0)
@@ -76,11 +79,11 @@ public class ShaderHelper : MonoBehaviour
             renderShader.SetBuffer(2, "RigidBodies", m.RBDataBuffer);
             renderShader.SetBuffer(2, "RBVectors", m.RBVectorBuffer);
             renderShader.SetBuffer(2, "Materials", m.MaterialBuffer);
-            renderShader.SetBuffer(2, "ShadowMask", m.ShadowMask_dbA);
+            renderShader.SetBuffer(2, "ShadowMask", m.ShadowSrcFullRes);
 
             renderShader.SetBuffer(3, "RigidBodies", m.RBDataBuffer);
             renderShader.SetBuffer(3, "Materials", m.MaterialBuffer);
-            renderShader.SetBuffer(3, "ShadowMask", m.ShadowMask_dbA);
+            renderShader.SetBuffer(3, "ShadowMask", m.ShadowSrcFullRes);
         }
     }
 
@@ -108,56 +111,113 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetTexture(4, "UITexture", m.uiTexture);
     }
 
-    public void SetPostProcessorBuffers(ComputeShader ppShader)
-    {
-        ppShader.SetBuffer(0, "ShadowMask_dbA", m.ShadowMask_dbA);
-        ppShader.SetBuffer(0, "ShadowMask_dbB", m.ShadowMask_dbB);
-        ppShader.SetBuffer(0, "SharpShadowMask", m.SharpShadowMask);
-        ppShader.SetBuffer(0, "ShadowDstMask", m.ShadowDstMask);
-        ppShader.SetBuffer(0, "RimLightMask", m.RimLightMask);
+public void SetPostProcessorBuffers(ComputeShader ppShader)
+{
+    // Find kernels
+    int kCreateV    = ppShader.FindKernel("CreateShadowsVertical");
+    int kCreateD    = ppShader.FindKernel("CreateShadowsDiagonal");
+    int kCreateDir  = ppShader.FindKernel("CreateShadowsDirectional");
 
-        ppShader.SetBuffer(1, "ShadowMask_dbA", m.ShadowMask_dbA);
-        ppShader.SetBuffer(1, "ShadowMask_dbB", m.ShadowMask_dbB);
-        ppShader.SetBuffer(1, "SharpShadowMask", m.SharpShadowMask);
-        ppShader.SetBuffer(1, "ShadowDstMask", m.ShadowDstMask);
-        ppShader.SetBuffer(1, "RimLightMask", m.RimLightMask);
+    int kDownsample = ppShader.FindKernel("DownsampleShadowMask");
 
-        ppShader.SetBuffer(2, "ShadowMask_dbA", m.ShadowMask_dbA);
-        ppShader.SetBuffer(2, "ShadowMask_dbB", m.ShadowMask_dbB);
-        ppShader.SetBuffer(2, "SharpShadowMask", m.SharpShadowMask);
-        ppShader.SetBuffer(2, "ShadowDstMask", m.ShadowDstMask);
-        ppShader.SetBuffer(2, "RimLightMask", m.RimLightMask);
+    int kCopySharp  = ppShader.FindKernel("CopySharpShadows");
+    int kBlurGauss  = ppShader.FindKernel("BlurShadowsGaussian");
+    int kBlurBox    = ppShader.FindKernel("BlurShadowsBox");
 
-        ppShader.SetBuffer(3, "ShadowMask_dbA", m.ShadowMask_dbA);
-        ppShader.SetBuffer(3, "SharpShadowMask", m.SharpShadowMask);
+    int kApplySharp = ppShader.FindKernel("ApplySharpShadows");
+    int kApplyBlur  = ppShader.FindKernel("ApplyBlurredShadows");
+    int kApplyNo    = ppShader.FindKernel("ApplyWithoutShadows");
 
-        ppShader.SetBuffer(4, "ShadowMask_dbA", m.ShadowMask_dbA);
-        ppShader.SetBuffer(4, "ShadowMask_dbB", m.ShadowMask_dbB);
-        ppShader.SetBuffer(4, "ShadowDstMask", m.ShadowDstMask);
+    // --- CreateShadowsVertical ---
+    ppShader.SetBuffer(kCreateV, "ShadowMask_dbA",  m.ShadowMask_dbA);
+    ppShader.SetBuffer(kCreateV, "ShadowMask_dbB",  m.ShadowMask_dbB);
+    ppShader.SetBuffer(kCreateV, "SharpShadowMask", m.SharpShadowMask);
+    ppShader.SetBuffer(kCreateV, "ShadowDstMask",   m.ShadowDstMask);
+    ppShader.SetBuffer(kCreateV, "RimLightMask",    m.RimLightMask);
 
-        ppShader.SetBuffer(5, "ShadowMask_dbA", m.ShadowMask_dbA);
-        ppShader.SetBuffer(5, "ShadowMask_dbB", m.ShadowMask_dbB);
-        ppShader.SetBuffer(5, "ShadowDstMask", m.ShadowDstMask);
+    // --- CreateShadowsDiagonal ---
+    ppShader.SetBuffer(kCreateD, "ShadowMask_dbA",  m.ShadowMask_dbA);
+    ppShader.SetBuffer(kCreateD, "ShadowMask_dbB",  m.ShadowMask_dbB);
+    ppShader.SetBuffer(kCreateD, "SharpShadowMask", m.SharpShadowMask);
+    ppShader.SetBuffer(kCreateD, "ShadowDstMask",   m.ShadowDstMask);
+    ppShader.SetBuffer(kCreateD, "RimLightMask",    m.RimLightMask);
 
-        ppShader.SetBuffer(6, "SharpShadowMask", m.SharpShadowMask);
-        ppShader.SetBuffer(6, "RimLightMask", m.RimLightMask);
+    // --- CreateShadowsDirectional ---
+    ppShader.SetBuffer(kCreateDir, "ShadowMask_dbA",  m.ShadowMask_dbA);
+    ppShader.SetBuffer(kCreateDir, "ShadowMask_dbB",  m.ShadowMask_dbB);
+    ppShader.SetBuffer(kCreateDir, "SharpShadowMask", m.SharpShadowMask);
+    ppShader.SetBuffer(kCreateDir, "ShadowDstMask",   m.ShadowDstMask);
+    ppShader.SetBuffer(kCreateDir, "RimLightMask",    m.RimLightMask);
 
-        ppShader.SetBuffer(7, "ShadowMask_dbA", m.ShadowMask_dbA);
-        ppShader.SetBuffer(7, "ShadowMask_dbB", m.ShadowMask_dbB);
-        ppShader.SetBuffer(7, "SharpShadowMask", m.SharpShadowMask);
-        ppShader.SetBuffer(7, "RimLightMask", m.RimLightMask);
-    }
+    // --- DownsampleShadowMask ---
+    ppShader.SetBuffer(kDownsample, "ShadowSrcFullRes", m.ShadowSrcFullRes);
+    ppShader.SetBuffer(kDownsample, "ShadowMask_dbA",   m.ShadowMask_dbA);
+    ppShader.SetBuffer(kDownsample, "ShadowMask_dbB",   m.ShadowMask_dbB);
+    ppShader.SetBuffer(kDownsample, "SharpShadowMask",  m.SharpShadowMask);
+    ppShader.SetBuffer(kDownsample, "ShadowDstMask",    m.ShadowDstMask);
+    ppShader.SetBuffer(kDownsample, "RimLightMask",     m.RimLightMask);
+
+    // --- CopySharpShadows ---
+    ppShader.SetBuffer(kCopySharp, "ShadowMask_dbA",   m.ShadowMask_dbA);
+    ppShader.SetBuffer(kCopySharp, "SharpShadowMask",  m.SharpShadowMask);
+    ppShader.SetBuffer(kCopySharp, "ShadowMask_dbB",   m.ShadowMask_dbB);
+    ppShader.SetBuffer(kCopySharp, "ShadowDstMask",    m.ShadowDstMask);
+    ppShader.SetBuffer(kCopySharp, "RimLightMask",     m.RimLightMask);
+
+    // --- BlurShadowsGaussian ---
+    ppShader.SetBuffer(kBlurGauss, "ShadowMask_dbA",   m.ShadowMask_dbA);
+    ppShader.SetBuffer(kBlurGauss, "ShadowMask_dbB",   m.ShadowMask_dbB);
+    ppShader.SetBuffer(kBlurGauss, "SharpShadowMask",  m.SharpShadowMask);
+    ppShader.SetBuffer(kBlurGauss, "ShadowDstMask",    m.ShadowDstMask);
+    ppShader.SetBuffer(kBlurGauss, "RimLightMask",     m.RimLightMask);
+
+    // --- BlurShadowsBox ---
+    ppShader.SetBuffer(kBlurBox, "ShadowMask_dbA",   m.ShadowMask_dbA);
+    ppShader.SetBuffer(kBlurBox, "ShadowMask_dbB",   m.ShadowMask_dbB);
+    ppShader.SetBuffer(kBlurBox, "SharpShadowMask",  m.SharpShadowMask);
+    ppShader.SetBuffer(kBlurBox, "ShadowDstMask",    m.ShadowDstMask);
+    ppShader.SetBuffer(kBlurBox, "RimLightMask",     m.RimLightMask);
+
+    // --- ApplySharpShadows ---
+    ppShader.SetBuffer(kApplySharp, "ShadowMask_dbA",    m.ShadowMask_dbA);
+    ppShader.SetBuffer(kApplySharp, "ShadowMask_dbB",    m.ShadowMask_dbB);
+    ppShader.SetBuffer(kApplySharp, "SharpShadowMask",   m.SharpShadowMask);
+    ppShader.SetBuffer(kApplySharp, "ShadowDstMask",     m.ShadowDstMask);
+    ppShader.SetBuffer(kApplySharp, "RimLightMask",      m.RimLightMask);
+    ppShader.SetBuffer(kApplySharp, "ShadowSrcFullRes",  m.ShadowSrcFullRes);
+
+    // --- ApplyBlurredShadows ---
+    ppShader.SetBuffer(kApplyBlur, "ShadowMask_dbA",     m.ShadowMask_dbA);
+    ppShader.SetBuffer(kApplyBlur, "ShadowMask_dbB",     m.ShadowMask_dbB);
+    ppShader.SetBuffer(kApplyBlur, "SharpShadowMask",    m.SharpShadowMask);
+    ppShader.SetBuffer(kApplyBlur, "ShadowDstMask",      m.ShadowDstMask);
+    ppShader.SetBuffer(kApplyBlur, "RimLightMask",       m.RimLightMask);
+    ppShader.SetBuffer(kApplyBlur, "ShadowSrcFullRes",   m.ShadowSrcFullRes);
+}
 
     public void SetPostProcessorTextures(ComputeShader ppShader)
     {
-        ppShader.SetTexture(6, "Result", m.renderTexture);
-        ppShader.SetTexture(6, "PPResult", m.ppRenderTexture);
+        int kApplySharp = SafeFindKernel(ppShader, "ApplySharpShadows");
+        int kApplyBlur  = SafeFindKernel(ppShader, "ApplyBlurredShadows");
+        int kApplyNo    = SafeFindKernel(ppShader, "ApplyWithoutShadows");
 
-        ppShader.SetTexture(7, "Result", m.renderTexture);
-        ppShader.SetTexture(7, "PPResult", m.ppRenderTexture);
+        if (kApplySharp >= 0)
+        {
+            ppShader.SetTexture(kApplySharp, "Result", m.renderTexture);
+            ppShader.SetTexture(kApplySharp, "PPResult", m.ppRenderTexture);
+        }
 
-        ppShader.SetTexture(8, "Result", m.renderTexture);
-        ppShader.SetTexture(8, "PPResult", m.ppRenderTexture);
+        if (kApplyBlur >= 0)
+        {
+            ppShader.SetTexture(kApplyBlur, "Result", m.renderTexture);
+            ppShader.SetTexture(kApplyBlur, "PPResult", m.ppRenderTexture);
+        }
+
+        if (kApplyNo >= 0)
+        {
+            ppShader.SetTexture(kApplyNo, "Result", m.renderTexture);
+            ppShader.SetTexture(kApplyNo, "PPResult", m.ppRenderTexture);
+        }
     }
 
     public void SetSortShaderBuffers(ComputeShader sortShader)
@@ -289,16 +349,23 @@ public class ShaderHelper : MonoBehaviour
         ppShader.SetFloat("ShadowDarkness", m.ShadowDarkness);
         ppShader.SetFloat("ShadowFalloff", m.ShadowFalloff);
 
+        // Full-resolution output (Result/PPResult) resolution
         ppShader.SetVector("Resolution", PM.Instance.Resolution);
         ppShader.SetVector("ShadowDirection", new(-Mathf.Cos(Mathf.Deg2Rad * m.ShadowDirection), -Mathf.Sin(Mathf.Deg2Rad * m.ShadowDirection)));
 
         ppShader.SetInt("ShadowBlurRadius", Mathf.Max(0, m.ShadowBlurRadius));
         ppShader.SetFloat("ShadowDiffusion", Mathf.Max(0f, m.ShadowDiffusion));
 
-        ppShader.SetInt("CastedShadowType", (int)m.CastedShadowType);
         ppShader.SetFloat("RimShadingStrength", m.RimShadingStrength);
         ppShader.SetFloat("RimShadingBleed", m.RimShadingBleed);
         ppShader.SetFloat("RimShadingOpaqueBleed", m.RimShadingOpaqueBleed);
+
+        // --- New: low-resolution shadow grid parameters ---
+        int factor = 1 << Mathf.Clamp(m.ShadowDownSampling, 0, 30);
+        int w = Mathf.Max(1, m.renderTexture.width  / factor);
+        int h = Mathf.Max(1, m.renderTexture.height / factor);
+        ppShader.SetVector("ShadowResolution", new Vector2(w, h));
+        ppShader.SetInt("ShadowDownsampleFactor", factor);
     }
 
     public void UpdateSortShaderVariables(ComputeShader sortShader)
@@ -372,5 +439,14 @@ public class ShaderHelper : MonoBehaviour
         rbSimShader.SetFloat("RB_InteractionAttractionPower", m.RB_InteractionAttractionPower);
         rbSimShader.SetFloat("RB_InteractionRepulsionPower", m.RB_InteractionRepulsionPower);
         rbSimShader.SetFloat("RB_InteractionDampening", m.RB_InteractionDampening);
+    }
+
+    // -----------------------
+    // Helpers
+    // -----------------------
+    private int SafeFindKernel(ComputeShader shader, string name)
+    {
+        try { return shader.FindKernel(name); }
+        catch { return -1; }
     }
 }
