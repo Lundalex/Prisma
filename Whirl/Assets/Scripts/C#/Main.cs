@@ -124,6 +124,11 @@ public class Main : MonoBehaviour
     public int ShadowBlurRadius = 1;
     public int ShadowBlurIterations = 4;
     public float ShadowDiffusion = 20.0f;
+
+    public CastedShadowType CastedShadowType;
+    public float RimShadingStrength = 5.0f;
+    public float RimShadingBleed = 0.05f;
+    public float RimShadingOpaqueBleed = 0.02f;
 #endregion
 
     #region Render Display
@@ -246,7 +251,8 @@ public class Main : MonoBehaviour
     public ComputeBuffer ShadowMask_dbA;
     public ComputeBuffer ShadowMask_dbB;
     public ComputeBuffer SharpShadowMask;
-    public ComputeBuffer ShadowDstMark;
+    public ComputeBuffer ShadowDstMask;
+    public ComputeBuffer RimLightMask;
 
     // Constants
     [NonSerialized] public int ParticlesNum;
@@ -342,7 +348,8 @@ public class Main : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbA, renderTexture.width * renderTexture.height);
         ComputeHelper.CreateStructuredBuffer<float>(ref ShadowMask_dbB, renderTexture.width * renderTexture.height);
         ComputeHelper.CreateStructuredBuffer<float>(ref SharpShadowMask, renderTexture.width * renderTexture.height);
-        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowDstMark, renderTexture.width * renderTexture.height);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowDstMask, renderTexture.width * renderTexture.height);
+        ComputeHelper.CreateStructuredBuffer<float>(ref RimLightMask, renderTexture.width * renderTexture.height);
 
         // Shader buffers
         shaderHelper.SetPSimShaderBuffers(pSimShader);
@@ -855,7 +862,12 @@ public class Main : MonoBehaviour
     public void RunPPShader()
     {
         int2 threadsNum = new(renderTexture.width, renderTexture.height);
-
+        if (ShadowType == ShadowType.None)
+        {
+            ComputeHelper.DispatchKernel(ppShader, "ApplyWithoutShadows", threadsNum, ppShaderThreadSize2);
+            return;
+        }
+        
         if (ShadowType == ShadowType.Vertical_Sharp || ShadowType == ShadowType.Vertical_Blurred)
         {
             ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", ppRenderTexture.width, ppShaderThreadSize1);
@@ -975,7 +987,8 @@ public class Main : MonoBehaviour
             ShadowMask_dbA,
             ShadowMask_dbB,
             SharpShadowMask,
-            ShadowDstMark
+            ShadowDstMask,
+            RimLightMask
         );
 
         // Release addressable caustics if loaded

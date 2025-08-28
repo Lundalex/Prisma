@@ -6,9 +6,10 @@
 #pragma kernel CopySharpShadows
 #pragma kernel BlurShadowsGaussian
 #pragma kernel BlurShadowsBox
-// Apply shadows
+// Apply shadows (or without)
 #pragma kernel ApplySharpShadows
 #pragma kernel ApplyBlurredShadows
+#pragma kernel ApplyWithoutShadows
 
 #include "./Helpers/MathResources.hlsl"
 #include "./Helpers/DataTypes.hlsl"
@@ -25,6 +26,11 @@ const int ShadowBlurRadius;
 const float ShadowDiffusion;
 const int BlurOffset;
 
+const int CastedShadowType;
+const float RimShadingStrength;
+const float RimShadingBleed;
+const float RimShadingOpaqueBleed;
+
 // Textures
 Texture2D<unorm float4> Result;
 RWTexture2D<unorm float4> PPResult;
@@ -34,7 +40,10 @@ const bool StepBufferCycle;
 RWStructuredBuffer<float> ShadowMask_dbA;
 RWStructuredBuffer<float> ShadowMask_dbB;
 RWStructuredBuffer<float> SharpShadowMask;
-RWStructuredBuffer<float> ShadowDstMark;
+RWStructuredBuffer<float> ShadowDstMask;
+RWStructuredBuffer<float> RimLightMask;
+
+static const int RimEarlyOpaquePixels = 2;
 
 uint GetPixelKey(uint2 threadID)
 {
@@ -47,40 +56,122 @@ bool IsOutsideResolutionDims(uint2 threadID)
 }
 
 // --- Carry helper (kept in [0,1]) ---
-float UpdateCarry(float carry, float pixelShadow)
+float UpdateCarry(inout float carry, float pixelShadow) // (carryDelta)
 {
-    return saturate(carry * (1.0 - ShadowFalloff) + pixelShadow);
+    float newCarry = saturate(carry * (1.0 - ShadowFalloff) + pixelShadow);
+    float carryDelta = newCarry - carry;
+    carry = newCarry;
+    
+    return carryDelta;
 }
 
+// Parallel rim-carry (optical thickness τ) with exponential falloff.
+// For fluids/gases (0..1) scale by RimShadingBleed.
+// For opaque (rigid/spring), cap per-pixel thickness by RimShadingOpaqueBleed to allow controlled bleed.
+float UpdateRimCarry(inout float rimTau, float pixelShadow, bool outsideRB, bool insideSpring)
+{
+    float rimInput;
+    if (outsideRB && !insideSpring)
+    {
+        // Liquids/gases: control depth with RimShadingBleed (acts like a divisor/multiplier knob)
+        rimInput = saturate(pixelShadow / max(1e-6, RimShadingBleed));
+    }
+    else
+    {
+        // Opaque: cap how much rim "consumption" can happen per step
+        rimInput = min(pixelShadow, max(0.0, 1.0 / max(1e-6, RimShadingOpaqueBleed)));
+    }
+
+    float oldTau = rimTau;
+    float newTau = max(rimTau * (1.0 - ShadowFalloff) + rimInput, 0.0);
+    rimTau = newTau;
+
+    // Beer-Lambert: T = exp(-tau). Rim contribution is the drop in transmittance this step.
+    float Tprev = exp(-oldTau);
+    float Tnew  = exp(-newTau);
+    float rimDeltaExp = max(Tprev - Tnew, 0.0);
+    return rimDeltaExp;
+}
+
+// -----------------------------------------------------------------------------
+// Shared middle function: performs the per-pixel shadow update.
+// Mutates `carry`, `rimCarry` (tau) and `dst` via inout parameters.
+// NEW: `suppressRim` and `stepsSinceReset` implement the "early opaque" clamp.
+// -----------------------------------------------------------------------------
+inline void ShadowStep(uint2 p,
+                       inout float carry,
+                       inout float rimCarry,
+                       inout float dst,
+                       inout bool suppressRim,
+                       uint stepsSinceReset)
+{
+    uint idx = GetPixelKey(p);
+    float pixelShadow = ShadowMask_dbA[idx];
+
+    // Spring detection
+    bool insideSpring = (pixelShadow < 0.0);
+    if (insideSpring) pixelShadow += 3.0;
+
+    // Rigid body detection (RB encoded with value >= 1)
+    bool outsideRB = (pixelShadow < 1.0 - 1e-6);
+
+    // Determine the shadow dst
+    dst = outsideRB ? (dst + 1.0) : 0.0;
+    ShadowDstMask[idx] = insideSpring ? 0.0 : dst;
+
+    // Detect an early opaque hit (within the first N steps after start/reset)
+    bool opaqueHit = (!outsideRB && !insideSpring);
+    if (stepsSinceReset < (uint)RimEarlyOpaquePixels && opaqueHit)
+    {
+        suppressRim = true;
+    }
+    // Leave the object: stop suppressing once we exit the opaque region
+    if (!opaqueHit)
+    {
+        suppressRim = false;
+    }
+
+    // Update carries
+    UpdateCarry(carry, pixelShadow);
+    float rimDeltaExp = UpdateRimCarry(rimCarry, pixelShadow, outsideRB, insideSpring);
+
+    // Output rim using exponential falloff contribution this step,
+    // but zero it if we're suppressing due to an early opaque hit.
+    float rimOut = suppressRim ? 0.0 : (rimDeltaExp * RimShadingStrength);
+    RimLightMask[idx] = rimOut;
+
+    float effectiveShadow = (outsideRB && !insideSpring) ? (carry * ShadowDarkness) : 0.0;
+    SharpShadowMask[idx] = effectiveShadow;
+}
+
+// -----------------------------------------------------------------------------
+// Kernel: Vertical
+// -----------------------------------------------------------------------------
 [numthreads(TN_PP1, 1, 1)]
 void CreateShadowsVertical(uint3 id : SV_DispatchThreadID)
 {
     uint x = id.x;
     if (x >= Resolution.x) return;
 
-    float carry = 0.0;
-    float dst = LARGE_FLOAT;
+    float carry    = 0.0;
+    float rimCarry = 0.0;
+    float dst      = LARGE_FLOAT;
 
-    for (int y = (int)Resolution.y - 1; y >= 0; --y)
+    // NEW: per-ray step counter and suppress flag
+    uint stepCount = 0u;
+    bool suppressRim = false;
+
+    const int H = (int)Resolution.y;
+    for (int y = H - 1; y >= 0; --y)
     {
-        float pixelShadow = ShadowMask_dbA[GetPixelKey(uint2(x, y))];
-
-        bool insideSpring = (pixelShadow < 0.0);
-        if (insideSpring) pixelShadow += 3.0;
-
-        bool outsideRB = (pixelShadow < 1.0 - 1e-6);
-
-        dst = outsideRB ? (dst + 1.0) : 0.0;
-        ShadowDstMark[GetPixelKey(uint2(x, y))] = insideSpring ? 0.0 : dst;
-
-        carry = UpdateCarry(carry, pixelShadow);
-
-        float effectiveShadow = (outsideRB && !insideSpring) ? (carry * ShadowDarkness) : 0.0;
-
-        SharpShadowMask[GetPixelKey(uint2(x, y))] = effectiveShadow;
+        ShadowStep(uint2(x, (uint)y), carry, rimCarry, dst, suppressRim, stepCount);
+        stepCount++;
     }
 }
 
+// -----------------------------------------------------------------------------
+// Kernel: Diagonal (up-left, with horizontal wrap; reset state on wrap)
+// -----------------------------------------------------------------------------
 [numthreads(TN_PP1, 1, 1)]
 void CreateShadowsDiagonal(uint3 id : SV_DispatchThreadID)
 {
@@ -93,38 +184,41 @@ void CreateShadowsDiagonal(uint3 id : SV_DispatchThreadID)
     int x = W - 1 - (int)xStart;
     int y = H - 1;
 
-    float carry = 0.0;
-    float dst = LARGE_FLOAT;
+    float carry    = 0.0;
+    float rimCarry = 0.0;
+    float dst      = LARGE_FLOAT;
+
+    // NEW: per-ray step counter and suppress flag
+    uint stepCount = 0u;
+    bool suppressRim = false;
 
     for (int i = 0; i < H; ++i)
     {
-        uint2 up = (uint2)int2(x, y);
+        if (y < 0) break;
 
-        float pixelShadow  = ShadowMask_dbA[GetPixelKey(up)];
-        bool  insideSpring = (pixelShadow < 0.0);
-        if (insideSpring) pixelShadow += 3.0;
-        bool  outsideRB    = (pixelShadow < 1.0 - 1e-6);
-
-        dst = outsideRB ? (dst + 1.0) : 0.0;
-        ShadowDstMark[GetPixelKey(up)] = insideSpring ? 0.0 : dst;
-
-        carry = UpdateCarry(carry, pixelShadow);
-
-        float effectiveShadow = (outsideRB && !insideSpring) ? (carry * ShadowDarkness) : 0.0;
-        SharpShadowMask[GetPixelKey(up)] = effectiveShadow;
+        ShadowStep((uint2)int2(x, y), carry, rimCarry, dst, suppressRim, stepCount);
 
         // march up-left
         y -= 1;
         x -= 1;
+        stepCount++;
 
         // horizontal wrap allowed, but reset state so no cross-edge leakage
-        if (x < 0) { x += W; carry = 0.0; dst = LARGE_FLOAT; }
+        if (x < 0)
+        {
+            x += W;
+            carry = 0.0; rimCarry = 0.0; dst = LARGE_FLOAT;
 
-        // stop when we pass the top
-        if (y < 0) break;
+            // NEW: reset counter and suppression on wrap
+            stepCount = 0u;
+            suppressRim = false;
+        }
     }
 }
 
+// -----------------------------------------------------------------------------
+// Kernel: Directional (arbitrary normalized direction, horizontal wrap allowed)
+// -----------------------------------------------------------------------------
 [numthreads(TN_PP1, 1, 1)]
 void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
 {
@@ -148,34 +242,30 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
     int x = (int)x0;
     int y = dyPos ? 0 : (H - 1);
 
-    float drift = (ay > 1e-6) ? (ax / ay) : 1e6; // robust near-horizontal
+    // robust near-horizontal drift
+    float drift = (ay > 1e-6) ? (ax / ay) : 1e6;
     float acc   = 0.0;
 
-    float carry = 0.0;
-    float dst   = LARGE_FLOAT;
+    float carry    = 0.0;
+    float rimCarry = 0.0;
+    float dst      = LARGE_FLOAT;
+
+    // NEW: per-ray step counter and suppress flag
+    uint stepCount = 0u;
+    bool suppressRim = false;
 
     const uint maxIters = (uint)H;
     for (uint i = 0; i < maxIters; ++i)
     {
         if (x < 0 || x >= W || y < 0 || y >= H) break;
 
-        uint2 up = uint2(x, y);
+        ShadowStep(uint2(x, y), carry, rimCarry, dst, suppressRim, stepCount);
 
-        float pixelShadow  = ShadowMask_dbA[GetPixelKey(up)];
-        bool  insideSpring = (pixelShadow < 0.0);
-        if (insideSpring) pixelShadow += 3.0;
-        bool  outsideRB    = (pixelShadow < 1.0 - 1e-6);
-
-        dst = outsideRB ? (dst + 1.0) : 0.0;
-        ShadowDstMark[GetPixelKey(up)] = insideSpring ? 0.0 : dst;
-
-        carry = UpdateCarry(carry, pixelShadow);
-
-        float effectiveShadow = (outsideRB && !insideSpring) ? (carry * ShadowDarkness) : 0.0;
-        SharpShadowMask[GetPixelKey(up)] = effectiveShadow;
-
+        // step in primary (Y) and drift along X
         y += stepY;
         if (y < 0 || y >= H) break;
+
+        stepCount++;
 
         acc += drift;
         if (acc >= 1.0)
@@ -185,12 +275,19 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
 
             x += stepX * steps;
 
-            // allow horizontal wrap, but reset accumulators so edges don't share
+            // allow horizontal wrap; reset accumulators on wrap
             bool wrapped = false;
             if (x < 0)       { x = (x % W + W) % W; wrapped = true; }
             else if (x >= W) { x = x % W;          wrapped = true; }
 
-            if (wrapped) { carry = 0.0; dst = LARGE_FLOAT; }
+            if (wrapped)
+            {
+                carry = 0.0; rimCarry = 0.0; dst = LARGE_FLOAT;
+
+                // NEW: reset counter and suppression on wrap
+                stepCount = 0u;
+                suppressRim = false;
+            }
         }
     }
 }
@@ -215,7 +312,7 @@ void BlurShadowsGaussian(uint3 id : SV_DispatchThreadID)
     float invRadiusSqr = 1.0 / sqr(max(1, ShadowBlurRadius));
     float minDim = (float)min(Resolution.x, Resolution.y);
 
-    float centerDst = ShadowDstMark[idx];
+    float centerDst = ShadowDstMask[idx];
     float softness  = saturate((centerDst / minDim) * ShadowDiffusion);
 
     float sum = 0.0;
@@ -237,7 +334,7 @@ void BlurShadowsGaussian(uint3 id : SV_DispatchThreadID)
             float baseW = exp(-d2 * invRadiusSqr);
             float ww = lerp((dx == 0 && dy == 0) ? 1.0 : 0.0,
                             baseW,
-                            min(softness, saturate((ShadowDstMark[idx_n] / minDim) * ShadowDiffusion)));
+                            min(softness, saturate((ShadowDstMask[idx_n] / minDim) * ShadowDiffusion)));
 
             float s = StepBufferCycle ? ShadowMask_dbA[idx_n] : ShadowMask_dbB[idx_n];
 
@@ -260,7 +357,7 @@ void BlurShadowsBox(uint3 id : SV_DispatchThreadID)
     float minDim = (float)min(Resolution.x, Resolution.y);
 
     uint centerIdx = GetPixelKey(px);
-    float centerDst = ShadowDstMark[centerIdx];
+    float centerDst = ShadowDstMask[centerIdx];
     float softC     = saturate((centerDst / minDim) * ShadowDiffusion);
 
     float sum = 0.0;
@@ -278,7 +375,7 @@ void BlurShadowsBox(uint3 id : SV_DispatchThreadID)
 
             uint idx_n = GetPixelKey(uint2(qx, qy));
 
-            float softN = saturate((ShadowDstMark[idx_n] / minDim) * ShadowDiffusion);
+            float softN = saturate((ShadowDstMask[idx_n] / minDim) * ShadowDiffusion);
             float jointSoft = min(softC, softN);
 
             float baseW = 1.0; // box kernel
@@ -302,12 +399,16 @@ void BlurShadowsBox(uint3 id : SV_DispatchThreadID)
 void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
 {
     uint2 px = id.xy;
+    uint idx = GetPixelKey(id.xy);
     if (IsOutsideResolutionDims(px)) return;
 
     float shadow = SharpShadowMask[GetPixelKey(px)];
     float light = 1.0 - shadow;
+    float rimLight = RimLightMask[idx];
+
     float4 src  = Result[px];
-    PPResult[px] = float4(src.rgb * light, src.a);
+    float3 combinedCol = saturate(src.rgb * light + rimLight);
+    PPResult[px] = float4(combinedCol, src.a);
 }
 
 [numthreads(TN_PP2, TN_PP2, 1)]
@@ -319,6 +420,7 @@ void ApplyBlurredShadows(uint3 id : SV_DispatchThreadID)
 
     float shadow = StepBufferCycle ? ShadowMask_dbB[idx] : ShadowMask_dbA[idx];
     float light = 1.0 - shadow;
+    float rimLight = RimLightMask[idx];
     if (SharpShadowMask[idx] < 0)
     {
         PPResult[px] = Result[px];
@@ -326,10 +428,20 @@ void ApplyBlurredShadows(uint3 id : SV_DispatchThreadID)
     else
     {
         float4 src  = Result[px];
-        PPResult[px] = float4(src.rgb * light, src.a);
+        float3 combinedCol = saturate(src.rgb * light + rimLight);
+        PPResult[px] = float4(combinedCol, src.a);
     }
 }
 
-IDEA - RIMS - ADD RIM LIGHTING WHERE LIGHT IS ABSORBED. THEN, BLEED THROUGH FOR A FEW PIXELS, USING AN EXP-MODEL.
-BACKLIGHTING - ... THEN, DARKEN THE BACKSIDE (WHERE THE LIGHT RAY EXITS) SINCE THATS WHERE LIGHT EXITS
-SHADOW ABSORBTION - ... ALSO DARKEN EDGES WHERE SHADOW RAYS HIT ("ABSORBS SHADOW")
+[numthreads(TN_PP2, TN_PP2, 1)]
+void ApplyWithoutShadows(uint3 id : SV_DispatchThreadID)
+{
+    uint2 px = id.xy;
+    if (IsOutsideResolutionDims(px)) return;
+
+    PPResult[px] = Result[px];
+}
+
+// IDEA - RIMS - ADD RIM LIGHTING WHERE LIGHT IS ABSORBED. THEN, BLEED THROUGH FOR A FEW PIXELS, USING AN EXP-MODEL.
+// BACKLIGHTING - ... THEN, DARKEN THE BACKSIDE (WHERE THE LIGHT RAY EXITS) SINCE THATS WHERE LIGHT EXITS
+// SHADOW ABSORBTION - ... ALSO DARKEN EDGES WHERE SHADOW RAYS HIT ("ABSORBS SHADOW")

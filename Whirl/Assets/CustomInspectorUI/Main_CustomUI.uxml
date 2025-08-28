@@ -96,6 +96,11 @@
             <ui:SliderInt label="Blur Radius" value="2" high-value="5" fill="true" show-input-field="true" binding-path="ShadowBlurRadius" />
             <ui:SliderInt label="Blur Iterations" value="2" high-value="10" fill="true" show-input-field="true" binding-path="ShadowBlurIterations" low-value="1" />
             <ui:Slider label="Diffusion" value="10" high-value="100" binding-path="ShadowDiffusion" show-input-field="true" fill="true" name="Slider" low-value="0" />
+            <ui:Label text="Casted Shadows" binding-path="CastedShadows" style="left: -10px;" />
+            <uie:PropertyField binding-path="CastedShadowType" label="Casted Shadows" />
+            <ui:Slider label="Rim Strength" value="10" high-value="100" binding-path="RimShadingStrength" show-input-field="true" fill="true" name="Slider" low-value="0" />
+            <ui:Slider label="Rim Bleed" value="10" high-value="0.5" binding-path="RimShadingBleed" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
+            <ui:Slider label="Opaque Bleed" value="10" high-value="10" binding-path="RimShadingOpaqueBleed" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
         </ui:Foldout>
     </ui:Foldout>
     <ui:Foldout text="Render Display" name="RenderDisplay" value="false" style="-unity-font-style: bold; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-color: rgb(0, 0, 0); padding-top: 4px; padding-right: 4px; padding-bottom: 4px; padding-left: 4px;">

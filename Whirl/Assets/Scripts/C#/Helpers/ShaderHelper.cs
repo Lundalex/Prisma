@@ -113,34 +113,39 @@ public class ShaderHelper : MonoBehaviour
         ppShader.SetBuffer(0, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(0, "ShadowMask_dbB", m.ShadowMask_dbB);
         ppShader.SetBuffer(0, "SharpShadowMask", m.SharpShadowMask);
-        ppShader.SetBuffer(0, "ShadowDstMark", m.ShadowDstMark);
+        ppShader.SetBuffer(0, "ShadowDstMask", m.ShadowDstMask);
+        ppShader.SetBuffer(0, "RimLightMask", m.RimLightMask);
 
         ppShader.SetBuffer(1, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(1, "ShadowMask_dbB", m.ShadowMask_dbB);
         ppShader.SetBuffer(1, "SharpShadowMask", m.SharpShadowMask);
-        ppShader.SetBuffer(1, "ShadowDstMark", m.ShadowDstMark);
+        ppShader.SetBuffer(1, "ShadowDstMask", m.ShadowDstMask);
+        ppShader.SetBuffer(1, "RimLightMask", m.RimLightMask);
 
         ppShader.SetBuffer(2, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(2, "ShadowMask_dbB", m.ShadowMask_dbB);
         ppShader.SetBuffer(2, "SharpShadowMask", m.SharpShadowMask);
-        ppShader.SetBuffer(2, "ShadowDstMark", m.ShadowDstMark);
+        ppShader.SetBuffer(2, "ShadowDstMask", m.ShadowDstMask);
+        ppShader.SetBuffer(2, "RimLightMask", m.RimLightMask);
 
         ppShader.SetBuffer(3, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(3, "SharpShadowMask", m.SharpShadowMask);
 
         ppShader.SetBuffer(4, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(4, "ShadowMask_dbB", m.ShadowMask_dbB);
-        ppShader.SetBuffer(4, "ShadowDstMark", m.ShadowDstMark);
+        ppShader.SetBuffer(4, "ShadowDstMask", m.ShadowDstMask);
 
         ppShader.SetBuffer(5, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(5, "ShadowMask_dbB", m.ShadowMask_dbB);
-        ppShader.SetBuffer(5, "ShadowDstMark", m.ShadowDstMark);
+        ppShader.SetBuffer(5, "ShadowDstMask", m.ShadowDstMask);
 
         ppShader.SetBuffer(6, "SharpShadowMask", m.SharpShadowMask);
+        ppShader.SetBuffer(6, "RimLightMask", m.RimLightMask);
 
         ppShader.SetBuffer(7, "ShadowMask_dbA", m.ShadowMask_dbA);
         ppShader.SetBuffer(7, "ShadowMask_dbB", m.ShadowMask_dbB);
         ppShader.SetBuffer(7, "SharpShadowMask", m.SharpShadowMask);
+        ppShader.SetBuffer(7, "RimLightMask", m.RimLightMask);
     }
 
     public void SetPostProcessorTextures(ComputeShader ppShader)
@@ -150,6 +155,9 @@ public class ShaderHelper : MonoBehaviour
 
         ppShader.SetTexture(7, "Result", m.renderTexture);
         ppShader.SetTexture(7, "PPResult", m.ppRenderTexture);
+
+        ppShader.SetTexture(8, "Result", m.renderTexture);
+        ppShader.SetTexture(8, "PPResult", m.ppRenderTexture);
     }
 
     public void SetSortShaderBuffers(ComputeShader sortShader)
@@ -286,6 +294,11 @@ public class ShaderHelper : MonoBehaviour
 
         ppShader.SetInt("ShadowBlurRadius", Mathf.Max(0, m.ShadowBlurRadius));
         ppShader.SetFloat("ShadowDiffusion", Mathf.Max(0f, m.ShadowDiffusion));
+
+        ppShader.SetInt("CastedShadowType", (int)m.CastedShadowType);
+        ppShader.SetFloat("RimShadingStrength", m.RimShadingStrength);
+        ppShader.SetFloat("RimShadingBleed", m.RimShadingBleed);
+        ppShader.SetFloat("RimShadingOpaqueBleed", m.RimShadingOpaqueBleed);
     }
 
     public void UpdateSortShaderVariables(ComputeShader sortShader)
