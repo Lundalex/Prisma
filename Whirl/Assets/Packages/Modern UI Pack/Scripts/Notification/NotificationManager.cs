@@ -74,10 +74,7 @@ namespace Michsky.MUIP
             notificationAnimator.Play("In");
             onOpen.Invoke();
 
-            if (enableTimer) 
-            { 
-                StartCoroutine("StartTimer"); 
-            }
+            if (enableTimer) StartCoroutine("StartTimer");
         }
 
         public void Close()

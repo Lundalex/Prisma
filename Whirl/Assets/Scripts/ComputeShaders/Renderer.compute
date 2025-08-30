@@ -1009,8 +1009,12 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         
         SetResultColor(id.xy, result);
 
-        uint shadowIndexRB = id.y * Resolution.x + id.x;
-        ShadowMask[shadowIndexRB] = ShadowMask[shadowIndexRB] - 3;
+        // IMPORTANT: Flag springs in the full-res ShadowMask without destroying occluder info.
+        // Encoding: spring => -(prevMagnitude + 1). This guarantees < 0 even when prevMagnitude == 0.
+        uint  shadowIndexRB = id.y * Resolution.x + id.x;
+        float prev          = ShadowMask[shadowIndexRB];
+        float prevMag       = max(prev, 0.0);
+        ShadowMask[shadowIndexRB] = -(prevMag + 1.0);
     }
 }
 

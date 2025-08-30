@@ -147,21 +147,6 @@ inline void ShadowStep(uint2 pLow,
     uint idx = GetPixelKeyLow(pLow);
     float pixelShadow = ShadowMask_dbA[idx];
 
-    // Spring detection (springs must NOT cast or rim—let existing carry/rim decay only)
-    bool insideSpring = (pixelShadow < 0.0);
-    if (insideSpring)
-    {
-        // only decay by normalized falloff
-        carry    *= (1.0 - stepFalloff);
-        rimCarry *= (1.0 - stepFalloff);
-
-        // distance & outputs
-        ShadowDstMask[idx]   = 0.0;
-        SharpShadowMask[idx] = 0.0;
-        RimLightMask[idx]    = 0.0;
-        return;
-    }
-
     // Rigid body detection (RB encoded with value >= 1)
     bool outsideRB = (pixelShadow < 1.0 - 1e-6);
 
@@ -204,7 +189,7 @@ inline void ShadowStep(uint2 pLow,
 // ---------------------------
 
 // Downsample the full-resolution source shadow mask into the low-res working buffer.
-// Preserves rigid/spring flags and averages fluid/gas contributions.
+// Springs use encoding s = -(m + 1). Recover underlying magnitude with max(0, -s - 1).
 [numthreads(TN_PP2, TN_PP2, 1)]
 void DownsampleShadowMask(uint3 id : SV_DispatchThreadID)
 {
@@ -216,7 +201,6 @@ void DownsampleShadowMask(uint3 id : SV_DispatchThreadID)
     uint2 end   = min(start + (uint2)ShadowDownsampleFactor, Resolution);
 
     bool  hasOpaque = false;
-    bool  hasSpring = false;
     float acc = 0.0;
     uint  cnt = 0u;
 
@@ -225,16 +209,28 @@ void DownsampleShadowMask(uint3 id : SV_DispatchThreadID)
         for (uint x = start.x; x < end.x; ++x)
         {
             float v = ShadowSrcFullRes[GetPixelKeyFull(uint2(x, y))];
-            if (v < 0.0)              { hasSpring = true; }
-            else if (v >= 1.0 - 1e-6) { hasOpaque = true; }
-            else                      { acc += v; cnt++; }
+
+            if (v < 0.0)
+            {
+                // spring: decode magnitude
+                float mag = max(0.0, -v - 1.0);
+                if (mag >= 1.0 - 1e-6) { hasOpaque = true; }
+                else if (mag > 0.0)    { acc += mag; cnt++; }
+            }
+            else if (v >= 1.0 - 1e-6)
+            {
+                hasOpaque = true;
+            }
+            else if (v > 0.0)
+            {
+                acc += v; cnt++;
+            }
         }
     }
 
     float outv = 0.0;
-    if (hasSpring)      outv = -1.0;          // keep spring flag
-    else if (hasOpaque) outv = 1.0;           // mark as rigid
-    else                outv = (cnt > 0u) ? (acc / cnt) : 0.0; // average fluids/gas
+    if (hasOpaque) outv = 1.0;
+    else           outv = (cnt > 0u) ? (acc / cnt) : 0.0;
 
     uint idxLow = GetPixelKeyLow(pLow);
     ShadowMask_dbA[idxLow]  = outv;
@@ -645,19 +641,23 @@ void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
     float light  = 1.0 - shadow;
 
     // Full-res medium classification:
-    // s < 0 => spring (no rim)
+    // s < 0 => spring (no shadows, no rim)
     // 0 < s < 1 => fluid/gas
     // s >= 1 => rigid
     float sFull = ShadowSrcFullRes[GetPixelKeyFull(px)];
+    bool insideSpringFull   = (sFull < 0.0);
     bool insideFluidGasFull = (sFull > 0.0) && (sFull < 1.0 - 1e-6);
     bool insideRBFull       = (sFull >= 1.0 - 1e-6);
-    bool allowRimHere       = insideFluidGasFull || insideRBFull;
+    bool allowRimHere       = !insideSpringFull && (insideFluidGasFull || insideRBFull);
 
-    // Rim is only applied where a medium exists (rigid or fluid/gas); never on background or springs.
+    // Springs: no rim, no darkening.
     float rim = allowRimHere ? bilinearSampleLowRim(lowPos) : 0.0;
 
     float4 src  = Result[px];
-    float3 combinedCol = saturate(src.rgb * light + rim);
+    float3 base = src.rgb;
+    if (!insideSpringFull) base *= light;
+
+    float3 combinedCol = saturate(base + rim);
     PPResult[px] = float4(combinedCol, src.a);
 }
 
@@ -677,14 +677,18 @@ void ApplyBlurredShadows(uint3 id : SV_DispatchThreadID)
 
     // Full-res medium classification (see above)
     float sFull = ShadowSrcFullRes[GetPixelKeyFull(px)];
+    bool insideSpringFull   = (sFull < 0.0);
     bool insideFluidGasFull = (sFull > 0.0) && (sFull < 1.0 - 1e-6);
     bool insideRBFull       = (sFull >= 1.0 - 1e-6);
-    bool allowRimHere       = insideFluidGasFull || insideRBFull;
+    bool allowRimHere       = !insideSpringFull && (insideFluidGasFull || insideRBFull);
 
     float rim = allowRimHere ? bilinearSampleLowRim(lowPos) : 0.0;
 
     float4 src  = Result[px];
-    float3 combinedCol = saturate(src.rgb * light + rim);
+    float3 base = src.rgb;
+    if (!insideSpringFull) base *= light;
+
+    float3 combinedCol = saturate(base + rim);
     PPResult[px] = float4(combinedCol, src.a);
 }
 

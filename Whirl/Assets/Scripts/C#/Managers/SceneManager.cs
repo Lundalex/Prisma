@@ -7,21 +7,18 @@ using UnityEngine;
 
 public class SceneManager : MonoBehaviour
 {
-    // Public
     public int MaxAtlasDims;
 
-    // Private variables
     private Vector2 sceneMin;
     private Vector2 sceneMax;
     private bool referencesHaveBeenSet = false;
 
-    // Private references
     private Transform sensorUIContainer;
     private Transform sensorOutlineContainer;
     private Main main;
     private ArrowManager arrowManager;
     private SensorManager sensorManager;
-    
+    private RenderManager renderManager;
 
     private void SetReferences()
     {
@@ -30,6 +27,8 @@ public class SceneManager : MonoBehaviour
         main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
         arrowManager = GameObject.FindGameObjectWithTag("ArrowManager").GetComponent<ArrowManager>();
         sensorManager = GameObject.FindGameObjectWithTag("SensorManager").GetComponent<SensorManager>();
+        renderManager = FindFirstObjectByType<RenderManager>();
+        if (renderManager != null && renderManager.main == null) renderManager.main = main;
 
         referencesHaveBeenSet = true;
     }
@@ -38,11 +37,8 @@ public class SceneManager : MonoBehaviour
     {
         int2 bounds = new(Mathf.CeilToInt(transform.localScale.x), Mathf.CeilToInt(transform.localScale.y));
         int2 boundsMod = bounds % maxInfluenceRadius;
-
-        // Round bounds up to the next multiple of maxInfluenceRadius
         if (boundsMod.x != 0) bounds.x += maxInfluenceRadius - boundsMod.x;
         if (boundsMod.y != 0) bounds.y += maxInfluenceRadius - boundsMod.y;
-
         return bounds;
     }
 
@@ -65,7 +61,6 @@ public class SceneManager : MonoBehaviour
 
     public bool IsSpaceEmpty(Vector2 point, SceneFluid thisFluid, SceneRigidBody[] allRigidBodies, SceneFluid[] allFluids)
     {
-        // Check whether the point is inside any rigid body with a fluid collider
         foreach (SceneRigidBody rigidBody in allRigidBodies)
         {
             ColliderType colliderType = rigidBody.rbInput.colliderType;
@@ -73,12 +68,10 @@ public class SceneManager : MonoBehaviour
             if (rigidBody.IsPointInsidePolygon(point) && isFluidCollider) return false;
         }
 
-        // Sort fluids with respect to sibling indices
         SceneFluid[] sortedFluids = allFluids
             .OrderBy(fluid => fluid.transform.GetSiblingIndex())
             .ToArray();
         
-        // Check if a lower index fluid occupies the same space
         int thisFluidIndex = Array.IndexOf(sortedFluids, thisFluid);
         for (int i = 0; i < thisFluidIndex; i++)
         {
@@ -154,7 +147,6 @@ public class SceneManager : MonoBehaviour
     {
         if (maxParticlesNum == 0) return new PData[0];
 
-        // Gather all fluids
         SceneFluid[] allFluids = GetAllSceneFluids();
         Vector2 offset = GetBoundsOffset();
 
@@ -179,13 +171,11 @@ public class SceneManager : MonoBehaviour
 
         SceneRigidBody[] allRigidBodies = GetAllSceneRigidBodies();
 
-        // Compute centroids
         foreach (SceneRigidBody rigidBody in allRigidBodies)
         {
             rigidBody.ComputeCentroid(rbCalcGridSpacing);
         }
 
-        // Remove duplicates
         foreach (SceneRigidBody rigidBody in allRigidBodies)
         {
             if (rigidBody.polygonCollider == null)
@@ -204,10 +194,11 @@ public class SceneManager : MonoBehaviour
 
         Vector2 boundsOffset = GetBoundsOffset();
 
-        // Final data
         List<RBData> allRBData = new();
         List<RBVector> allRBVectors = new();
         List<SensorBase> sensors = new();
+
+        if (renderManager != null) renderManager.ClearRegistry();
 
         for (int i = 0; i < allRigidBodies.Length; i++)
         {
@@ -242,7 +233,6 @@ public class SceneManager : MonoBehaviour
                 rbInput.constraintType = ConstraintType.None;
             }
 
-            // Auto-spring length
             float springRestLength = rbInput.springRestLength;
             if (rbInput.linkedRigidBody != null && rbInput.autoSpringRestLength)
             {
@@ -272,7 +262,8 @@ public class SceneManager : MonoBehaviour
                 parentOffset
             ));
 
-            // Sensors
+            if (renderManager != null) renderManager.AddRigidBody(rigidBody);
+
             foreach (SensorBase sensor in rigidBody.linkedSensors)
             {
                 if (sensor == null) continue;
@@ -306,7 +297,6 @@ public class SceneManager : MonoBehaviour
 
         List<SensorArea> sensorAreas = new();
 
-        // Fluid sensors
         GameObject[] fluidSensorObjects = GameObject.FindGameObjectsWithTag("FluidSensor");
         FluidSensor[] fluidSensors = Array.ConvertAll(fluidSensorObjects, obj => obj.GetComponent<FluidSensor>());
         foreach (FluidSensor fluidSensor in fluidSensors)
@@ -320,7 +310,6 @@ public class SceneManager : MonoBehaviour
             sensorAreas.Add(fluidSensor.GetSensorAreaData());
         }
 
-        // Fluid arrow fields
         GameObject[] fluidArrowFieldObjects = GameObject.FindGameObjectsWithTag("FluidArrowField");
         FluidArrowField[] fluidArrowFields = Array.ConvertAll(fluidArrowFieldObjects, obj => obj.GetComponent<FluidArrowField>());
         foreach (FluidArrowField fluidArrowField in fluidArrowFields)
@@ -334,7 +323,6 @@ public class SceneManager : MonoBehaviour
             if (fluidArrowField.doRenderMeasurementZone) sensorAreas.Add(fluidArrowField.GetSensorAreaData());
         }
 
-        // Assign
         sensorManager.sensors = sensors;
 
         return (allRBData.ToArray(), allRBVectors.ToArray(), sensorAreas.ToArray());
@@ -352,10 +340,7 @@ public class SceneManager : MonoBehaviour
             for (int i = 0; i < pathPoints.Length; i++)
             {
                 Vector2 worldPt = rigidBody.transform.TransformPoint(pathPoints[i]);
-                
-                // Mark the start of a new sub-path
                 if (p > 0 && i == 0) worldPt.x += Main.PathFlagOffset;
-
                 combined.Add(worldPt);
             }
         }
@@ -397,14 +382,11 @@ public class SceneManager : MonoBehaviour
                 if (newPathFlag)
                 {
                     nextVec.x -= Main.PathFlagOffset;
-                    
                     float randOffset = UnityEngine.Random.Range(-0.05f, 0.05f);
                     inBetween = (lastVec * (1 + randOffset) + firstPathVec * (1 - randOffset)) / 2.0f;
-                    
                     firstPathVec = nextVec;
                     lastVec = nextVec;
                     pathStartIndex = vecIndex;
-
                     nextVec.x += Main.PathFlagOffset;
                 }
                 else
@@ -421,7 +403,6 @@ public class SceneManager : MonoBehaviour
         }
     }
 
-    // Not tested thoroughly with multi-path polygons
     private static void AddInBetweenPointsRecursively(ref Vector2[] vectors, float minDst)
     {
         bool needsSubdivision = false;
@@ -435,11 +416,9 @@ public class SceneManager : MonoBehaviour
 
             newVectors.Add(current);
 
-            // Check subpath markers
             bool currentIsMarker = current.x > Main.PathFlagThreshold;
             bool nextIsMarker    = next.x > Main.PathFlagThreshold;
 
-            // Only subdivide if neither vertex is a marker
             if (!currentIsMarker && !nextIsMarker)
             {
                 float distance = Vector2.Distance(current, next);
@@ -454,7 +433,6 @@ public class SceneManager : MonoBehaviour
 
         vectors = newVectors.ToArray();
 
-        // If we added any new midpoints, another subdivision might be required
         if (needsSubdivision)
         {
             AddInBetweenPointsRecursively(ref vectors, minDst);
@@ -509,11 +487,9 @@ public class SceneManager : MonoBehaviour
         bool isRigidConstraint = rbInput.constraintType == ConstraintType.Rigid;
         bool isSpringConstraint = rbInput.constraintType == ConstraintType.Spring;
 
-        // Bit-packed integer for storing flag values in each bit
         int stateFlags = 0;
-        // bit nr : naming
-        Func.SetBit(ref stateFlags, 0, false); // bit 0 : isBeingMoved (by the left mouse button)
-        Func.SetBit(ref stateFlags, 1, rbInput.disallowBorderCollisions); // bit 1 : disallowBorderCollisions (overrides the default property for movable rigid bodies to collide with the border)
+        Func.SetBit(ref stateFlags, 0, false);
+        Func.SetBit(ref stateFlags, 1, rbInput.disallowBorderCollisions);
 
         return new RBData
         {
@@ -541,9 +517,8 @@ public class SceneManager : MonoBehaviour
             maxRadiusSqr = rbInput.isInteractable ? maxRadiusSqr : -maxRadiusSqr,
 
             startIndex = startIndex,
-            endIndex = endIndex, // inclusive
+            endIndex = endIndex,
 
-            // Springs
             linkedRBIndex = (isSpringConstraint || isRigidConstraint) ? linkedRBIndex : -1,
             springRestLength = isRigidConstraint ? 0 : springRestLength,
             springStiffness = isRigidConstraint ? 0 : rbInput.springStiffness,

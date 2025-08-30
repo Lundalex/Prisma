@@ -9,6 +9,8 @@ public class EditorViewHelper : Editor
     [SerializeField] private static Main main;
     [SerializeField] private static ProgramLifeCycleManager lifeCycleManager;
     [SerializeField] private static Transform sceneManagerTransform;
+    [SerializeField] private static Transform rbCameraTransform;
+    [SerializeField] private static Camera rbCamera;
     [SerializeField] private static GameObject uiCanvasObject;
 
     static EditorViewHelper()
@@ -26,23 +28,34 @@ public class EditorViewHelper : Editor
         if (main == null) main = GameObject.FindGameObjectWithTag("MainCamera")?.GetComponent<Main>();
         if (lifeCycleManager == null) lifeCycleManager = GameObject.FindGameObjectWithTag("LifeCycleManager")?.GetComponent<ProgramLifeCycleManager>();
         if (sceneManagerTransform == null) sceneManagerTransform = GameObject.FindGameObjectWithTag("SceneManager")?.GetComponent<Transform>();
-        if (uiCanvasObject == null && lifeCycleManager != null)
-        {
-            uiCanvasObject = lifeCycleManager.uiCanvas;
-        }
+        if (rbCameraTransform == null) rbCameraTransform = GameObject.FindGameObjectWithTag("RBCamera")?.GetComponent<Transform>();
+        if (rbCamera == null) rbCamera = GameObject.FindGameObjectWithTag("RBCamera")?.GetComponent<Camera>();
+        if (uiCanvasObject == null && lifeCycleManager != null) uiCanvasObject = lifeCycleManager.uiCanvas;
     }
 
     private static void OnEditorUpdate()
     {
         CacheReferences();
 
-        if (main != null && sceneManagerTransform != null)
+        if (main != null)
         {
             Vector2 boundaryDims = new(main.BoundaryDims.x, main.BoundaryDims.y);
-            sceneManagerTransform.transform.localPosition = boundaryDims * 0.5f;
-            sceneManagerTransform.transform.localScale = boundaryDims;
 
-            ApplyGlobalTranslucentSource();
+            if (rbCameraTransform != null && rbCamera != null)
+            {
+                Vector2 boundaryDims_flipped_offset = new(-boundaryDims.x - 100, boundaryDims.y);
+                rbCameraTransform.localPosition = boundaryDims_flipped_offset * 0.5f;
+                rbCameraTransform.localScale = boundaryDims;
+                rbCamera.orthographicSize = Mathf.Min(main.BoundaryDims.x, main.BoundaryDims.y) * 0.5f;
+            }
+
+            if (sceneManagerTransform != null)
+            {
+                sceneManagerTransform.transform.localPosition = boundaryDims * 0.5f;
+                sceneManagerTransform.transform.localScale = boundaryDims;
+
+                ApplyGlobalTranslucentSource();
+            }
         }
 
         if (uiCanvasObject != null) uiCanvasObject.SetActive(!(CheckSceneViewActive() && lifeCycleManager.doHideUIInSceneView));
@@ -63,7 +76,6 @@ public class EditorViewHelper : Editor
         TranslucentImage[] images;
 
         #if UNITY_2023_1_OR_NEWER
-            // New API: choose whether to include inactive and whether to sort
             images = Object.FindObjectsByType<TranslucentImage>(
                 FindObjectsInactive.Include,
                 FindObjectsSortMode.None
