@@ -2,12 +2,25 @@
 
 struct Mat
 {
-    int2 colTexLoc;
-    int2 colTexDims;
+    // Albedo (RGB) rect in the atlas
+    int2  albedoTexLoc;
+    int2  albedoTexDims;
+
+    // Normal map rect (tangent-space; set x = -1 if unused)
+    int2  normalTexLoc;
+    int2  normalTexDims;
+
+    // ORM rect (Occlusion-Roughness-Metalness in RGB; set x = -1 if unused)
+    int2  ormTexLoc;
+    int2  ormTexDims;
+
+    // Existing UV transform/tile flags (kept)
     float2 sampleOffset;
-    float colTexUpScaleFactor;
+    float  colTexUpScaleFactor;
+
+    // Existing material tints/params (kept)
     float3 baseCol;
-    float opacity;
+    float  opacity;
     float3 sampleColMul;
     float3 edgeCol;
 };

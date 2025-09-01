@@ -131,9 +131,15 @@ public class Main : MonoBehaviour
     public int ShadowDownSampling = 1;
 #endregion
 
-    #region Render Display
+#region Render Display
     public int2 Resolution;
     public Vector2 UIPadding;
+
+    // === New: Sun light + RB world UV control ===
+    [Header("Lighting / RB Mapping")]
+    public Vector2 SunDirection = new(-0.71f, -0.71f); // XY on screen
+    [Tooltip("World/simulation units per 1 albedo UV tile for rigid bodies.")]
+
     public LightingSettings LightingSettings;
     public float3 GlobalBrightness;
     public float Contrast;
@@ -314,6 +320,9 @@ public class Main : MonoBehaviour
     // Cache for current shadow working resolution (to handle runtime ShadowDownSampling changes)
     private int2 _cachedShadowRes = int2.zero;
 
+    // Expose current material count to helper
+    public int MaterialsCount => Mats != null ? Mats.Length : 0;
+
     public void SubmitParticlesToSimulation(PData[] particlesToAdd) => NewPDatas.AddRange(particlesToAdd);
 
     public void StartScript()
@@ -338,7 +347,7 @@ public class Main : MonoBehaviour
         NumRigidBodyVectors = RBVectors.Length;
         NumFluidSensors = SensorAreas.Length;
 
-        // Materials
+        // Materials / atlas / gradients
         (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(materialInput.materialInputs);
         TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
         TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
@@ -475,12 +484,26 @@ public class Main : MonoBehaviour
     {
         SetLightingSettings();
         SetConstants();
+
+        // === Rebuild materials/atlas and gradients when inspector inputs change ===
+        (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(materialInput.materialInputs);
+        TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
+        TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
+
+        // Ensure Material buffer fits current material count
+        RecreateOrUpdateMaterialBuffer();
+
+        // Rebind changed textures/buffers
+        shaderHelper.SetRenderShaderTextures(renderShader);
+        shaderHelper.SetRenderShaderBuffers(renderShader);
+
+        // Push all uniforms again (includes sunDir & RBWorldUVScale)
         UpdateSettings();
+
         SetShaderKeywords();
         InitCausticsGen();
 
         // Handle runtime changes to shadow working resolution (e.g., ShadowDownSampling modified by user)
-        // If buffers were resized, we must rebind them and update PP shader variables.
         if (AllocateOrResizeShadowWorkingBuffers())
         {
             shaderHelper.SetRenderShaderBuffers(renderShader);
@@ -499,7 +522,10 @@ public class Main : MonoBehaviour
     {
         // Set new pType and material data
         PTypeBuffer.SetData(pTypeInput.GetParticleTypes());
-        MaterialBuffer.SetData(Mats);
+
+        // Material buffer may have been resized in UpdateShaderData; if not, just SetData.
+        if (MaterialBuffer != null && MaterialBuffer.count == MaterialsCount)
+            MaterialBuffer.SetData(Mats);
 
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
         shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
@@ -898,7 +924,6 @@ public class Main : MonoBehaviour
         }
 
         // Downsample the full-res source mask into the working low-res ShadowMask_dbA
-        // (Kernel implemented in ppShader; uses ShadowResolution/Resolution/DownsampleFactor internally)
         int kDown = ppShader.FindKernel("DownsampleShadowMask");
         if (kDown >= 0)
         {
@@ -1073,5 +1098,18 @@ public class Main : MonoBehaviour
 
         _cachedShadowRes = desired;
         return true;
+    }
+
+    // --- Helpers for dynamic material updates ---
+    private void RecreateOrUpdateMaterialBuffer()
+    {
+        if (MaterialBuffer == null || MaterialBuffer.count != MaterialsCount)
+        {
+            ComputeHelper.CreateStructuredBuffer<Mat>(ref MaterialBuffer, Mats);
+        }
+        else
+        {
+            MaterialBuffer.SetData(Mats);
+        }
     }
 }

@@ -17,7 +17,12 @@ public class RenderManager : MonoBehaviour
     [Range(0f, 1f)] public float latencyMovingAverageAlpha = 0.25f;
     [Range(0f, 1f)] public float intervalMovingAverageAlpha = 0.25f;
     [Range(0f, 1f)] public float inTransitMovingAverageAlpha = 0.2f;
-    [Min(0f)] public float horizonFactor = 1.5f;
+
+    [Header("Shock correction")]
+    [Min(0f)] public float velocityJumpThreshold = 5f;
+    [Min(0f)] public float correctionDurationSeconds = 0.1f;
+    [Min(0f)] public float angularVelocityJumpThreshold = 180f;   // deg/sec
+    [Min(0f)] public float angularCorrectionDurationSeconds = 0.1f;
 
     [Header("Async / Latency")]
     [Min(0f)] public float minRequestInterval = 0f;
@@ -39,6 +44,21 @@ public class RenderManager : MonoBehaviour
         public double sampleTimeUS;
         public Vector2 velSim;
         public float angVelDeg;
+
+        public Vector2 lastGottenVelSim;
+        public float   lastGottenAngVelDeg;
+
+        // linear correction
+        public bool     correcting;
+        public Vector2  corrOffsetInitial;
+        public double   corrStartUS;
+        public float    corrDuration;
+
+        // angular correction
+        public bool     rotCorrecting;
+        public float    rotCorrOffsetInitial;
+        public double   rotCorrStartUS;
+        public float    rotCorrDuration;
     }
 
     readonly List<TrackState> _track = new();
@@ -60,22 +80,16 @@ public class RenderManager : MonoBehaviour
         if (!Application.isPlaying)
         {
             foreach (var kv in _editMap)
-            {
                 if (kv.Value) DestroyImmediate(kv.Value.gameObject);
-            }
             _editMap.Clear();
         }
     }
 
     void Update()
     {
-        if (!Application.isPlaying)
-        {
-            EditModeUpdate();
-            return;
-        }
-
+        if (!Application.isPlaying) { EditModeUpdate(); return; }
         if (!programRunning) return;
+
         if (main == null)
         {
             var mainGo = GameObject.FindGameObjectWithTag("MainCamera");
@@ -96,7 +110,6 @@ public class RenderManager : MonoBehaviour
 
         int rc = _renderRBs.Count;
         double nowUS = Time.unscaledTimeAsDouble;
-        float horizon = ComputeHorizonSeconds();
 
         for (int i = 0; i < rc; i++)
         {
@@ -107,10 +120,23 @@ public class RenderManager : MonoBehaviour
             if (!st.initialized) continue;
 
             float dt = Mathf.Max(0f, (float)(nowUS - st.sampleTimeUS));
-            float dtClamped = (horizon > 0f) ? Mathf.Min(dt, horizon) : dt;
+            float dtClamped = (_intervalMovingAverage > 0f) ? Mathf.Min(dt, _intervalMovingAverage) : dt;
 
             Vector2 posSim = st.posSim + st.velSim * dtClamped;
             float   rotDeg = st.rotDeg + st.angVelDeg * dtClamped;
+
+            if (st.correcting)
+            {
+                float t = st.corrDuration <= 0f ? 1f : Mathf.Clamp01((float)(nowUS - st.corrStartUS) / st.corrDuration);
+                posSim += Vector2.Lerp(st.corrOffsetInitial, Vector2.zero, t);
+                if (t >= 1f) st.correcting = false;
+            }
+            if (st.rotCorrecting)
+            {
+                float t = st.rotCorrDuration <= 0f ? 1f : Mathf.Clamp01((float)(nowUS - st.rotCorrStartUS) / st.rotCorrDuration);
+                rotDeg += Mathf.Lerp(st.rotCorrOffsetInitial, 0f, t);
+                if (t >= 1f) st.rotCorrecting = false;
+            }
 
             Vector2 worldCenter = new(
                 worldMin.x + posSim.x * simToWorldScale.x,
@@ -184,17 +210,72 @@ public class RenderManager : MonoBehaviour
                         st.sampleTimeUS = nowUS - effectiveLatency;
                         st.velSim = Vector2.zero;
                         st.angVelDeg = 0f;
+                        st.lastGottenVelSim = Vector2.zero;
+                        st.lastGottenAngVelDeg = 0f;
+                        st.correcting = false;
+                        st.rotCorrecting = false;
+                        continue;
                     }
-                    else
-                    {
-                        float dt = Mathf.Max(0.0001f, (float)((nowUS - effectiveLatency) - st.sampleTimeUS));
-                        st.velSim = (newPos - st.posSim) / dt;
-                        st.angVelDeg = Mathf.DeltaAngle(st.rotDeg, newRot) / dt;
 
-                        st.posSim = newPos;
-                        st.rotDeg = newRot;
-                        st.sampleTimeUS = nowUS - effectiveLatency;
+                    // prior predictions at 'now'
+                    float oldDtPred = Mathf.Max(0f, (float)(nowUS - st.sampleTimeUS));
+                    float oldDtPredClamped = (_intervalMovingAverage > 0f) ? Mathf.Min(oldDtPred, _intervalMovingAverage) : oldDtPred;
+                    Vector2 oldPredPosNow = st.posSim + st.velSim * oldDtPredClamped;
+                    float   oldPredRotNow = st.rotDeg + st.angVelDeg * oldDtPredClamped;
+
+                    // gotten velocities from new sample
+                    float dtEff = Mathf.Max(0.0001f, (float)((nowUS - effectiveLatency) - st.sampleTimeUS));
+                    Vector2 newGottenVel = (newPos - st.posSim) / dtEff;
+                    float   newGottenAngVel = Mathf.DeltaAngle(st.rotDeg, newRot) / dtEff;
+
+                    // new predicted-at-now based only on new sample
+                    float newDtPred = effectiveLatency;
+                    float newDtPredClamped = (_intervalMovingAverage > 0f) ? Mathf.Min(newDtPred, _intervalMovingAverage) : newDtPred;
+                    Vector2 newPredPosNow = newPos + newGottenVel * newDtPredClamped;
+                    float   newPredRotNow = newRot + newGottenAngVel * newDtPredClamped;
+
+                    // linear shock correction (compare consecutive gotten velocities)
+                    if (velocityJumpThreshold > 0f && (newGottenVel - st.lastGottenVelSim).magnitude >= velocityJumpThreshold)
+                    {
+                        Vector2 priorRemaining = Vector2.zero;
+                        if (st.correcting)
+                        {
+                            float tPrev = st.corrDuration <= 0f ? 1f : Mathf.Clamp01((float)(nowUS - st.corrStartUS) / st.corrDuration);
+                            priorRemaining = Vector2.Lerp(st.corrOffsetInitial, Vector2.zero, tPrev);
+                        }
+                        Vector2 deltaOffset = oldPredPosNow - newPredPosNow;
+                        st.corrOffsetInitial = priorRemaining + deltaOffset;
+                        st.corrStartUS = nowUS;
+                        st.corrDuration = correctionDurationSeconds;
+                        st.correcting = st.corrDuration > 0f && st.corrOffsetInitial.sqrMagnitude > 0f;
                     }
+
+                    // angular shock correction (compare consecutive gotten angular velocities)
+                    if (angularVelocityJumpThreshold > 0f && Mathf.Abs(newGottenAngVel - st.lastGottenAngVelDeg) >= angularVelocityJumpThreshold)
+                    {
+                        float priorRemainingAng = 0f;
+                        if (st.rotCorrecting)
+                        {
+                            float tPrev = st.rotCorrDuration <= 0f ? 1f : Mathf.Clamp01((float)(nowUS - st.rotCorrStartUS) / st.rotCorrDuration);
+                            priorRemainingAng = Mathf.Lerp(st.rotCorrOffsetInitial, 0f, tPrev);
+                        }
+                        float deltaAngOffset = Mathf.DeltaAngle(oldPredRotNow, newPredRotNow);
+                        st.rotCorrOffsetInitial = priorRemainingAng + deltaAngOffset;
+                        st.rotCorrStartUS = nowUS;
+                        st.rotCorrDuration = angularCorrectionDurationSeconds;
+                        st.rotCorrecting = st.rotCorrDuration > 0f && Mathf.Abs(st.rotCorrOffsetInitial) > 0f;
+                    }
+
+                    // commit new sample
+                    st.lastGottenVelSim = newGottenVel;
+                    st.lastGottenAngVelDeg = newGottenAngVel;
+
+                    st.velSim = newGottenVel;
+                    st.angVelDeg = newGottenAngVel;
+
+                    st.posSim = newPos;
+                    st.rotDeg = newRot;
+                    st.sampleTimeUS = nowUS - effectiveLatency;
                 }
             }
             catch (System.SystemException ex)
@@ -215,13 +296,6 @@ public class RenderManager : MonoBehaviour
         float value = Mathf.Max(0, currentInFlight);
         if (_inTransitMovingAverage <= 0f) _inTransitMovingAverage = value;
         else _inTransitMovingAverage += inTransitMovingAverageAlpha * (value - _inTransitMovingAverage);
-    }
-
-    float ComputeHorizonSeconds()
-    {
-        if (horizonFactor > 0f && _intervalMovingAverage > 0f)
-            return horizonFactor * _intervalMovingAverage;
-        return 0f;
     }
 
     void EnsureTrackCapacity(int desired)
@@ -432,7 +506,6 @@ public class RenderManager : MonoBehaviour
             if (!programRunning || contents == null) return;
             int count = Mathf.Min(contents.Length, _renderRBs.Count);
             double nowUS = Time.unscaledTimeAsDouble;
-            float horizon = ComputeHorizonSeconds();
 
             for (int i = 0; i < count; i++)
             {
@@ -446,9 +519,22 @@ public class RenderManager : MonoBehaviour
                 if (st != null && st.initialized)
                 {
                     float dt = Mathf.Max(0f, (float)(nowUS - st.sampleTimeUS));
-                    float dtClamped = (horizon > 0f) ? Mathf.Min(dt, horizon) : dt;
+                    float dtClamped = (_intervalMovingAverage > 0f) ? Mathf.Min(dt, _intervalMovingAverage) : dt;
                     posSim = st.posSim + st.velSim * dtClamped;
                     rotDeg = st.rotDeg + st.angVelDeg * dtClamped;
+
+                    if (st.correcting)
+                    {
+                        float t = st.corrDuration <= 0f ? 1f : Mathf.Clamp01((float)(nowUS - st.corrStartUS) / st.corrDuration);
+                        posSim += Vector2.Lerp(st.corrOffsetInitial, Vector2.zero, t);
+                        if (t >= 1f) st.correcting = false;
+                    }
+                    if (st.rotCorrecting)
+                    {
+                        float t = st.rotCorrDuration <= 0f ? 1f : Mathf.Clamp01((float)(nowUS - st.rotCorrStartUS) / st.rotCorrDuration);
+                        rotDeg += Mathf.Lerp(st.rotCorrOffsetInitial, 0f, t);
+                        if (t >= 1f) st.rotCorrecting = false;
+                    }
                 }
                 else
                 {

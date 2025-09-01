@@ -266,7 +266,7 @@ MonoBehaviour:
   SubTimeStepsPerFrame: 6
   SubTimeStepsPerRBSimUpdate: 1
   TimeStepType: 1
-  TargetFrameRate: 30
+  TargetFrameRate: 60
   TimeStep: 0.02
   ProgramSpeed: 10
   MaxInteractionRadius: 25
@@ -308,6 +308,7 @@ MonoBehaviour:
     x: 1920
     y: 1080
   UIPadding: {x: 20, y: -30}
+  SunDirection: {x: -0.71, y: -0.71}
   LightingSettings: 0
   GlobalBrightness:
     x: 1
@@ -405,7 +406,7 @@ MonoBehaviour:
     m_NumAlphaKeys: 2
   GasVelocityGradientResolution: 256
   GasVelocityGradientMaxValue: 25
-  RBEdgeWidth: 0.35
+  RBEdgeWidth: 0.2
   FluidSensorEdgeWidth: 1
   SensorAreaAnimationSpeed: 10
   GlobalSettingsViewChangeSpeed: 10
@@ -4958,9 +4959,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   materialInputs:
-  - name: 
-    colorTexture: {fileID: 2800000, guid: d04a7b267644c444eb7e587aa7dca719, type: 3}
-    colorTextureUpScaleFactor: 1
+  - name: Metal
+    unityMaterial: {fileID: 2100000, guid: 3eca838db910df94ab4c4dc3634ef2b3, type: 2}
+    colorTexture: {fileID: 2800000, guid: b6bee479eba543a47835e923ecae1766, type: 3}
+    normalTexture: {fileID: 2800000, guid: 403818e2fe1e61d458351a8918b81564, type: 3}
+    ormTexture: {fileID: 0}
+    colorTextureUpScaleFactor: 0.5
     sampleOffset:
       x: 0
       y: 0
@@ -4980,7 +4984,10 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 0}
+    normalTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 1
     sampleOffset:
       x: 0
@@ -5001,7 +5008,10 @@ MonoBehaviour:
       y: 0
       z: 0
   - name: 
-    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
+    unityMaterial: {fileID: 0}
+    colorTexture: {fileID: 0}
+    normalTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 10
     sampleOffset:
       x: 0
@@ -5022,7 +5032,10 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 0}
+    normalTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 50
     sampleOffset:
       x: 0
@@ -5043,7 +5056,10 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 0}
+    normalTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 50
     sampleOffset:
       x: 0
@@ -5064,7 +5080,10 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 0}
+    normalTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 50
     sampleOffset:
       x: 0
@@ -5085,7 +5104,10 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
-    colorTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
+    unityMaterial: {fileID: 0}
+    colorTexture: {fileID: 0}
+    normalTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 6
     sampleOffset:
       x: 0
@@ -6143,7 +6165,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c52686f22de66f44fa4021c0a2fc2159, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MaxAtlasDims: 2048
+  MaxAtlasDims: 8192
 --- !u!224 &1757246588 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 8100861385197948805, guid: 501dcfb826f88fa4898e713a2e7d9be4, type: 3}
@@ -7875,7 +7897,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!1001 &955887399914617273
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8159,7 +8181,10 @@ MonoBehaviour:
   latencyMovingAverageAlpha: 0.7
   intervalMovingAverageAlpha: 0.7
   inTransitMovingAverageAlpha: 0.05
-  horizonFactor: 1.5
+  velocityJumpThreshold: 200
+  correctionDurationSeconds: 0.15
+  angularVelocityJumpThreshold: 10
+  angularCorrectionDurationSeconds: 0.1
   minRequestInterval: 0
   maxRequestsInFlight: 0
   dropOutOfOrderCallbacks: 1

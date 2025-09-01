@@ -1,4 +1,4 @@
-#pragma kernel RenderBackground; // 0 
+#pragma kernel RenderBackground; // 0  
 #pragma kernel RenderFluids;     // 1
 #pragma kernel RenderRigidBodies;// 2
 #pragma kernel RenderRigidBodySprings; // 3
@@ -94,11 +94,13 @@ const int   NextTimeSetRand;
 const float TimeSetLerpFactor;
 const int   PrecomputedCausticsZ;
 
+// Directional light direction (XY on screen, Z out of screen)
+const float2 sunDir = float2(-0.71, -0.71);
+
 // Outputs
 RWTexture2D<unorm float4> Result;
 
-// IMPORTANT: This is the FULL-RES source shadow buffer now.
-// The PP shader will downsample this into its low-res working grid.
+// (High resolution. Shadows may be downsampled by PP shader)
 RWStructuredBuffer<float> ShadowMask;
 
 Texture2D<unorm float4> DynamicCaustics;
@@ -138,27 +140,35 @@ float2 GetTexDims(Texture2D<unorm float4> tex)
 
 float3 SampleTextureBilinear(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
 {
+    // Wrap UV to [0,1)
+    uv = frac(uv);
+
+    // Pixel position within the sub-rect (no global atlas dims here)
     float2 pixelPos = uv * texDims;
- 
-    // Get the neighbouringing texture coordinates
-    int2 texelCoord00 = ((int2)floor(pixelPos)) % texDims;
-    int2 texelCoord10 = (texelCoord00 + int2(1, 0)) % texDims;
-    int2 texelCoord01 = (texelCoord00 + int2(0, 1)) % texDims;
-    int2 texelCoord11 = (texelCoord00 + int2(1, 1)) % texDims;
- 
-    // Load the color data
-    float3 c00 = tex.Load(int3(texelCoord00, 0)).rgb;
-    float3 c10 = tex.Load(int3(texelCoord10, 0)).rgb;
-    float3 c01 = tex.Load(int3(texelCoord01, 0)).rgb;
-    float3 c11 = tex.Load(int3(texelCoord11, 0)).rgb;
- 
-    // Lerp
-    float2 fraction = frac(pixelPos);
-    float3 c0 = lerp(c00, c10, fraction.x);
-    float3 c1 = lerp(c01, c11, fraction.x);
-    float3 sampleCol = lerp(c0, c1, fraction.y);
- 
-    return sampleCol;
+
+    // Integer texel coordinates inside the rect
+    int2 p00 = (int2)floor(pixelPos);
+    int2 p10 = p00 + int2(1, 0);
+    int2 p01 = p00 + int2(0, 1);
+    int2 p11 = p00 + int2(1, 1);
+
+    // Wrap within the rect, then add the atlas offset
+    p00 = texLoc + (p00 % texDims);
+    p10 = texLoc + (p10 % texDims);
+    p01 = texLoc + (p01 % texDims);
+    p11 = texLoc + (p11 % texDims);
+
+    // Fetch
+    float3 c00 = tex.Load(int3(p00, 0)).rgb;
+    float3 c10 = tex.Load(int3(p10, 0)).rgb;
+    float3 c01 = tex.Load(int3(p01, 0)).rgb;
+    float3 c11 = tex.Load(int3(p11, 0)).rgb;
+
+    // Weights
+    float2 f = frac(pixelPos);
+    float3 cx0 = lerp(c00, c10, f.x);
+    float3 cx1 = lerp(c01, c11, f.x);
+    return lerp(cx0, cx1, f.y);
 }
  
 float3 SampleTexturePoint(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
@@ -190,9 +200,9 @@ float4 SampleGradient(float u, Texture2D<unorm float4> gradientTex)
 
 float3 GetMaterialColor(Mat mat, float2 uv, Texture2D<unorm float4> atlas)
 {
-    if (mat.colTexLoc.x != -1)
+    if (mat.albedoTexLoc.x != -1)
     {
-        float3 sampledColor = SampleTexture(uv, mat.colTexLoc, mat.colTexDims, atlas) * mat.sampleColMul;
+        float3 sampledColor = SampleTexture(uv, mat.albedoTexLoc, mat.albedoTexDims, atlas) * mat.sampleColMul;
         return sampledColor + mat.baseCol;
     }
     else return mat.baseCol;
@@ -727,6 +737,119 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
     #endif
 }
 
+/* ===========================
+   PBR helpers for RigidBodies
+   =========================== */
+
+float3 DecodeNormalTS(float3 n)
+{
+    // Texture encoded in 0..1; convert to -1..1 and normalize
+    n = n * 2.0 - 1.0;
+    return normalize(n);
+}
+
+float3 SampleAlbedo(Mat m, float2 uv)
+{
+    float3 a = (m.albedoTexLoc.x != -1)
+             ? SampleTexture(uv, m.albedoTexLoc, m.albedoTexDims, Atlas)
+             : 0;
+    // Apply tint and base *before* BRDF; no saturate here
+    return a * m.sampleColMul + m.baseCol;
+}
+
+float3 SampleNormalWS(Mat m, float2 uv, float zRotation)
+{
+    // TBN for a Z-facing 2D surface, rotated by rigid body's Z rotation
+    float c = cos(zRotation), s = sin(zRotation);
+    float3 T = float3( c,  s, 0);
+    float3 B = float3(-s,  c, 0);
+    float3 N = float3( 0,  0, 1);
+
+    if (m.normalTexLoc.x == -1)
+    {
+        return N;
+    }
+
+    float3 nTS = DecodeNormalTS(SampleTexture(uv, m.normalTexLoc, m.normalTexDims, Atlas));
+    // Tangent space to world space
+    float3 nWS = normalize(T * nTS.x + B * nTS.y + N * nTS.z);
+    return nWS;
+}
+
+void SampleORM(Mat m, float2 uv, out float ao, out float roughness, out float metallic)
+{
+    if (m.ormTexLoc.x != -1)
+    {
+        float3 orm = SampleTexture(uv, m.ormTexLoc, m.ormTexDims, Atlas);
+        ao        = saturate(orm.r);
+        roughness = saturate(orm.g);
+        metallic  = saturate(orm.b);
+    }
+    else
+    {
+        ao = 1.0;
+        roughness = 1.0;  // very rough by default
+        metallic  = 0.0;  // non-metal by default
+    }
+}
+
+// Schlick Fresnel
+float3 FresnelSchlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+// GGX / Trowbridge-Reitz NDF
+float D_GGX(float NdotH, float alpha)
+{
+    float a2 = alpha * alpha;
+    float d = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
+    return a2 / max(PI * d * d, 1e-6);
+}
+
+// Smith's Schlick-GGX geometry term
+float G_SchlickGGX(float NdotX, float k)
+{
+    return NdotX / (NdotX * (1.0 - k) + k);
+}
+
+float G_Smith(float NdotV, float NdotL, float k)
+{
+    return G_SchlickGGX(NdotV, k) * G_SchlickGGX(NdotL, k);
+}
+
+float3 ShadePBR(float3 albedo, float3 N, float3 V, float3 L, float ao, float roughness, float metallic)
+{
+    float3 H = normalize(V + L);
+
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 1e-3);
+    float NdotH = max(dot(N, H), 0.0);
+    float VdotH = max(dot(V, H), 0.0);
+
+    // Base reflectance
+    float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+
+    // Microfacet terms
+    float alpha = max(roughness * roughness, 0.001);
+    float  D = D_GGX(NdotH, alpha);
+    float  k = (alpha + 1.0) * (alpha + 1.0) / 8.0;  // UE4's direct-light formulation
+    float  G = G_Smith(NdotV, NdotL, k);
+    float3 F = FresnelSchlick(VdotH, F0);
+
+    float3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-6);
+
+    // Energy-conserving diffuse
+    float3 kd = (1.0 - F) * (1.0 - metallic);
+    float3 diffuse = kd * albedo / PI;
+
+    // Simple single-directional light (white) + ambient AO
+    float3 direct = (diffuse + specular) * NdotL;
+    float3 ambient = diffuse * ao * 1.01;  // small ambient so RBs still read without IBL
+
+    return ambient + direct;
+}
+
 [numthreads(TN_R,TN_R,1)]
 void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
 {
@@ -737,9 +860,9 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     int   highestRenderPriority = 0;
     bool  rigidBodyFound = false;
     bool  drawOutline    = false;
-    int   matIndex;
+    int   matIndex = 0;
     float3 transformData = 0;
-    float outlineAlpha   = 1.0;
+    float  outlineAlpha   = 1.0;
     
     for (uint rbIndex = 0; rbIndex < NumRigidBodies; rbIndex++)
     {
@@ -786,28 +909,51 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     {
         Mat mat = Materials[matIndex];
 
-        // Always sample the rigid-body color first
-        float2 localPixelPos =
-            rotate2D(pixelPos - transformData.xy, -transformData.z);
-        bool doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
-        float2 localUV =
-            abs(mat.colTexUpScaleFactor) * localPixelPos
-            / min(BoundaryDims.x, BoundaryDims.y) + mat.sampleOffset;
+        // Local UVs (mirror repeat if colTexUpScaleFactor > 0)
+        float2 localPixelPos = rotate2D(pixelPos - transformData.xy, -transformData.z);
+        bool   doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
+        float2 localUV = abs(mat.colTexUpScaleFactor) * localPixelPos / min(BoundaryDims.x, BoundaryDims.y) + mat.sampleOffset;
         localUV = doMirrorRepeat ? MirrorRepeatUV(localUV) : frac(localUV);
-        float3 baseColor = GetMaterialColor(mat, localUV, Atlas);
 
-        // If outline is active, blend edge color with the rigid-body sample
-        float3 finalColor = baseColor;
+        // --- Decide shading path ---
+        const bool hasNormal = (mat.normalTexLoc.x != -1);
+        const bool hasORM    = (mat.ormTexLoc.x    != -1);
+        const bool useFlat   = (!hasNormal && !hasORM);
+
+        float3 finalColor;
+
+        if (useFlat)
+        {
+            // Legacy/flat look when no normal & no ORM → matches previous non-PBR brightness
+            finalColor = GetMaterialColor(mat, localUV, Atlas);
+        }
+        else
+        {
+            // Full PBR (ignores any missing map gracefully)
+            float3 albedo   = SampleAlbedo(mat, localUV);
+            float3 normalWS = SampleNormalWS(mat, localUV, transformData.z);
+
+            float ao, roughness, metallic;
+            SampleORM(mat, localUV, ao, roughness, metallic);
+
+            // Ortho view: camera along +Z; give light a healthy +Z to avoid dimming
+            float3 V = float3(0, 0, 1);
+            float3 L = normalize(float3(sunDir, 1.0));
+
+            finalColor = ShadePBR(albedo, normalWS, V, L, ao, roughness, metallic);
+        }
+
+        // Optional outline blend
         if (drawOutline)
         {
             float3 edgeCol = mat.edgeCol;
             if (!AreAllComponentsEqualTo(edgeCol, -1))
             {
-                finalColor = lerp(baseColor, edgeCol, outlineAlpha);
+                finalColor = lerp(finalColor, edgeCol, outlineAlpha);
             }
         }
 
-        // Blend the final color with the background
+        // Composite with background
         float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);
         SetResultColor(id.xy, result);
 
