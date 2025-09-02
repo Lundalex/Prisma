@@ -29,7 +29,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
         #endif
     }
     
-    private void Awake()
+    void Awake()
     {
         PM.Instance.ResetData(pauseOnStart);
 
@@ -38,6 +38,9 @@ public class ProgramLifeCycleManager : MonoBehaviour
         if (!showUserUI) userUI.SetActive(true);
 
         // Show start confirmation (only when starting the program)
+
+        // --- Important! --- Without editor script reloading - the star confirmation will NOT show up upon play mode cycles (still behaves corerctly in builds though!)
+
         if (!PM.hasShownStartConfirmation)
         {
             startConfirmationWindow.SetActive(true);

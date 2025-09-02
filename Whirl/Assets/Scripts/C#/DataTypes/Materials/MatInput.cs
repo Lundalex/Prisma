@@ -1,33 +1,27 @@
-using System;
 using Unity.Mathematics;
 using UnityEngine;
 
-[Serializable]
-public struct MatInput
+/// <summary>
+/// Per-material input that drives atlas packing and shader params.
+/// Now uses only colTex, which is sourced from renderMat.bakedTexture (if assigned).
+/// </summary>
+[System.Serializable]
+public class MatInput
 {
-    public string name;
+    // Source for colTex
+    public RenderMat renderMat;
 
-    [Header("Optional: source textures from a Unity Material")]
-    public Material unityMaterial;  // If set, textures are extracted and ORM is auto-combined.
+    // Shader params
+    public float3 baseColor = new(0.0f, 0.0f, 0.0f);
+    public float  opacity   = 1.0f;
 
-    // Micro-PBR textures (packed into the shared Atlas). Used if no material is provided,
-    // or to override individual maps from the material if you assign them.
-    public Texture2D colorTexture;   // Albedo
-    public Texture2D normalTexture;  // Normal map (tangent-space)
-    // public Texture2D occlusionTexture;     // Occlusion (R)
-    // public Texture2D roughnessTexture;     // Roughness (G)
-    // public Texture2D metalnessTexture;     // Metalness (B)
-    public Texture2D ormTexture;     // Metalness (B)
+    // UV transform / tiling: sign of colTexUpScaleFactor toggles mirror repeat (positive = mirror)
+    public float2 sampleOffset = new(0, 0);
+    public float  colorTextureUpScaleFactor = 1.0f;
+    public bool   disableMirrorRepeat = false;
 
-    // UV transform / tiling
-    public float colorTextureUpScaleFactor; // sign controls mirror repeat (handled in code)
-    public float2 sampleOffset;
-
-    // Material params
-    public float opacity;
-    public bool disableMirrorRepeat;
-    public bool transparentEdges;
-    public float3 baseColor;
-    public float3 sampleColorMultiplier;
-    public float3 edgeColor;
+    // Tinting / edge color
+    public float3 sampleColorMultiplier = new(1.0f, 1.0f, 1.0f);
+    public bool   transparentEdges = false;
+    public float3 edgeColor = new (0.0f, 0.0f, 0.0f);
 }

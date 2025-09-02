@@ -700,3 +700,7 @@ void ApplyWithoutShadows(uint3 id : SV_DispatchThreadID)
 
     PPResult[px] = Result[px];
 }
+
+// Instead of the current rim lighting, use the sunDir in_ renderer to apply an effect near the edges pacing the sun.
+// Also, make the edges of all rbs appear curved, like rounded edges on a cube. To achieve this_, add functionality for_ both altering the uv, and calculating a normal and comparing it to the sunDir. Make the sunDir a float3_ so it can shine ON the rigidbodies.
+// All added variables/settings should be defined with static_ const_ variables in_ the shader _(not set from c#).

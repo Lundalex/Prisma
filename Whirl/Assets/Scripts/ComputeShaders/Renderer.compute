@@ -1,4 +1,4 @@
-#pragma kernel RenderBackground; // 0  
+#pragma kernel RenderBackground; // 0 
 #pragma kernel RenderFluids;     // 1
 #pragma kernel RenderRigidBodies;// 2
 #pragma kernel RenderRigidBodySprings; // 3
@@ -94,13 +94,11 @@ const int   NextTimeSetRand;
 const float TimeSetLerpFactor;
 const int   PrecomputedCausticsZ;
 
-// Directional light direction (XY on screen, Z out of screen)
-const float2 sunDir = float2(-0.71, -0.71);
-
 // Outputs
 RWTexture2D<unorm float4> Result;
 
-// (High resolution. Shadows may be downsampled by PP shader)
+// IMPORTANT: This is the FULL-RES source shadow buffer now.
+// The PP shader will downsample this into its low-res working grid.
 RWStructuredBuffer<float> ShadowMask;
 
 Texture2D<unorm float4> DynamicCaustics;
@@ -140,35 +138,24 @@ float2 GetTexDims(Texture2D<unorm float4> tex)
 
 float3 SampleTextureBilinear(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
 {
-    // Wrap UV to [0,1)
-    uv = frac(uv);
-
-    // Pixel position within the sub-rect (no global atlas dims here)
     float2 pixelPos = uv * texDims;
-
-    // Integer texel coordinates inside the rect
-    int2 p00 = (int2)floor(pixelPos);
-    int2 p10 = p00 + int2(1, 0);
-    int2 p01 = p00 + int2(0, 1);
-    int2 p11 = p00 + int2(1, 1);
-
-    // Wrap within the rect, then add the atlas offset
-    p00 = texLoc + (p00 % texDims);
-    p10 = texLoc + (p10 % texDims);
-    p01 = texLoc + (p01 % texDims);
-    p11 = texLoc + (p11 % texDims);
-
-    // Fetch
-    float3 c00 = tex.Load(int3(p00, 0)).rgb;
-    float3 c10 = tex.Load(int3(p10, 0)).rgb;
-    float3 c01 = tex.Load(int3(p01, 0)).rgb;
-    float3 c11 = tex.Load(int3(p11, 0)).rgb;
-
-    // Weights
-    float2 f = frac(pixelPos);
-    float3 cx0 = lerp(c00, c10, f.x);
-    float3 cx1 = lerp(c01, c11, f.x);
-    return lerp(cx0, cx1, f.y);
+ 
+    int2 texelCoord00 = ((int2)floor(pixelPos)) % texDims;
+    int2 texelCoord10 = (texelCoord00 + int2(1, 0)) % texDims;
+    int2 texelCoord01 = (texelCoord00 + int2(0, 1)) % texDims;
+    int2 texelCoord11 = (texelCoord00 + int2(1, 1)) % texDims;
+ 
+    float3 c00 = tex.Load(int3(texelCoord00, 0)).rgb;
+    float3 c10 = tex.Load(int3(texelCoord10, 0)).rgb;
+    float3 c01 = tex.Load(int3(texelCoord01, 0)).rgb;
+    float3 c11 = tex.Load(int3(texelCoord11, 0)).rgb;
+ 
+    float2 fraction = frac(pixelPos);
+    float3 c0 = lerp(c00, c10, fraction.x);
+    float3 c1 = lerp(c01, c11, fraction.x);
+    float3 sampleCol = lerp(c0, c1, fraction.y);
+ 
+    return sampleCol;
 }
  
 float3 SampleTexturePoint(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
@@ -200,9 +187,9 @@ float4 SampleGradient(float u, Texture2D<unorm float4> gradientTex)
 
 float3 GetMaterialColor(Mat mat, float2 uv, Texture2D<unorm float4> atlas)
 {
-    if (mat.albedoTexLoc.x != -1)
+    if (mat.colTexLoc.x != -1)
     {
-        float3 sampledColor = SampleTexture(uv, mat.albedoTexLoc, mat.albedoTexDims, atlas) * mat.sampleColMul;
+        float3 sampledColor = SampleTexture(uv, mat.colTexLoc, mat.colTexDims, atlas) * mat.sampleColMul;
         return sampledColor + mat.baseCol;
     }
     else return mat.baseCol;
@@ -266,13 +253,8 @@ bool IsOutsideSimBounds(float2 pixelPos)
     return 0 > pixelPos.x || pixelPos.x > (float)BoundaryDims.x || 0 > pixelPos.y || pixelPos.y > (float)BoundaryDims.y;
 }
 
-// This function is called often, and performs in O(n) time (n: number of vertices in rb)
-// Overall, worst scenario, each thread performs at O(n^2) time (n: number of vertices of each rb)
-// For very large amounts of rb:s, the program performs in O(n^2 * k) time (n: number of vertices of each rb, k: number of rbs)
-// This is also true for RayRBDstHitInfo (rbSimShader), IsPointInsideRB (rbSimShader), and DstToRB (renderShader)
 bool IsPointInsideRB(float2 pos, RigidBody rb)
 {
-    // Shift to local space
     pos -= rb.pos;
 
     uint intersections = 0;
@@ -281,41 +263,33 @@ bool IsPointInsideRB(float2 pos, RigidBody rb)
     uint numVertices = endIndex - startIndex + 1;
     uint pathStartIndex  = startIndex;
     
-    // First vertex
     float2 firstPathVec = RBVectors[startIndex].pos;
     float2 lastVec = firstPathVec;
 
-    // Perform point-line tests for every edge
     for (uint i = 1; i <= numVertices; i++)
     {
-        // Wrap at the end
         uint vecIndex = (i == numVertices) ? pathStartIndex : (startIndex + i);
         float2 newVec = RBVectors[vecIndex].pos;
 
         bool newPathFlag = (newVec.x > PATH_FLAG_THRESHOLD);
         if (newPathFlag)
         {
-            // Close the subpath: (lastVec -> firstPathVec)
             if (IsPointToTheLeftOfLine(pos, lastVec, firstPathVec)) intersections++;
 
-            // Remove the marker offset
             newVec.x -= PATH_FLAG_OFFSET;
 
-            // Start a new subpath
             firstPathVec = newVec;
             lastVec = newVec;
             pathStartIndex = vecIndex;
         }
         else
         {
-            // Normal edge: (lastVec -> newVec)
             if (IsPointToTheLeftOfLine(pos, lastVec, newVec)) intersections++;
 
             lastVec = newVec;
         }
     }
 
-    // Odd # intersections => inside
     return ((intersections % 2) == 1);
 }
 
@@ -328,7 +302,6 @@ float DstToRB(float2 pos, RigidBody rb)
 {
     pos -= rb.pos;
 
-    // Track the minimum distance-squared
     float minDstSqr = 1.#INF;
 
     uint startIndex = rb.startIndex;
@@ -336,11 +309,9 @@ float DstToRB(float2 pos, RigidBody rb)
     uint numVertices = endIndex - startIndex + 1;
     uint pathStartIndex = startIndex;
 
-    // First vertex
     float2 firstPathVec = RBVectors[startIndex].pos;
     float2 lastVec = firstPathVec;
 
-    // Perform point-line tests for every edge
     for (uint i = 1; i <= numVertices; i++)
     {
         uint vecIndex = (i == numVertices) ? pathStartIndex : (startIndex + i);
@@ -349,8 +320,6 @@ float DstToRB(float2 pos, RigidBody rb)
         bool newPathFlag = (newVec.x > PATH_FLAG_THRESHOLD);
         if (newPathFlag)
         {
-            // Close the subpath: (lastVec -> firstPathVec)
-            // Block-scope for local variables
             {
                 float2 dst = DstToLineSegment(lastVec, firstPathVec, pos);
                 float dstSqr = dot2(dst);
@@ -358,17 +327,14 @@ float DstToRB(float2 pos, RigidBody rb)
                     minDstSqr = dstSqr;
             }
 
-            // Remove the marker offset
             newVec.x -= PATH_FLAG_OFFSET;
 
-            // Start a new subpath
             firstPathVec = newVec;
             lastVec = newVec;
             pathStartIndex = vecIndex;
         }
         else
         {
-            // Normal edge: (lastVec -> newVec)
             float2 dst = DstToLineSegment(lastVec, newVec, pos);
             float dstSqr = dot2(dst);
             if (dstSqr < minDstSqr) minDstSqr = dstSqr;
@@ -386,7 +352,6 @@ float MetaballsDensity(float dst, float invRadius)
     return (1 - dstR);
 }
 
-// Function to calculate noise density remains the same
 float NoiseDensity(float dst, float invRadius, int pSeed)
 {
     int lastRandSeed = LastTimeSetRand * ParticlesNum + pSeed;
@@ -407,27 +372,25 @@ float3 SampleCaustics(uint2 threadID, float3 sampleColMul)
     float2 referenceCausticsRes = 512;
 
     float caustics;
-    #if USE_DYNAMIC_CAUSTICS
-        float2 causticsTexDims = GetTexDims(DynamicCaustics);
-    
-        uint2 wrappedThreadID = (uint2)(threadID * DynamicCausticsScaleFactor * causticsTexDims / referenceCausticsRes) % causticsTexDims;
-    
-        caustics = (float)DynamicCaustics[wrappedThreadID].rgb;
-    #else
-        uint2 wrappedThreadID = (uint2)(threadID * PrecomputedCausticsScaleFactor * PrecomputedCausticsDims.xy / referenceCausticsRes) % PrecomputedCausticsDims.xy;
+#if USE_DYNAMIC_CAUSTICS
+    float2 causticsTexDims = GetTexDims(DynamicCaustics);
+    uint2 wrappedThreadID = (uint2)(threadID * DynamicCausticsScaleFactor * causticsTexDims / referenceCausticsRes) % causticsTexDims;
+    caustics = (float)DynamicCaustics[wrappedThreadID].rgb;
+#else
+    uint2 wrappedThreadID = (uint2)(threadID * PrecomputedCausticsScaleFactor * PrecomputedCausticsDims.xy / referenceCausticsRes) % PrecomputedCausticsDims.xy;
 
-        uint zDim = PrecomputedCausticsDims.z;
-        uint z = PrecomputedCausticsZ;
+    uint zDim = PrecomputedCausticsDims.z;
+    uint z = PrecomputedCausticsZ;
 
-        float current = PrecomputedCaustics.Load(int4(wrappedThreadID, z % zDim, 0));
-        float next = PrecomputedCaustics.Load(int4(wrappedThreadID, (z + 1) % zDim, 0));
-        float prev = PrecomputedCaustics.Load(int4(wrappedThreadID, (z - 1 + zDim) % zDim, 0));
+    float current = PrecomputedCaustics.Load(int4(wrappedThreadID, z % zDim, 0));
+    float next = PrecomputedCaustics.Load(int4(wrappedThreadID, (z + 1) % zDim, 0));
+    float prev = PrecomputedCaustics.Load(int4(wrappedThreadID, (z - 1 + zDim) % zDim, 0));
         
-        float noBlur = current;
-        float fullBlur = (current + next + prev) / 3.0;
+    float noBlur = current;
+    float fullBlur = (current + next + prev) / 3.0;
         
-        caustics = lerp(noBlur, fullBlur, PrecomputedCausticsZBlurFactor);
-    #endif
+    caustics = lerp(noBlur, fullBlur, PrecomputedCausticsZBlurFactor);
+#endif
 
     float3 color = caustics * sampleColMul;
 
@@ -460,20 +423,16 @@ float2 GetPixelPos(uint2 pixelID)
 
 float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos)
 {
-    // pixelID from pixel positions
     float2 pixelID = (pixelPos - ViewOffset) / ViewScale - 0.5;
 
-    // Scale texture dimensions
     float2 texDims = GetTexDims(Background);
     float scaleX = (float)Resolution.x / texDims.x;
     float scaleY = (float)Resolution.y / texDims.y;
     float scale = max(scaleX, scaleY);
     float2 scaledTexDims = texDims * scale;
 
-    // Calculate the offset to center the background
     float2 offset = (scaledTexDims - (float2)Resolution) * 0.5;
 
-    // Calculate the UV coordinates
     float2 uv = ((pixelID + offset) * BackgroundUpScaleFactor) / scaledTexDims;
     uv = MirrorRepeatBackgroundUV ? MirrorRepeatUV(uv) : frac(uv);
 
@@ -485,21 +444,18 @@ void RenderBackground(uint3 id : SV_DispatchThreadID)
 {
     if (IsOutsideResolutionDims(id.xy)) return;
     
-    // Calculate the uv
     float2 pixelPos = GetPixelPos(id.xy);
     float2 uv = ComputeBackgroundUVFromPixelPos(pixelPos);
 
     float3 sampleCol = SampleTexture(uv, 0, GetTexDims(Background), Background) * BackgroundBrightness;
     SetResultColor(id.xy, sampleCol);
 
-    // Reset ShadowMask (full-res)
     uint shadowIndex = id.y * Resolution.x + id.x;
     ShadowMask[shadowIndex] = 0.0;
 }
 
 float3 BlendWithBackground(float3 color, float opacity, uint2 threadID)
 {
-    // Calculate the uv
     float2 pixelPos = GetPixelPos(threadID);
     float2 uv = ComputeBackgroundUVFromPixelPos(pixelPos);
 
@@ -539,16 +495,16 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
     bool doDrawFluid = false;
     bool drawOutline = false;
     float minDstSqr = 1.#INF;
-    #if !USE_METABALLS
-        float minLiquidRadius = min(MaxInfluenceRadius, VisualLiquidParticleRadius);
-        float minLiquidRadiusSqr = minLiquidRadius * minLiquidRadius;
-        float minGasRadius = min(MaxInfluenceRadius, VisualGasParticleRadius);
-        float minGasRadiusSqr = minGasRadius * minGasRadius;
-    #endif
-    #if DISPLAY_FLUID_VELOCITIES
-        float totVelocitiesSummative = 0;
-        int numParticles = 0;
-    #endif
+#if !USE_METABALLS
+    float minLiquidRadius = min(MaxInfluenceRadius, VisualLiquidParticleRadius);
+    float minLiquidRadiusSqr = minLiquidRadius * minLiquidRadius;
+    float minGasRadius = min(MaxInfluenceRadius, VisualGasParticleRadius);
+    float minGasRadiusSqr = minGasRadius * minGasRadius;
+#endif
+#if DISPLAY_FLUID_VELOCITIES
+    float totVelocitiesSummative = 0;
+    int numParticles = 0;
+#endif
     for (int x = -1; x <= 1; x++)
     {
         for (int y = -1; y <= 1; y++)
@@ -574,65 +530,65 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                 int pTypeIndex = Extract_PType(lastChunkKey_PType_POrder);
                 bool isGas = ((uint)pTypeIndex % 3) == 2;
 
-                #if USE_METABALLS
-                    if (dstSqr < MaxInfluenceRadiusSqr)
+#if USE_METABALLS
+                if (dstSqr < MaxInfluenceRadiusSqr)
+                {
+                    if (dstSqr < minDstSqr)
                     {
-                        if (dstSqr < minDstSqr)
-                        {
-                            minDstSqr = dstSqr;
-                            if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-                            else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-                        }
-
-                        #if DISPLAY_FLUID_VELOCITIES
-                            totVelocitiesSummative += length(pData.vel);
-                            numParticles++;
-                        #endif
-
-                        float dst = sqrt(dstSqr);
-                        totDensity += MetaballsDensity(dst, InvMaxInfluenceRadius);
-                        totNoiseDensity += NoiseDensity(dst, InvMaxInfluenceRadius, pIndex);
-
-                        if (!isGas) nearestIsNotGas = true;
-
-                        #if DRAW_FLUID_OUTLINES
-                            if (totDensity > (isGas ? (GasMetaballsThreshold - GasMetaballsEdgeDensityWidth) : (LiquidMetaballsThreshold - LiquidMetaballsEdgeDensityWidth)))
-                            {
-                                drawOutline = true;
-                                doDrawFluid = true;
-                            }
-                        #endif
-
-                        if (totDensity > (isGas ? GasMetaballsThreshold : LiquidMetaballsThreshold))
-                        {
-                            #if DRAW_FLUID_OUTLINES
-                                drawOutline = false;
-                            #else
-                                doDrawFluid = true;
-                            #endif
-                        }
-                    }
-                #else
-                    if (dstSqr < (isGas ? min(minGasRadius, minDstSqr) : min(minLiquidRadiusSqr, minDstSqr)))
-                    {
-                        #if DISPLAY_FLUID_VELOCITIES
-                            totVelocitiesSummative += length(pData.vel);
-                            numParticles++;
-                        #endif
-
-                        doDrawFluid = true;
                         minDstSqr = dstSqr;
                         if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
                         else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-
-                        if (!isGas) nearestIsNotGas = true;
-
-                        #if DRAW_FLUID_OUTLINES
-                            if (sqrt(dstSqr) > (isGas ? (minGasRadius - GasEdgeWidth) : (minLiquidRadius - LiquidEdgeWidth))) drawOutline = true;
-                            else drawOutline = false;
-                        #endif
                     }
-                #endif
+
+#if DISPLAY_FLUID_VELOCITIES
+                    totVelocitiesSummative += length(pData.vel);
+                    numParticles++;
+#endif
+
+                    float dst = sqrt(dstSqr);
+                    totDensity += MetaballsDensity(dst, InvMaxInfluenceRadius);
+                    totNoiseDensity += NoiseDensity(dst, InvMaxInfluenceRadius, pIndex);
+
+                    if (!isGas) nearestIsNotGas = true;
+
+#if DRAW_FLUID_OUTLINES
+                    if (totDensity > (isGas ? (GasMetaballsThreshold - GasMetaballsEdgeDensityWidth) : (LiquidMetaballsThreshold - LiquidMetaballsEdgeDensityWidth)))
+                    {
+                        drawOutline = true;
+                        doDrawFluid = true;
+                    }
+#endif
+
+                    if (totDensity > (isGas ? GasMetaballsThreshold : LiquidMetaballsThreshold))
+                    {
+#if DRAW_FLUID_OUTLINES
+                        drawOutline = false;
+#else
+                        doDrawFluid = true;
+#endif
+                    }
+                }
+#else
+                if (dstSqr < (isGas ? min(minGasRadius, minDstSqr) : min(minLiquidRadiusSqr, minDstSqr)))
+                {
+#if DISPLAY_FLUID_VELOCITIES
+                    totVelocitiesSummative += length(pData.vel);
+                    numParticles++;
+#endif
+
+                    doDrawFluid = true;
+                    minDstSqr = dstSqr;
+                    if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
+                    else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
+
+                    if (!isGas) nearestIsNotGas = true;
+
+#if DRAW_FLUID_OUTLINES
+                    if (sqrt(dstSqr) > (isGas ? (minGasRadius - GasEdgeWidth) : (minLiquidRadius - LiquidEdgeWidth))) drawOutline = true;
+                    else drawOutline = false;
+#endif
+                }
+#endif
 
                 index++;
             }
@@ -677,177 +633,62 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
         {
             float3 color;
             float opacity;
-            #if DISPLAY_FLUID_VELOCITIES
-                float avgVel = totVelocitiesSummative / numParticles;
-                float4 gradientCol;
-            #endif
+#if DISPLAY_FLUID_VELOCITIES
+            float avgVel = totVelocitiesSummative / numParticles;
+            float4 gradientCol;
+#endif
             if (nearestIsNotGas)
             {
-                #if USE_CAUSTICS
-                    color = SampleCaustics(id.xy, mat.sampleColMul) + mat.baseCol;
-                #else
-                    color = mat.baseCol;
-                #endif
-
+#if USE_CAUSTICS
+                color = SampleCaustics(id.xy, mat.sampleColMul) + mat.baseCol;
+#else
+                color = mat.baseCol;
+#endif
                 opacity = mat.opacity;
 
-                #if DISPLAY_FLUID_VELOCITIES
-                    gradientCol = SampleGradient(avgVel * InvLiquidVelocityGradientMaxValue, LiquidVelocityGradient);
-                #endif
+#if DISPLAY_FLUID_VELOCITIES
+                gradientCol = SampleGradient(avgVel * InvLiquidVelocityGradientMaxValue, LiquidVelocityGradient);
+#endif
             }
             else // isGas
             {
                 opacity = mat.opacity * max(1.0 + totDensity * GasNoiseDensityOpacityFactor, 0.0);
                 color = mat.baseCol + max(1.0 - totNoiseDensity * GasNoiseDensityDarkeningFactor, 0.0);
 
-                #if DISPLAY_FLUID_VELOCITIES
-                    float gradientFactor = avgVel * InvGasVelocityGradientMaxValue;
-                    gradientCol = SampleGradient(gradientFactor, GasVelocityGradient);
-                #endif
+#if DISPLAY_FLUID_VELOCITIES
+                float gradientFactor = avgVel * InvGasVelocityGradientMaxValue;
+                gradientCol = SampleGradient(gradientFactor, GasVelocityGradient);
+#endif
             }
             color *= GlobalBrightness;
             result = BlendWithBackground(color, opacity, id.xy);
 
-            #if DISPLAY_FLUID_VELOCITIES
-                result = lerp(result, gradientCol.rgb, gradientCol.a);
-            #endif
+#if DISPLAY_FLUID_VELOCITIES
+            result = lerp(result, gradientCol.rgb, gradientCol.a);
+#endif
         }
 
-        #if !DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
-            if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
-            SetResultColor(id.xy, result);
-        #endif
+#if !DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
+        if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
+        SetResultColor(id.xy, result);
+#endif
 
-        // Write to ShadowMask (FULL-RES)
         uint shadowIndex = id.y * Resolution.x + id.x;
         ShadowMask[shadowIndex] = nearestIsNotGas ? LiquidShadowStrength : GasShadowStrength;
     }
 
-    #if DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
-        if (!doDrawFluid && isInsideAnySensorArea)
-        {
-            float3 background = BlendWithBackground(0, 0, id.xy);
-            result = sensorAreaTint.rgb * sensorAreaTint.a + background * (1.0 - sensorAreaTint.a);
-        }
-        else if (!doDrawFluid) result = BlendWithBackground(0, 0, id.xy);
-
-        if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
-
-        SetResultColor(id.xy, result);
-    #endif
-}
-
-/* ===========================
-   PBR helpers for RigidBodies
-   =========================== */
-
-float3 DecodeNormalTS(float3 n)
-{
-    // Texture encoded in 0..1; convert to -1..1 and normalize
-    n = n * 2.0 - 1.0;
-    return normalize(n);
-}
-
-float3 SampleAlbedo(Mat m, float2 uv)
-{
-    float3 a = (m.albedoTexLoc.x != -1)
-             ? SampleTexture(uv, m.albedoTexLoc, m.albedoTexDims, Atlas)
-             : 0;
-    // Apply tint and base *before* BRDF; no saturate here
-    return a * m.sampleColMul + m.baseCol;
-}
-
-float3 SampleNormalWS(Mat m, float2 uv, float zRotation)
-{
-    // TBN for a Z-facing 2D surface, rotated by rigid body's Z rotation
-    float c = cos(zRotation), s = sin(zRotation);
-    float3 T = float3( c,  s, 0);
-    float3 B = float3(-s,  c, 0);
-    float3 N = float3( 0,  0, 1);
-
-    if (m.normalTexLoc.x == -1)
+#if DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
+    if (!doDrawFluid && isInsideAnySensorArea)
     {
-        return N;
+        float3 background = BlendWithBackground(0, 0, id.xy);
+        result = sensorAreaTint.rgb * sensorAreaTint.a + background * (1.0 - sensorAreaTint.a);
     }
+    else if (!doDrawFluid) result = BlendWithBackground(0, 0, id.xy);
 
-    float3 nTS = DecodeNormalTS(SampleTexture(uv, m.normalTexLoc, m.normalTexDims, Atlas));
-    // Tangent space to world space
-    float3 nWS = normalize(T * nTS.x + B * nTS.y + N * nTS.z);
-    return nWS;
-}
+    if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
 
-void SampleORM(Mat m, float2 uv, out float ao, out float roughness, out float metallic)
-{
-    if (m.ormTexLoc.x != -1)
-    {
-        float3 orm = SampleTexture(uv, m.ormTexLoc, m.ormTexDims, Atlas);
-        ao        = saturate(orm.r);
-        roughness = saturate(orm.g);
-        metallic  = saturate(orm.b);
-    }
-    else
-    {
-        ao = 1.0;
-        roughness = 1.0;  // very rough by default
-        metallic  = 0.0;  // non-metal by default
-    }
-}
-
-// Schlick Fresnel
-float3 FresnelSchlick(float cosTheta, float3 F0)
-{
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
-}
-
-// GGX / Trowbridge-Reitz NDF
-float D_GGX(float NdotH, float alpha)
-{
-    float a2 = alpha * alpha;
-    float d = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
-    return a2 / max(PI * d * d, 1e-6);
-}
-
-// Smith's Schlick-GGX geometry term
-float G_SchlickGGX(float NdotX, float k)
-{
-    return NdotX / (NdotX * (1.0 - k) + k);
-}
-
-float G_Smith(float NdotV, float NdotL, float k)
-{
-    return G_SchlickGGX(NdotV, k) * G_SchlickGGX(NdotL, k);
-}
-
-float3 ShadePBR(float3 albedo, float3 N, float3 V, float3 L, float ao, float roughness, float metallic)
-{
-    float3 H = normalize(V + L);
-
-    float NdotL = max(dot(N, L), 0.0);
-    float NdotV = max(dot(N, V), 1e-3);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(V, H), 0.0);
-
-    // Base reflectance
-    float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
-
-    // Microfacet terms
-    float alpha = max(roughness * roughness, 0.001);
-    float  D = D_GGX(NdotH, alpha);
-    float  k = (alpha + 1.0) * (alpha + 1.0) / 8.0;  // UE4's direct-light formulation
-    float  G = G_Smith(NdotV, NdotL, k);
-    float3 F = FresnelSchlick(VdotH, F0);
-
-    float3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-6);
-
-    // Energy-conserving diffuse
-    float3 kd = (1.0 - F) * (1.0 - metallic);
-    float3 diffuse = kd * albedo / PI;
-
-    // Simple single-directional light (white) + ambient AO
-    float3 direct = (diffuse + specular) * NdotL;
-    float3 ambient = diffuse * ao * 1.01;  // small ambient so RBs still read without IBL
-
-    return ambient + direct;
+    SetResultColor(id.xy, result);
+#endif
 }
 
 [numthreads(TN_R,TN_R,1)]
@@ -862,7 +703,7 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     bool  drawOutline    = false;
     int   matIndex = 0;
     float3 transformData = 0;
-    float  outlineAlpha   = 1.0;
+    float outlineAlpha   = 1.0;
     
     for (uint rbIndex = 0; rbIndex < NumRigidBodies; rbIndex++)
     {
@@ -870,9 +711,9 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
 
         float dstSqr = dot2(pixelPos - rb.pos);
 
-        #if DRAW_RB_CENTROIDS
-            // Omitted centroid drawing code for brevity
-        #endif
+#if DRAW_RB_CENTROIDS
+        // (optional centroid drawing omitted)
+#endif
 
         int renderPriority = rb.renderPriority;
         if (renderPriority > highestRenderPriority && dstSqr < abs(rb.maxRadiusSqr))
@@ -884,23 +725,23 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
                 matIndex = rb.matIndex;
                 transformData = float3(rb.pos.x, rb.pos.y, rb.totRot);
 
-                #if DRAW_RB_OUTLINES
-                    float dst = DstToRB(pixelPos, rb);
-                    float realRBEdgeWidth = RBEdgeWidth;
-                    float aaRange = RBEdgeWidth;
-                    float outerEdge = realRBEdgeWidth + aaRange;
-                    if (dst < outerEdge)
-                    {
-                        drawOutline = true;
-                        outlineAlpha = (dst > realRBEdgeWidth)
-                            ? (1.0 - saturate((dst - realRBEdgeWidth) / aaRange))
-                            : 1.0;
-                    }
-                    else
-                    {
-                        drawOutline = false;
-                    }
-                #endif
+#if DRAW_RB_OUTLINES
+                float dst = DstToRB(pixelPos, rb);
+                float realRBEdgeWidth = RBEdgeWidth;
+                float aaRange = RBEdgeWidth;
+                float outerEdge = realRBEdgeWidth + aaRange;
+                if (dst < outerEdge)
+                {
+                    drawOutline = true;
+                    outlineAlpha = (dst > realRBEdgeWidth)
+                        ? (1.0 - saturate((dst - realRBEdgeWidth) / aaRange))
+                        : 1.0;
+                }
+                else
+                {
+                    drawOutline = false;
+                }
+#endif
             }
         }
     }
@@ -909,55 +750,28 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     {
         Mat mat = Materials[matIndex];
 
-        // Local UVs (mirror repeat if colTexUpScaleFactor > 0)
-        float2 localPixelPos = rotate2D(pixelPos - transformData.xy, -transformData.z);
-        bool   doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
-        float2 localUV = abs(mat.colTexUpScaleFactor) * localPixelPos / min(BoundaryDims.x, BoundaryDims.y) + mat.sampleOffset;
+        float2 localPixelPos =
+            rotate2D(pixelPos - transformData.xy, -transformData.z);
+        bool doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
+        float2 localUV =
+            abs(mat.colTexUpScaleFactor) * localPixelPos
+            / min(BoundaryDims.x, BoundaryDims.y) + mat.sampleOffset;
         localUV = doMirrorRepeat ? MirrorRepeatUV(localUV) : frac(localUV);
+        float3 baseColor = GetMaterialColor(mat, localUV, Atlas);
 
-        // --- Decide shading path ---
-        const bool hasNormal = (mat.normalTexLoc.x != -1);
-        const bool hasORM    = (mat.ormTexLoc.x    != -1);
-        const bool useFlat   = (!hasNormal && !hasORM);
-
-        float3 finalColor;
-
-        if (useFlat)
-        {
-            // Legacy/flat look when no normal & no ORM → matches previous non-PBR brightness
-            finalColor = GetMaterialColor(mat, localUV, Atlas);
-        }
-        else
-        {
-            // Full PBR (ignores any missing map gracefully)
-            float3 albedo   = SampleAlbedo(mat, localUV);
-            float3 normalWS = SampleNormalWS(mat, localUV, transformData.z);
-
-            float ao, roughness, metallic;
-            SampleORM(mat, localUV, ao, roughness, metallic);
-
-            // Ortho view: camera along +Z; give light a healthy +Z to avoid dimming
-            float3 V = float3(0, 0, 1);
-            float3 L = normalize(float3(sunDir, 1.0));
-
-            finalColor = ShadePBR(albedo, normalWS, V, L, ao, roughness, metallic);
-        }
-
-        // Optional outline blend
+        float3 finalColor = baseColor;
         if (drawOutline)
         {
             float3 edgeCol = mat.edgeCol;
             if (!AreAllComponentsEqualTo(edgeCol, -1))
             {
-                finalColor = lerp(finalColor, edgeCol, outlineAlpha);
+                finalColor = lerp(baseColor, edgeCol, outlineAlpha);
             }
         }
 
-        // Composite with background
         float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);
         SetResultColor(id.xy, result);
 
-        // Write to ShadowMask (FULL-RES)
         uint shadowIndexRB = id.y * Resolution.x + id.x;
         ShadowMask[shadowIndexRB] = RBShadowStrength;
     }
@@ -968,39 +782,30 @@ float2 ClosestPointZigZag(float2 localPos, float amplitude, int numPeriods, floa
     float totalPeriodLength = totalLength / numPeriods;
     float halfPeriod = totalPeriodLength * 0.5;
 
-    // Compute x relative to the start of the zigzag
     float x = localPos.x - startX;
 
-    // Determine the current period index
     int periodIndex = int(floor(x / totalPeriodLength));
 
-    // Position within the current period
     float xInPeriod = x - periodIndex * totalPeriodLength;
 
-    // taper factor
     float t = x / totalLength;
     float taperFactor = saturate(min(t / TaperThresoldNormalised, (1.0 - t) / TaperThresoldNormalised));
 
-    // Apply the tapering to the amplitude
     float taperedAmplitude = amplitude * taperFactor;
 
-    // Compute segment start and end positions with tapered amplitude
     float2 segmentStart, segmentEnd;
 
     if (xInPeriod < halfPeriod)
     {
-        // Ascending segment
         segmentStart = float2(startX + periodIndex * totalPeriodLength, -taperedAmplitude * 0.5);
         segmentEnd = float2(segmentStart.x + halfPeriod, taperedAmplitude * 0.5);
     }
     else
     {
-        // Descending segment
         segmentStart = float2(startX + periodIndex * totalPeriodLength + halfPeriod, taperedAmplitude * 0.5);
         segmentEnd = float2(segmentStart.x + halfPeriod, -taperedAmplitude * 0.5);
     }
 
-    // Compute the closest point on the segment to localPos
     float2 segmentVec = segmentEnd - segmentStart;
     float2 pointVec = localPos - segmentStart;
 
@@ -1015,10 +820,8 @@ bool IsOnSpring(float2 localPos, float springLength, float halfSpringWidth)
 {
     if (!(localPos.x >= 0.0 && localPos.x <= springLength && abs(localPos.y) <= halfSpringWidth)) return false;
     
-    // Check if localPos is on the start or end rods of the spring
     if ((localPos.x < SpringRenderRodLength || localPos.x > springLength - SpringRenderRodLength) && abs(localPos.y) < SpringRenderHalfMatWidth) return true;
 
-    // Check if localPos is within the middle part of the spring
     float midStartX = SpringRenderRodLength;
     float midEndX = springLength - SpringRenderRodLength;
 
@@ -1026,11 +829,9 @@ bool IsOnSpring(float2 localPos, float springLength, float halfSpringWidth)
     {
         float midLength = midEndX - midStartX;
 
-        // Calculate the closest point to a point defined by a zigzag function of x
         float amplitude = halfSpringWidth - SpringRenderHalfMatWidth;
         float2 closestPoint = ClosestPointZigZag(localPos, amplitude, SpringRenderNumPeriods, midStartX, midLength);
 
-        // Check if localPos.y is within the material width of the spring at this x position
         if (length(localPos - closestPoint) <= SpringRenderHalfMatWidth) return true;
     }
 
@@ -1047,22 +848,18 @@ float2 NormalizeLocalSpringPos(float2 value, float rodLength, float totalLength,
 {
     if (value.x < rodLength)
     {
-        // Start rod
         value.x = value.x / rodLength * (rodLength / totalLength);
     }
     else if (value.x > springLength - rodLength)
     {
-        // End rod
         value.x = (value.x - (springLength - rodLength)) / rodLength * ((rodLength / totalLength)) + (1.0 - (rodLength / totalLength));
     }
     else
     {
-        // Middle zigzag section
         float middleLength = springLength - 2.0 * rodLength;
         value.x = (value.x - rodLength) / middleLength * ((totalLength - 2.0 * rodLength) / totalLength) + (rodLength / totalLength);
     }
 
-    // Normalize value.y
     value.y = (value.y / halfSpringWidth) * 0.5 + 0.5;
 
     return value;
@@ -1081,11 +878,9 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
     int   matIndex    = 0;
     int   highestRenderPriority = -1;
 
-    #if !DO_USE_FAST_COMPILATION
-        // Improves performance slightly, but significantly increases build times, even when DO_USE_FAST_COMPILATION = false
-        // Only uncomment this for final builds
-        // [unroll(MAX_RIGIDBODIES_NUM)]
-    #endif
+#if !DO_USE_FAST_COMPILATION
+    // [unroll(MAX_RIGIDBODIES_NUM)] // optional
+#endif
     for (uint rbIndex = 0; rbIndex < MAX_RIGIDBODIES_NUM; rbIndex++)
     {
         if (rbIndex >= NumRigidBodies) break;
@@ -1095,10 +890,6 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         
         float stiffness = rbA.springStiffness;
 
-        // Check if:
-        // 1. The rigid body is linked to another rigid body
-        // 2. The link is a non-rigid constraint (that is, if springLength != 0)
-        // 3. The rigid body render priority is higher than the currently rendered spring
         bool isLinked = rbA.linkedRBIndex != -1 && rbA.linkedRBIndex != (int)rbIndex;
         bool rigidConstraint = stiffness == 0.0;
         int renderPriority = rbA.renderPriority;
@@ -1109,24 +900,17 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         float2 worldLinkPosA = rbA.pos + rotate2D(rbA.localLinkPosThisRB, rbA.totRot);
         float2 worldLinkPosB = rbB.pos + rotate2D(rbA.localLinkPosOtherRB, rbB.totRot);
         
-        // (localSpringStart == 0 after the transformations)
         float2 localSpringEnd = worldLinkPosB - worldLinkPosA;
         float springLength = length(localSpringEnd);
 
-        // Avoid drawing the springs with 0 length
         if (springLength == 0.0) continue;
 
-        // Compute the angle to rotate so that localSpringEnd aligns with x-axis
         float theta = atan2(localSpringEnd.y, localSpringEnd.x);
 
-        // Compute the vector from spring start to pixel position
         float2 pixelVec = pixelPos - worldLinkPosA;
 
-        // Rotate the pixel vector into the spring's local coordinate system
         float2 localPixelPos = rotate2D(pixelVec, -theta);
 
-        // Now the spring starts at (0,0), ends at (springLength, 0)
-        // Check if the pixel is within the spring's area
         float halfSpringWidth = SpringRenderWidth * 0.5;
 
         bool isOnSpring = IsOnSpring(localPixelPos, springLength, halfSpringWidth);
@@ -1155,8 +939,6 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         
         SetResultColor(id.xy, result);
 
-        // IMPORTANT: Flag springs in the full-res ShadowMask without destroying occluder info.
-        // Encoding: spring => -(prevMagnitude + 1). This guarantees < 0 even when prevMagnitude == 0.
         uint  shadowIndexRB = id.y * Resolution.x + id.x;
         float prev          = ShadowMask[shadowIndexRB];
         float prevMag       = max(prev, 0.0);

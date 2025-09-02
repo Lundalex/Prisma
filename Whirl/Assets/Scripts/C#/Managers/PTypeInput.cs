@@ -6,8 +6,8 @@ public class PTypeInput : MonoBehaviour
 {
     public PTypeState[] particleTypeStates;
 
-    public void OnValidate() => PM.Instance.doOnSettingsChanged = true;
-    
+    void OnValidate() => PM.Instance.doOnSettingsChanged = true;
+
     public PType[] GetParticleTypes()
     {
         PType[] particleTypes = new PType[particleTypeStates.Length * 3];

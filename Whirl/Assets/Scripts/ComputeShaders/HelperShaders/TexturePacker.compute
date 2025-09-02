@@ -1,0 +1,28 @@
+#pragma kernel PackRGBA_2D
+
+Texture2D<float4> TexR;
+Texture2D<float4> TexG;
+Texture2D<float4> TexB;
+Texture2D<float4> TexA;
+
+RWTexture2D<float4> Texture_Output;
+
+cbuffer Params
+{
+    int2 Resolution;
+};
+
+[numthreads(8, 8, 1)]
+void PackRGBA_2D(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)Resolution.x || id.y >= (uint)Resolution.y) return;
+
+    int2 uv = int2(id.xy);
+
+    float r = TexR.Load(int3(uv, 0)).r;
+    float g = TexG.Load(int3(uv, 0)).g;
+    float b = TexB.Load(int3(uv, 0)).b;
+    float a = TexA.Load(int3(uv, 0)).a;
+
+    Texture_Output[uv] = float4(r, g, b, a);
+}

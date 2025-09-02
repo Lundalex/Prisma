@@ -15,37 +15,37 @@ public class Main : MonoBehaviour
 {
     public SimulationDevice simDevice = SimulationDevice.GPU;
 
-#region Safety
+    #region Safety
     public float MaxPVel = 100;
     public float MaxRBRotVel = 100;
     public float MaxRBVel = 100;
     public float MinRBVelForMovement = 0.1f;
-#endregion
+    #endregion
 
-#region Sensor Normalization
+    #region Sensor Normalization
     public float SimUnitToMetersFactor = 0.005f;
     public float ZDepthMeters = 0.1f;
     public float PressureFactor = 1.77f;
-#endregion
+    #endregion
 
-#region Fluid Simulation
+    #region Fluid Simulation
     public float LookAheadTime = 0.017f;
     public float StateThresholdPadding = 3.0f;
     public int MaxInfluenceRadius = 2;
     [SerializeField] private int MaxParticlesNum = 30000;
     [SerializeField] private int MaxStartingParticlesNum = 20000;
     [SerializeField] private int MaxSpringsPerParticle = 150;
-#endregion
+    #endregion
 
-#region Scene Boundary
+    #region Scene Boundary
     public int2 BoundaryDims = new(300, 200);
     public float FluidPadding = 4.0f;
     public float RigidBodyPadding = 2.0f;
     public float BoundaryElasticity = 0.2f;
     public float BoundaryFriction = 0.0f;
-#endregion
+    #endregion
 
-#region Engine Optimisations
+    #region Engine Optimisations
     // Fluids
     public bool DoSimulateParticleViscosity = true;
     public bool DoSimulateParticleSprings = true;
@@ -55,16 +55,16 @@ public class Main : MonoBehaviour
     public float FloatIntPrecisionRB = 50000.0f; // Rigid Body Simulation
     public float FloatIntPrecisionRBRot = 500000.0f; // Rigid Body Simulation
     public float FloatIntPrecisionP = 1000.0f; // Particle Simulation
-#endregion
+    #endregion
 
-#region Rigid Body Simulation
+    #region Rigid Body Simulation
     public bool AllowLinkedRBCollisions = false;
     public float RB_RBCollisionCorrectionFactor = 0.8f;
     public float RB_RBFixedCollisionCorrection = 0.05f;
     public float RB_RBRigidConstraintCorrectionFactor = 5.0f;
-#endregion
+    #endregion
 
-#region Simulation Time
+    #region Simulation Time
     public int TimeStepsPerFrame = 3;
     public int SubTimeStepsPerFrame = 3;
     public int SubTimeStepsPerRBSimUpdate = 1;
@@ -72,9 +72,9 @@ public class Main : MonoBehaviour
     public int TargetFrameRate;
     public float TimeStep = 0.02f;
     public float ProgramSpeed = 2.0f;
-#endregion
+    #endregion
 
-#region Mouse Interaction
+    #region Mouse Interaction
     // Particles
     public float MaxInteractionRadius = 40.0f;
     public float InteractionAttractionPower = 3.5f;
@@ -88,9 +88,9 @@ public class Main : MonoBehaviour
     public float RB_InteractionAttractionPower = 3.5f;
     public float RB_InteractionRepulsionPower = 3.5f;
     public float RB_InteractionDampening = 0.1f;
-#endregion
+    #endregion
 
-#region Render Pipeline
+    #region Render Pipeline
     public FluidRenderMethod FluidRenderMethod;
     public SampleMethod SampleMethod;
     public CausticsType CausticsTypeEditor;
@@ -111,9 +111,9 @@ public class Main : MonoBehaviour
         RenderStep.RigidBodySprings,
         RenderStep.UI
     };
-#endregion
+    #endregion
 
-#region Post Processing
+    #region Post Processing
     public ShadowType ShadowType;
     public float ShadowDarkness = 0.45f;
     public float ShadowFalloff = 0.01f;
@@ -129,9 +129,9 @@ public class Main : MonoBehaviour
     public float RimShadingBleed = 0.2f;
     public float RimShadingOpaqueBleed = 3.0f;
     public int ShadowDownSampling = 1;
-#endregion
+    #endregion
 
-#region Render Display
+    #region Render Display
     public int2 Resolution;
     public Vector2 UIPadding;
 
@@ -203,9 +203,9 @@ public class Main : MonoBehaviour
     // Rigid body path flags
     public static readonly float PathFlagOffset = 100000.0f;
     public static readonly float PathFlagThreshold = PathFlagOffset / 2.0f;
-#endregion
+    #endregion
 
-#region References
+    #region References
     // Textures
     public RenderTexture uiTexture;
     public RenderTexture dynamicCausticsTexture;
@@ -224,7 +224,7 @@ public class Main : MonoBehaviour
     public ComputeShader rbSimShader;
     public ComputeShader sortShader;
     public ComputeShader debugShader;
-#endregion
+    #endregion
 
     // Bitonic mergesort
     public ComputeBuffer SpatialLookupBuffer;
@@ -387,9 +387,9 @@ public class Main : MonoBehaviour
         SetShaderKeywords();
         InitCausticsGen();
 
-        #if UNITY_EDITOR
-            ComputeShaderDebugger.CheckShaderConstants(this, debugShader, pTypeInput);
-        #endif
+#if UNITY_EDITOR
+        ComputeShaderDebugger.CheckShaderConstants(this, debugShader, pTypeInput);
+#endif
 
         // Initialize the shader pipeline
         UpdateShaderTimeStep();
@@ -403,7 +403,7 @@ public class Main : MonoBehaviour
         // If an addressable caustics texture is assigned, load it and set precomputedCausticsTexture.
         TryLoadAddressableCaustics();
     }
-    
+
     public void UpdateScript()
     {
         UpdateSimulationPDatas();
@@ -592,11 +592,11 @@ public class Main : MonoBehaviour
     {
         if (DoUseFastShaderCompilation)
         {
-            #if !UNITY_EDITOR
+#if !UNITY_EDITOR
                 Debug.LogWarning("Fast shader compilation enabled in build version. This may slightly decrease runtime performance");
-            #else
-                // Debug.Log("Fast shader compilation enabled in build version. This may slightly decrease runtime performance");
-            #endif
+#else
+            // Debug.Log("Fast shader compilation enabled in build version. This may slightly decrease runtime performance");
+#endif
         }
 
         // Render shader
@@ -656,33 +656,41 @@ public class Main : MonoBehaviour
     private void SetLightingSettings()
     {
         if (LightingSettings == LightingSettings.Custom) return;
-        switch (Application.platform)
-        {
-            case RuntimePlatform.WindowsEditor:
-                GlobalBrightness = 1.0f;
-                Contrast = 1.1f;
-                Saturation = 1.2f;
-                Gamma = 0.52f;
-                SettingsViewDarkTintPercent = 0.8f;
-                break;
-            case RuntimePlatform.OSXEditor:
-                GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
-                Contrast = 1.2f;
-                Saturation = 1.1f;
-                Gamma = 0.7f;
-                SettingsViewDarkTintPercent = 0.8f;
-                break;
-            case RuntimePlatform.WebGLPlayer:
-                GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
-                Contrast = 1.2f;
-                Saturation = 1.1f;
-                Gamma = 0.65f;
-                SettingsViewDarkTintPercent = 0.8f;
-                break;
-            default:
-                Debug.LogError("RuntimePlatform not recognised. Will default to using custom preset");
-                break;
-        }
+
+        GlobalBrightness = 1.0f;
+        Contrast = 1.0f;
+        Saturation = 1.0f;
+        Gamma = 1.0f;
+        SettingsViewDarkTintPercent = 1.0f;
+
+        // Old code
+        // switch (Application.platform)
+        // {
+        //     case RuntimePlatform.WindowsEditor:
+        //         GlobalBrightness = 1.0f;
+        //         Contrast = 1.1f;
+        //         Saturation = 1.2f;
+        //         Gamma = 0.52f;
+        //         SettingsViewDarkTintPercent = 0.8f;
+        //         break;
+        //     case RuntimePlatform.OSXEditor:
+        //         GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
+        //         Contrast = 1.2f;
+        //         Saturation = 1.1f;
+        //         Gamma = 0.7f;
+        //         SettingsViewDarkTintPercent = 0.8f;
+        //         break;
+        //     case RuntimePlatform.WebGLPlayer:
+        //         GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
+        //         Contrast = 1.2f;
+        //         Saturation = 1.1f;
+        //         Gamma = 0.65f;
+        //         SettingsViewDarkTintPercent = 0.8f;
+        //         break;
+        //     default:
+        //         Debug.LogError("RuntimePlatform not recognised. Will default to using custom preset");
+        //         break;
+        // }
     }
 
     private float GetDeltaTime(float totalFrameTime, bool doClamp)
@@ -770,24 +778,24 @@ public class Main : MonoBehaviour
 
         int len = ParticlesNum_NextPow2;
         int sortIterationKernelIndex = sortShader.FindKernel("SortIteration");
-        
+
         int basebBlockLen = 2;
         if (threadGroupsNumHalfCeil > 0)
-        while (basebBlockLen != 2 * len) // basebBlockLen == len is the last outer iteration
-        {
-            int blockLen = basebBlockLen;
-            while (blockLen != 1) // blockLen == 2 is the last inner iteration
+            while (basebBlockLen != 2 * len) // basebBlockLen == len is the last outer iteration
             {
-                bool BrownPinkSort = blockLen == basebBlockLen;
+                int blockLen = basebBlockLen;
+                while (blockLen != 1) // blockLen == 2 is the last inner iteration
+                {
+                    bool BrownPinkSort = blockLen == basebBlockLen;
 
-                sortShader.SetInt("BlockLen_BrownPinkSort", blockLen * (BrownPinkSort ? 1 : -1));
+                    sortShader.SetInt("BlockLen_BrownPinkSort", blockLen * (BrownPinkSort ? 1 : -1));
 
-                sortShader.Dispatch(sortIterationKernelIndex, threadGroupsNumHalfCeil, 1, 1);
+                    sortShader.Dispatch(sortIterationKernelIndex, threadGroupsNumHalfCeil, 1, 1);
 
-                blockLen /= 2;
+                    blockLen /= 2;
+                }
+                basebBlockLen *= 2;
             }
-            basebBlockLen *= 2;
-        }
 
         ComputeHelper.DispatchKernel(sortShader, "PopulateStartIndices", threadGroupsNum);
     }
@@ -808,14 +816,14 @@ public class Main : MonoBehaviour
             // Calculate prefix sums (SpringStartIndices)
             bool StepBufferCycle = false;
             if (threadGroupsNum > 0)
-            for (int offset = 1; offset < ChunksNumAll; offset *= 2)
-            {
-                StepBufferCycle = !StepBufferCycle;
+                for (int offset = 1; offset < ChunksNumAll; offset *= 2)
+                {
+                    StepBufferCycle = !StepBufferCycle;
 
-                sortShader.SetInt("Offset2_StepBufferCycle", offset * (StepBufferCycle ? 1 : -1));
+                    sortShader.SetInt("Offset2_StepBufferCycle", offset * (StepBufferCycle ? 1 : -1));
 
-                sortShader.Dispatch(ppssKernelIndex, threadGroupsNum, 1, 1);
-            }
+                    sortShader.Dispatch(ppssKernelIndex, threadGroupsNum, 1, 1);
+                }
 
             if (StepBufferCycle == true) ComputeHelper.DispatchKernel(sortShader, "CopySpringStartIndicesBuffer", threadGroupsNum); // copy to result buffer
         }
@@ -914,7 +922,7 @@ public class Main : MonoBehaviour
 
         int2 fullThreads2D = new(renderTexture.width, renderTexture.height);
         int2 shadowThreads2D = GetShadowResolution();
-        int  shadowThreadsX  = shadowThreads2D.x;
+        int shadowThreadsX = shadowThreads2D.x;
 
         if (ShadowType == ShadowType.None)
         {
@@ -952,7 +960,7 @@ public class Main : MonoBehaviour
 
         if (isBlurred)
         {
-            // Work in LOW RES for blur
+            // Work in low resolution for blur
             ComputeHelper.DispatchKernel(ppShader, "CopySharpShadows", shadowThreads2D, ppShaderThreadSize2);
 
             bool stepBufferCycle = true;
@@ -964,12 +972,11 @@ public class Main : MonoBehaviour
                 stepBufferCycle = !stepBufferCycle;
             }
 
-            // APPLY to FULL RES: kernel performs AA upsample (bilinear) from low-res mask
+            ppShader.SetBool("StepBufferCycle", !stepBufferCycle);
             ComputeHelper.DispatchKernel(ppShader, "ApplyBlurredShadows", fullThreads2D, ppShaderThreadSize2);
         }
         else
         {
-            // APPLY to FULL RES: kernel performs AA upsample (bilinear) from low-res mask
             ComputeHelper.DispatchKernel(ppShader, "ApplySharpShadows", fullThreads2D, ppShaderThreadSize2);
         }
     }
@@ -996,7 +1003,7 @@ public class Main : MonoBehaviour
     {
         // Wait 2s to let other processes run before loading the addressable.
         if (!PM.hasBeenReset) yield return new WaitForSecondsRealtime(2f);
-        
+
         var init = Addressables.InitializeAsync();
         yield return init;
 
@@ -1072,7 +1079,7 @@ public class Main : MonoBehaviour
     private int2 GetShadowResolution()
     {
         int factor = 1 << Mathf.Clamp(ShadowDownSampling, 0, 30);
-        int w = Mathf.Max(1, renderTexture != null ? renderTexture.width  / factor : PM.Instance.ResolutionInt2.x / factor);
+        int w = Mathf.Max(1, renderTexture != null ? renderTexture.width / factor : PM.Instance.ResolutionInt2.x / factor);
         int h = Mathf.Max(1, renderTexture != null ? renderTexture.height / factor : PM.Instance.ResolutionInt2.y / factor);
         return new int2(w, h);
     }

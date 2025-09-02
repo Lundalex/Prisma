@@ -18,7 +18,6 @@ public class SceneManager : MonoBehaviour
     private Main main;
     private ArrowManager arrowManager;
     private SensorManager sensorManager;
-    private RenderManager renderManager;
 
     private void SetReferences()
     {
@@ -27,8 +26,6 @@ public class SceneManager : MonoBehaviour
         main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
         arrowManager = GameObject.FindGameObjectWithTag("ArrowManager").GetComponent<ArrowManager>();
         sensorManager = GameObject.FindGameObjectWithTag("SensorManager").GetComponent<SensorManager>();
-        renderManager = FindFirstObjectByType<RenderManager>();
-        if (renderManager != null && renderManager.main == null) renderManager.main = main;
 
         referencesHaveBeenSet = true;
     }
@@ -83,39 +80,20 @@ public class SceneManager : MonoBehaviour
 
     public (Texture2D, Mat[]) ConstructTextureAtlas(MatInput[] matInputs)
     {
-        // Collect all textures (albedo/normal/ORM) and remember which material & channel each came from
+        // Collect colTex from renderMat.bakedTexture
         List<Texture2D> textures = new();
-        List<(int matIndex, int channel)> mapping = new(); // channel: 0=albedo, 1=normal, 2=orm
+        List<int> mapping = new(); // rect index -> mat index
 
         for (int i = 0; i < matInputs.Length; i++)
         {
-            var mat = matInputs[i];
-
-            // Albedo (a.k.a. color)
-            if (mat.colorTexture != null)
+            var mi = matInputs[i];
+            var colTex = (mi != null && mi.renderMat != null) ? mi.renderMat.bakedTexture : null;
+            if (colTex != null)
             {
-                if (!mat.colorTexture.isReadable)
-                    Debug.LogWarning("Color Texture " + mat.colorTexture.name + " is not readable. Enable Read/Write.");
-                textures.Add(mat.colorTexture);
-                mapping.Add((i, 0));
-            }
-
-            // Normal
-            if (mat.normalTexture != null)
-            {
-                if (!mat.normalTexture.isReadable)
-                    Debug.LogWarning("Normal Texture " + mat.normalTexture.name + " is not readable. Enable Read/Write.");
-                textures.Add(mat.normalTexture);
-                mapping.Add((i, 1));
-            }
-
-            // ORM (Occlusion-Roughness-Metalness in RGB)
-            if (mat.ormTexture != null)
-            {
-                if (!mat.ormTexture.isReadable)
-                    Debug.LogWarning("ORM Texture " + mat.ormTexture.name + " is not readable. Enable Read/Write.");
-                textures.Add(mat.ormTexture);
-                mapping.Add((i, 2));
+                if (!colTex.isReadable)
+                    Debug.LogWarning("Baked Texture " + colTex.name + " is not readable. Enable Read/Write.");
+                textures.Add(colTex);
+                mapping.Add(i);
             }
         }
 
@@ -126,52 +104,36 @@ public class SceneManager : MonoBehaviour
             : Array.Empty<Rect>();
 
         float sizeMB = (atlas.width * atlas.height * 8f) / (1024f * 1024f);
-        StringUtils.LogIfInEditor($"Texture atlas constructed with {rects.Length} sub-textures and a size of {sizeMB:0.00} MB");
+        StringUtils.LogIfInEditor($"Texture atlas (colTex only) with {rects.Length} sub-textures, size {sizeMB:0.00} MB");
 
         // Helpers to convert rects to atlas-space int2 coords/dims
-        int2 GetTexLoc(Rect rect) => new((int)(rect.x * atlas.width), (int)(rect.y * atlas.height));
+        int2 GetTexLoc(Rect rect)  => new((int)(rect.x * atlas.width), (int)(rect.y * atlas.height));
         int2 GetTexDims(Rect rect) => new((int)(rect.width * atlas.width), (int)(rect.height * atlas.height));
 
-        // For each material, store the rect we packed for each channel (if any)
-        Rect[] albedoRects = Enumerable.Repeat(new Rect(0, 0, 0, 0), matInputs.Length).ToArray();
-        Rect[] normalRects = Enumerable.Repeat(new Rect(0, 0, 0, 0), matInputs.Length).ToArray();
-        Rect[] ormRects = Enumerable.Repeat(new Rect(0, 0, 0, 0), matInputs.Length).ToArray();
+        // For each material, record the colTex rect (or mark as missing)
+        Rect[] colRects = Enumerable.Repeat(new Rect(0, 0, 0, 0), matInputs.Length).ToArray();
 
         for (int i = 0; i < mapping.Count; i++)
         {
-            var (matIndex, channel) = mapping[i];
-            Rect r = rects[i];
-            switch (channel)
-            {
-                case 0: albedoRects[matIndex] = r; break;
-                case 1: normalRects[matIndex] = r; break;
-                case 2: ormRects[matIndex] = r; break;
-            }
+            int matIndex = mapping[i];
+            colRects[matIndex] = rects[i];
         }
 
-        // Build render materials with per-channel atlas rects
+        // Build render materials (Mat) array
         Mat[] renderMats = new Mat[matInputs.Length];
         for (int i = 0; i < matInputs.Length; i++)
         {
             var mi = matInputs[i];
 
-            // If a rect's width is zero, treat it as "missing" (-1)
-            int2 albedoLoc = albedoRects[i].width > 0 ? GetTexLoc(albedoRects[i]) : new int2(-1, -1);
-            int2 albedoDim = albedoRects[i].width > 0 ? GetTexDims(albedoRects[i]) : new int2(-1, -1);
-
-            int2 normalLoc = normalRects[i].width > 0 ? GetTexLoc(normalRects[i]) : new int2(-1, -1);
-            int2 normalDim = normalRects[i].width > 0 ? GetTexDims(normalRects[i]) : new int2(-1, -1);
-
-            int2 ormLoc = ormRects[i].width > 0 ? GetTexLoc(ormRects[i]) : new int2(-1, -1);
-            int2 ormDim = ormRects[i].width > 0 ? GetTexDims(ormRects[i]) : new int2(-1, -1);
+            bool hasCol = colRects[i].width > 0f;
+            int2 colLoc  = hasCol ? GetTexLoc(colRects[i])  : new int2(-1, -1);
+            int2 colDims = hasCol ? GetTexDims(colRects[i]) : new int2(-1, -1);
 
             renderMats[i] = InitMat(
                 mi,
-                mi.baseColor,
-                albedoLoc, albedoDim,
-                normalLoc, normalDim,
-                ormLoc, ormDim,
-                mi.sampleOffset
+                mi != null ? mi.baseColor : new float3(0,0,0),
+                colLoc, colDims,
+                mi != null ? mi.sampleOffset : new float2(0,0)
             );
         }
 
@@ -180,32 +142,24 @@ public class SceneManager : MonoBehaviour
 
     private Mat InitMat(MatInput matInput,
                         float3 baseCol,
-                        int2 albedoTexLoc, int2 albedoTexDims,
-                        int2 normalTexLoc, int2 normalTexDims,
-                        int2 ormTexLoc, int2 ormTexDims,
+                        int2 colTexLoc, int2 colTexDims,
                         float2 sampleOffset)
     {
+        float upScale = (matInput != null) ? matInput.colorTextureUpScaleFactor : 1.0f;
+        bool disableMirror = (matInput != null) && matInput.disableMirrorRepeat;
+
         return new Mat
         {
-            // Atlas rects
-            albedoTexLoc = albedoTexLoc,
-            albedoTexDims = albedoTexDims,
-            normalTexLoc = normalTexLoc,
-            normalTexDims = normalTexDims,
-            ormTexLoc = ormTexLoc,
-            ormTexDims = ormTexDims,
+            colTexLoc = colTexLoc,
+            colTexDims = colTexDims,
 
-            // UV transform / tiling flags (mirror repeat via sign)
             sampleOffset = sampleOffset,
-            colTexUpScaleFactor = matInput.disableMirrorRepeat
-                ? -matInput.colorTextureUpScaleFactor
-                : matInput.colorTextureUpScaleFactor,
+            colTexUpScaleFactor = disableMirror ? -upScale : upScale,
 
-            // Material params
             baseCol = baseCol,
-            opacity = Mathf.Clamp(matInput.opacity, 0.0f, 1.0f),
-            sampleColMul = matInput.sampleColorMultiplier,
-            edgeCol = matInput.transparentEdges ? -1 : matInput.edgeColor
+            opacity = Mathf.Clamp(matInput != null ? matInput.opacity : 1.0f, 0.0f, 1.0f),
+            sampleColMul = matInput != null ? matInput.sampleColorMultiplier : new float3(1,1,1),
+            edgeCol = (matInput != null && matInput.transparentEdges) ? new float3(-1, -1, -1) : (matInput != null ? matInput.edgeColor : new float3(0,0,0))
         };
     }
 
@@ -263,8 +217,6 @@ public class SceneManager : MonoBehaviour
         List<RBData> allRBData = new();
         List<RBVector> allRBVectors = new();
         List<SensorBase> sensors = new();
-
-        if (renderManager != null) renderManager.ClearRegistry();
 
         for (int i = 0; i < allRigidBodies.Length; i++)
         {
@@ -327,8 +279,6 @@ public class SceneManager : MonoBehaviour
                 transformedRBPos,
                 parentOffset
             ));
-
-            if (renderManager != null) renderManager.AddRigidBody(rigidBody);
 
             foreach (SensorBase sensor in rigidBody.linkedSensors)
             {
@@ -611,5 +561,3 @@ public class SceneManager : MonoBehaviour
         };
     }
 }
-
-Combine textures into one using custom shader in static public class called ORMPacker

@@ -302,6 +302,7 @@ MonoBehaviour:
     x: 1920
     y: 1440
   UIPadding: {x: 20, y: -30}
+  SunDirection: {x: -0.71, y: -0.71}
   LightingSettings: 0
   GlobalBrightness:
     x: 1
@@ -324,9 +325,9 @@ MonoBehaviour:
     x: 300
     y: 30
   LiquidMetaballsThreshold: 2
-  LiquidMetaballsEdgeDensityWidth: 0.5
+  LiquidMetaballsEdgeDensityWidth: 0.3
   VisualLiquidParticleRadius: 1.5
-  LiquidEdgeWidth: 0.5
+  LiquidEdgeWidth: 0.3
   LiquidVelocityGradient:
     serializedVersion: 2
     key0: {r: 0, g: 0.24705884, b: 1, a: 0}
@@ -1642,6 +1643,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 22
       objectReference: {fileID: 0}
+    - target: {fileID: 2574317851687573791, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
+      propertyPath: m_PixelsPerUnitMultiplier
+      value: 4.05
+      objectReference: {fileID: 0}
     - target: {fileID: 3074724865059488557, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -1758,6 +1763,10 @@ PrefabInstance:
       propertyPath: m_hasFontAssetChanged
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5050186380861828351, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
+      propertyPath: m_PixelsPerUnitMultiplier
+      value: 3.4
+      objectReference: {fileID: 0}
     - target: {fileID: 5312364514376658118, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
       propertyPath: m_Name
       value: Part1Text
@@ -1795,6 +1804,18 @@ PrefabInstance:
     - target: {fileID: 6966798653328401209, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
       propertyPath: displayTextSize
       value: 22
+      objectReference: {fileID: 0}
+    - target: {fileID: 7850715706272902651, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
+      propertyPath: m_Color.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7850715706272902651, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
+      propertyPath: m_Color.g
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7850715706272902651, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
+      propertyPath: m_PixelsPerUnitMultiplier
+      value: 3.7
       objectReference: {fileID: 0}
     - target: {fileID: 8146972876516773553, guid: ebc3fb5969e88c045ac2a2ab24499c4b, type: 3}
       propertyPath: m_text
@@ -8639,7 +8660,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1304320691824200996, guid: 46cb86ecb095d5648bac5a7521f012f5, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 49
       objectReference: {fileID: 0}
     - target: {fileID: 1304320691824200996, guid: 46cb86ecb095d5648bac5a7521f012f5, type: 3}
       propertyPath: m_SizeDelta.y
@@ -12638,9 +12659,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6219053cb0e554d1fba2890751e08a65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  updateTexturesNow: 0
   materialInputs:
   - name: Water
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 0}
+    normalTexture: {fileID: 0}
+    occlusionTexture: {fileID: 0}
+    roughnessTexture: {fileID: 0}
+    metalnessTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 1
     sampleOffset:
       x: 0
@@ -12661,7 +12689,13 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 2800000, guid: b9186a914ecf2754bb0a166b81a15670, type: 3}
+    normalTexture: {fileID: 0}
+    occlusionTexture: {fileID: 0}
+    roughnessTexture: {fileID: 0}
+    metalnessTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 2
     sampleOffset:
       x: 0.5
@@ -12682,7 +12716,13 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 2800000, guid: 68dbe4778a0df41f1821f84ff877273c, type: 3}
+    normalTexture: {fileID: 0}
+    occlusionTexture: {fileID: 0}
+    roughnessTexture: {fileID: 0}
+    metalnessTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 6
     sampleOffset:
       x: 0
@@ -12703,7 +12743,13 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 2800000, guid: fee2943abef354542b1b9fc88a11054b, type: 3}
+    normalTexture: {fileID: 0}
+    occlusionTexture: {fileID: 0}
+    roughnessTexture: {fileID: 0}
+    metalnessTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 3.5
     sampleOffset:
       x: 0
@@ -12724,7 +12770,13 @@ MonoBehaviour:
       y: 1
       z: 1
   - name: 
+    unityMaterial: {fileID: 0}
     colorTexture: {fileID: 2800000, guid: d04a7b267644c444eb7e587aa7dca719, type: 3}
+    normalTexture: {fileID: 0}
+    occlusionTexture: {fileID: 0}
+    roughnessTexture: {fileID: 0}
+    metalnessTexture: {fileID: 0}
+    ormTexture: {fileID: 0}
     colorTextureUpScaleFactor: 4
     sampleOffset:
       x: 0
@@ -12744,6 +12796,7 @@ MonoBehaviour:
       x: 1
       y: 1
       z: 1
+  texturePacker: {fileID: 0}
 --- !u!4 &988659015
 Transform:
   m_ObjectHideFlags: 0
@@ -18601,7 +18654,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1304320691824200996, guid: 46cb86ecb095d5648bac5a7521f012f5, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 49
       objectReference: {fileID: 0}
     - target: {fileID: 1304320691824200996, guid: 46cb86ecb095d5648bac5a7521f012f5, type: 3}
       propertyPath: m_SizeDelta.y
@@ -21880,7 +21933,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -22021,7 +22074,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -22133,7 +22186,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -22261,7 +22314,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -22537,7 +22590,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
