@@ -10,19 +10,20 @@ using UnityEditor;
 
 [ExecuteAlways]
 [DisallowMultipleComponent]
+[RequireComponent(typeof(Camera))]
 public class TextureBaker : MonoBehaviour
 {
     // --- Capture controls (Play Mode only) ---
     public bool doUpdateRenderMats;
+    public bool storeScreenshots = true;
     public Camera targetCamera;
+#if UNITY_EDITOR
     public Vector2Int resolution;
 
     [Tooltip("Pixels with alpha > this value are considered content. 0 = keep any non-zero alpha.")]
     [Range(0, 255)] public byte cropAlphaThreshold = 0;
 
-#if UNITY_EDITOR
     public string outputFolder = "Assets/BakedTextures";
-#endif
 
     // --- Prefab used to create children for RenderMats ---
     public GameObject childPrefab;           // Must have a MeshRenderer on the root or a child
@@ -70,6 +71,8 @@ public class TextureBaker : MonoBehaviour
             if (texturesRoot != _lastRoot || visibleTextureIndex != _lastVisibleIndex)
                 ApplyVisibleChild(visibleTextureIndex);
         }
+
+        targetCamera.depth = (visibleTextureIndex > -1 && !Application.isPlaying) ? 5f : -1f;
     }
 
     // ---------------------- SYNC: RenderMats <-> Children (by NAME) ----------------------
@@ -255,18 +258,18 @@ public class TextureBaker : MonoBehaviour
             Texture2D savedAsset = null;
             yield return StartCoroutine(CaptureAndSaveCoroutine(mat.name, t => savedAsset = t));
 
-#if UNITY_EDITOR
+        #if UNITY_EDITOR
             if (savedAsset)
             {
                 mat.bakedTexture = savedAsset;
                 EditorUtility.SetDirty(mat);
             }
-#endif
+        #endif
         }
 
-#if UNITY_EDITOR
-        AssetDatabase.SaveAssets();
-#endif
+        #if UNITY_EDITOR
+            AssetDatabase.SaveAssets();
+        #endif
 
         visibleTextureIndex = originalIndex;
         ApplyVisibleChild(visibleTextureIndex);
@@ -285,7 +288,7 @@ public class TextureBaker : MonoBehaviour
     }
 
     // ---------------------- Capture (Play Mode) ----------------------
-    IEnumerator CaptureAndSaveCoroutine(string baseName, System.Action<Texture2D> onSavedAsset = null)
+    IEnumerator CaptureAndSaveCoroutine(string baseName, Action<Texture2D> onSavedAsset = null)
     {
         var cam = targetCamera ? targetCamera : GetComponent<Camera>();
         if (!cam) yield break;
@@ -298,7 +301,7 @@ public class TextureBaker : MonoBehaviour
         var prevActive = RenderTexture.active;
 
         cam.targetTexture = rt;
-        yield return null;                 // let pipeline render
+        yield return null;
         yield return new WaitForEndOfFrame();
 
         RenderTexture.active = rt;
@@ -306,29 +309,31 @@ public class TextureBaker : MonoBehaviour
         tex.ReadPixels(new Rect(0, 0, w, h), 0, 0, false);
         tex.Apply(false, false);
 
-        // --- NEW: crop away fully transparent background (alpha <= cropAlphaThreshold) ---
+        // Crop handling
         Texture2D toSave = tex;
         if (TryGetOpaqueBounds(tex, cropAlphaThreshold, out var bounds))
         {
-            // Only crop if we actually found content smaller than full frame
             if (!(bounds.width == w && bounds.height == h))
             {
                 toSave = CropTexture(tex, bounds);
             }
         }
-        // If no opaque pixels found, we keep the original (avoids saving 0x0)
 
         cam.targetTexture = prevTarget;
         RenderTexture.active = prevActive;
 
-#if UNITY_EDITOR
-        var asset = SaveTextureAsset(toSave, baseName);
+    #if UNITY_EDITOR
+        Texture2D asset = null;
+        if (storeScreenshots)
+        {
+            asset = SaveTextureAsset(toSave, baseName);
+        }
         onSavedAsset?.Invoke(asset);
-#else
+    #else
         onSavedAsset?.Invoke(null);
-#endif
+    #endif
 
-        // Cleanup temporary textures/RTs
+        // Cleanup
         if (toSave != tex) Destroy(toSave);
         Destroy(rt);
         Destroy(tex);
@@ -429,6 +434,13 @@ public class TextureBaker : MonoBehaviour
     {
         foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
         return string.IsNullOrEmpty(s) ? "Baked" : s;
+    }
+#endif
+#else
+    void Awake()
+    {
+        var cam = targetCamera ? targetCamera : GetComponent<Camera>();
+        cam.depth = -1f;
     }
 #endif
 }
