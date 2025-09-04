@@ -84,7 +84,7 @@
         <ui:Toggle label="Fast Compilation" binding-path="DoUseFastShaderCompilation" tooltip="Recommended: OFF (for builds), ON (in editor). Whether to enable shader compilation optimisations. This may slightly reduce runtime performance." value="true" />
         <uie:PropertyField binding-path="RenderOrder" name="PropertyField" tooltip="Recommended: Keep default settings. The render order of different program layers." />
     </ui:Foldout>
-    <ui:Foldout text="Post-processing" name="Post-processing" value="true" style="-unity-font-style: bold; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-color: rgb(0, 0, 0); padding-top: 4px; padding-right: 4px; padding-bottom: 4px; padding-left: 4px;">
+    <ui:Foldout text="Post-processing" name="Post-processing" value="false" style="-unity-font-style: bold; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-color: rgb(0, 0, 0); padding-top: 4px; padding-right: 4px; padding-bottom: 4px; padding-left: 4px;">
         <ui:Foldout text="Shadows" value="true" name="Shadows" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="ShadowType" label="Shadows" />
             <ui:Slider label="Darkness" value="0.4" high-value="1" binding-path="ShadowDarkness" show-input-field="true" fill="true" name="Slider" low-value="0" />
@@ -164,11 +164,7 @@
             <uie:PropertyField binding-path="SensorAreaAnimationSpeed" label="Animation Speed" tooltip="Animation speed, measured in simulation area units per real life second" />
         </ui:Foldout>
         <ui:Foldout text="Background" name="Background" value="false" style="-unity-font-style: bold;">
-            <ui:Slider label="Settings View Change Speed" value="10" high-value="20" binding-path="GlobalSettingsViewChangeSpeed" tooltip="The interpolation speed of properties changed in response to opening a sensor settings view panel" show-input-field="true" fill="true" name="Slider" low-value="0.1" />
-            <uie:ObjectField label="Texture" binding-path="backgroundTexture" />
-            <uie:PropertyField binding-path="BackgroundBrightness" label="Brightness" tooltip="A multiple for the background brightness (R, G, B)" />
-            <uie:PropertyField binding-path="BackgroundUpScaleFactor" label="Up-Scaling" tooltip="Background image up-scaling. Uses mirror-repeat for samples outisde the background texture dimensions." />
-            <ui:Toggle label="Mirror Repeat" value="false" tooltip="Whether to use a mirrored uv repetition pattern. Otherwise, A modulo 1 operation will be applied." binding-path="MirrorRepeatBackgroundUV" />
+            <uie:PropertyField binding-path="BackgroundCustomMat" label="Custom Material" />
         </ui:Foldout>
     </ui:Foldout>
     <ui:Foldout text="References" name="References" toggle-on-label-click="true" value="false" style="-unity-font-style: bold; padding-bottom: 4px; padding-top: 4px; padding-right: 4px; padding-left: 4px;">

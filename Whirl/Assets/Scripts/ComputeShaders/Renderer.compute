@@ -1,8 +1,8 @@
-#pragma kernel RenderBackground; // 0 
-#pragma kernel RenderFluids;     // 1
-#pragma kernel RenderRigidBodies;// 2
-#pragma kernel RenderRigidBodySprings; // 3
-#pragma kernel RenderUI; // 4
+#pragma kernel RenderBackground       // 0 
+#pragma kernel RenderFluids           // 1
+#pragma kernel RenderRigidBodies      // 2
+#pragma kernel RenderRigidBodySprings // 3
+#pragma kernel RenderUI               // 4
 
 #pragma multi_compile _ DRAW_RB_CENTROIDS
 #pragma multi_compile _ DRAW_FLUID_OUTLINES
@@ -18,6 +18,10 @@
 #include "./Helpers/MathResources.hlsl"
 #include "./Helpers/DataTypes.hlsl"
 #include "./Helpers/Constants.hlsl"
+
+// -------------------------
+// Tunables / uniforms
+// -------------------------
 
 // Liquid rendering settings
 const float LiquidMetaballsThreshold;
@@ -36,10 +40,9 @@ const float GasNoiseStrength;
 const float GasNoiseDensityDarkeningFactor;
 const float GasNoiseDensityOpacityFactor;
 
-// Background
-const float BackgroundUpScaleFactor;
+// Background (brightness kept; sampling now uses Atlas via BackgroundMatIndex)
 const float3 BackgroundBrightness;
-const bool MirrorRepeatBackgroundUV;
+const int    BackgroundMatIndex;
 
 // Other
 const float RBEdgeWidth;
@@ -59,7 +62,7 @@ const float SpringRenderRodLength;
 const float TaperThresoldNormalised;
 const float2 SpringTextureUVFactor;
 
-// Other
+// View / sim
 const uint2 Resolution;
 const uint2 BoundaryDims;
 const float2 ScreenToViewFactor;
@@ -94,6 +97,10 @@ const int   NextTimeSetRand;
 const float TimeSetLerpFactor;
 const int   PrecomputedCausticsZ;
 
+// -------------------------
+// Resources
+// -------------------------
+
 // Outputs
 RWTexture2D<unorm float4> Result;
 
@@ -107,7 +114,8 @@ Texture2DArray<unorm float> PrecomputedCaustics;
 Texture2D<unorm float4> LiquidVelocityGradient;
 Texture2D<unorm float4> GasVelocityGradient;
 Texture2D<unorm float4> UITexture;
-Texture2D<unorm float4> Background;
+
+// Packed material atlas (all color textures)
 Texture2D<unorm float4> Atlas;
 
 StructuredBuffer<int2> SpatialLookup; 
@@ -122,6 +130,10 @@ StructuredBuffer<RBVector>  RBVectors;
 StructuredBuffer<SensorArea> SensorAreas;
 
 StructuredBuffer<Mat> Materials;
+
+// -------------------------
+// Helpers
+// -------------------------
 
 int Extract_PType(int LastChunkKey_PType_POrder)
 {
@@ -145,10 +157,10 @@ float3 SampleTextureBilinear(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<u
     int2 texelCoord01 = (texelCoord00 + int2(0, 1)) % texDims;
     int2 texelCoord11 = (texelCoord00 + int2(1, 1)) % texDims;
  
-    float3 c00 = tex.Load(int3(texelCoord00, 0)).rgb;
-    float3 c10 = tex.Load(int3(texelCoord10, 0)).rgb;
-    float3 c01 = tex.Load(int3(texelCoord01, 0)).rgb;
-    float3 c11 = tex.Load(int3(texelCoord11, 0)).rgb;
+    float3 c00 = tex.Load(int3(texelCoord00 + texLoc, 0)).rgb;
+    float3 c10 = tex.Load(int3(texelCoord10 + texLoc, 0)).rgb;
+    float3 c01 = tex.Load(int3(texelCoord01 + texLoc, 0)).rgb;
+    float3 c11 = tex.Load(int3(texelCoord11 + texLoc, 0)).rgb;
  
     float2 fraction = frac(pixelPos);
     float3 c0 = lerp(c00, c10, fraction.x);
@@ -421,33 +433,50 @@ float2 GetPixelPos(uint2 pixelID)
     return p * ViewScale + ViewOffset;
 }
 
-float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos)
+float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos, Mat bg)
 {
+    // Convert world/view position back to screen pixel space (as before)
     float2 pixelID = (pixelPos - ViewOffset) / ViewScale - 0.5;
 
-    float2 texDims = GetTexDims(Background);
+    float2 texDims = (float2)bg.colTexDims;
     float scaleX = (float)Resolution.x / texDims.x;
     float scaleY = (float)Resolution.y / texDims.y;
-    float scale = max(scaleX, scaleY);
+    float scale  = max(scaleX, scaleY);
     float2 scaledTexDims = texDims * scale;
 
     float2 offset = (scaledTexDims - (float2)Resolution) * 0.5;
 
-    float2 uv = ((pixelID + offset) * BackgroundUpScaleFactor) / scaledTexDims;
-    uv = MirrorRepeatBackgroundUV ? MirrorRepeatUV(uv) : frac(uv);
+    float up = abs(bg.colTexUpScaleFactor);
+    float2 uv = ((pixelID + offset) * up) / scaledTexDims + bg.sampleOffset;
+
+    bool doMirror = (bg.colTexUpScaleFactor > 0);
+    uv = doMirror ? MirrorRepeatUV(uv) : frac(uv);
 
     return uv;
 }
+
+float3 SampleBackgroundColor(uint2 threadID)
+{
+    if (BackgroundMatIndex < 0 || BackgroundMatIndex >= NumMaterials)
+        return 0;
+
+    Mat bg = Materials[BackgroundMatIndex];
+    float2 pixelPos = GetPixelPos(threadID);
+    float2 uv = ComputeBackgroundUVFromPixelPos(pixelPos, bg);
+    float3 col = GetMaterialColor(bg, uv, Atlas) * BackgroundBrightness;
+    return col;
+}
+
+// -------------------------
+// Kernels
+// -------------------------
 
 [numthreads(TN_R, TN_R, 1)]
 void RenderBackground(uint3 id : SV_DispatchThreadID)
 {
     if (IsOutsideResolutionDims(id.xy)) return;
-    
-    float2 pixelPos = GetPixelPos(id.xy);
-    float2 uv = ComputeBackgroundUVFromPixelPos(pixelPos);
 
-    float3 sampleCol = SampleTexture(uv, 0, GetTexDims(Background), Background) * BackgroundBrightness;
+    float3 sampleCol = SampleBackgroundColor(id.xy);
     SetResultColor(id.xy, sampleCol);
 
     uint shadowIndex = id.y * Resolution.x + id.x;
@@ -456,11 +485,11 @@ void RenderBackground(uint3 id : SV_DispatchThreadID)
 
 float3 BlendWithBackground(float3 color, float opacity, uint2 threadID)
 {
-    float2 pixelPos = GetPixelPos(threadID);
-    float2 uv = ComputeBackgroundUVFromPixelPos(pixelPos);
-
     float transparency = 1 - opacity;
-    return transparency > 0 ? color * opacity + transparency * SampleTexture(uv, 0, GetTexDims(Background), Background) * BackgroundBrightness : color;
+    if (transparency <= 0) return color;
+
+    float3 bg = SampleBackgroundColor(threadID);
+    return color * opacity + transparency * bg;
 }
 
 float DstToBorder(float2 pos, float2 min2, float2 max2)

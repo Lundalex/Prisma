@@ -135,7 +135,6 @@ public class Main : MonoBehaviour
     public int2 Resolution;
     public Vector2 UIPadding;
 
-    // === New: Sun light + RB world UV control ===
     [Header("Lighting / RB Mapping")]
     public Vector2 SunDirection = new(-0.71f, -0.71f); // XY on screen
     [Tooltip("World/simulation units per 1 albedo UV tile for rigid bodies.")]
@@ -195,10 +194,10 @@ public class Main : MonoBehaviour
 
     // Background
     public float GlobalSettingsViewChangeSpeed;
-    public Texture2D backgroundTexture;
     public float3 BackgroundBrightness;
-    public float BackgroundUpScaleFactor;
-    public bool MirrorRepeatBackgroundUV;
+
+    [Header("Background")]
+    public CustomMat BackgroundCustomMat;
 
     // Rigid body path flags
     public static readonly float PathFlagOffset = 100000.0f;
@@ -322,6 +321,8 @@ public class Main : MonoBehaviour
 
     // Expose current material count to helper
     public int MaterialsCount => Mats != null ? Mats.Length : 0;
+    [NonSerialized] public int BackgroundMatIndex = -1;
+    private bool causticsLoaded = false;
 
     public void SubmitParticlesToSimulation(PData[] particlesToAdd) => NewPDatas.AddRange(particlesToAdd);
 
@@ -348,7 +349,7 @@ public class Main : MonoBehaviour
         NumFluidSensors = SensorAreas.Length;
 
         // Materials / atlas / gradients
-        (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(materialInput.materialInputs);
+        BuildAtlasAndMats();
         TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
         TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 
@@ -486,18 +487,18 @@ public class Main : MonoBehaviour
         SetConstants();
 
         // === Rebuild materials/atlas and gradients when inspector inputs change ===
-        (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(materialInput.materialInputs);
+        BuildAtlasAndMats();
         TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
         TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 
-        // Ensure Material buffer fits current material count
+        // Ensure Material buffer fits current material count (BuildAtlasAndMats already did this, safe to call again)
         RecreateOrUpdateMaterialBuffer();
 
         // Rebind changed textures/buffers
         shaderHelper.SetRenderShaderTextures(renderShader);
         shaderHelper.SetRenderShaderBuffers(renderShader);
 
-        // Push all uniforms again (includes sunDir & RBWorldUVScale)
+        // Push all uniforms again (includes sunDir, BackgroundMatIndex)
         UpdateSettings();
 
         SetShaderKeywords();
@@ -663,34 +664,7 @@ public class Main : MonoBehaviour
         Gamma = 1.0f;
         SettingsViewDarkTintPercent = 1.0f;
 
-        // Old code
-        // switch (Application.platform)
-        // {
-        //     case RuntimePlatform.WindowsEditor:
-        //         GlobalBrightness = 1.0f;
-        //         Contrast = 1.1f;
-        //         Saturation = 1.2f;
-        //         Gamma = 0.52f;
-        //         SettingsViewDarkTintPercent = 0.8f;
-        //         break;
-        //     case RuntimePlatform.OSXEditor:
-        //         GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
-        //         Contrast = 1.2f;
-        //         Saturation = 1.1f;
-        //         Gamma = 0.7f;
-        //         SettingsViewDarkTintPercent = 0.8f;
-        //         break;
-        //     case RuntimePlatform.WebGLPlayer:
-        //         GlobalBrightness = new float3(0.8f, 0.8f, 0.8f);
-        //         Contrast = 1.2f;
-        //         Saturation = 1.1f;
-        //         Gamma = 0.65f;
-        //         SettingsViewDarkTintPercent = 0.8f;
-        //         break;
-        //     default:
-        //         Debug.LogError("RuntimePlatform not recognised. Will default to using custom preset");
-        //         break;
-        // }
+        // Old code omitted...
     }
 
     private float GetDeltaTime(float totalFrameTime, bool doClamp)
@@ -730,16 +704,19 @@ public class Main : MonoBehaviour
         ParticlesNum_NextLog2 = (int)Math.Log(ParticlesNum_NextPow2, 2);
         PTypesNum = pTypeInput.particleTypeStates.Length * 3;
 
-        CausticsType = Application.isEditor ? CausticsTypeEditor : CausticsTypeBuild;
-        if (precomputedCausticsTexture == null && CausticsType == CausticsType.Precomputed)
+        if (!causticsLoaded)
         {
-            Debug.LogWarning("Precomputed caustics texture 2D array not assigned in inspector. Defaulting to CausticsType.None");
-            CausticsType = CausticsType.None;
-        }
-        if (precomputedCausticsTexture != null)
-        {
-            if (precomputedCausticsTexture.name == "PrecomputedCaustics_400xy_120z") Debug.LogError("Heavy caustics texture should be loaded as an addressable for lower load times");
-            PrecomputedCausticsDims = new(precomputedCausticsTexture.width, precomputedCausticsTexture.height, precomputedCausticsTexture.depth);
+            CausticsType = Application.isEditor ? CausticsTypeEditor : CausticsTypeBuild;
+            if (precomputedCausticsTexture == null && CausticsType == CausticsType.Precomputed)
+            {
+                Debug.LogWarning("Precomputed caustics texture 2D array not assigned in inspector. Defaulting to CausticsType.None");
+                CausticsType = CausticsType.None;
+            }
+            if (precomputedCausticsTexture != null)
+            {
+                if (precomputedCausticsTexture.name == "PrecomputedCaustics_400xy_120z") Debug.LogError("Heavy caustics texture should be loaded as an addressable for lower load times");
+                PrecomputedCausticsDims = new(precomputedCausticsTexture.width, precomputedCausticsTexture.height, precomputedCausticsTexture.depth);
+            }
         }
     }
 
@@ -1016,13 +993,9 @@ public class Main : MonoBehaviour
 
             // Always set the field as requested
             precomputedCausticsTexture = newTex;
+            causticsLoaded = true;
 
-            // Maintain existing behavior: only apply to shader when in Precomputed mode
-            if (CausticsType != CausticsType.Precomputed)
-            {
-                Debug.LogWarning("Addressable caustics texture loaded, but CausticsType in Main is NOT set to CausticsType.Precomputed.");
-                yield break;
-            }
+            if (CausticsType != CausticsType.Precomputed) yield break;
 
             ApplyPrecomputedCausticsToShader(newTex);
         }
@@ -1118,5 +1091,25 @@ public class Main : MonoBehaviour
         {
             MaterialBuffer.SetData(Mats);
         }
+    }
+
+    private void BuildAtlasAndMats()
+    {
+        var list = new List<CustomMat>(materialInput.materialInputs ?? Array.Empty<CustomMat>());
+        BackgroundMatIndex = -1;
+        if (BackgroundCustomMat != null)
+        {
+            BackgroundMatIndex = list.Count;
+            list.Add(BackgroundCustomMat);
+        }
+
+        (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(list.ToArray());
+        RecreateOrUpdateMaterialBuffer();
+    }
+
+    public void OnBackgroundMatChanged()
+    {
+        BuildAtlasAndMats();
+        UpdateSettings();
     }
 }

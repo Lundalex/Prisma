@@ -59,9 +59,8 @@ public class ShaderHelper : MonoBehaviour
 
     public void SetRenderShaderBuffers(ComputeShader renderShader)
     {
-        // NOTE: The render shader writes the full-resolution source shadow mask (ShadowMask) which
-        //       will be downsampled in the PP shader. Always bind the FULL-RES buffer here.
         renderShader.SetBuffer(0, "ShadowMask", m.ShadowSrcFullRes);
+        renderShader.SetBuffer(0, "Materials", m.MaterialBuffer);
 
         if (m.ParticlesNum != 0)
         {
@@ -90,18 +89,16 @@ public class ShaderHelper : MonoBehaviour
     public void SetRenderShaderTextures(ComputeShader renderShader)
     {
         renderShader.SetTexture(0, "Result", m.renderTexture);
-        renderShader.SetTexture(0, "Background", m.backgroundTexture);
+        renderShader.SetTexture(0, "Atlas", m.AtlasTexture);
 
         renderShader.SetTexture(1, "Result", m.renderTexture);
         renderShader.SetTexture(1, "DynamicCaustics", m.dynamicCausticsTexture);
         if (m.precomputedCausticsTexture != null) renderShader.SetTexture(1, "PrecomputedCaustics", m.precomputedCausticsTexture);
         renderShader.SetTexture(1, "LiquidVelocityGradient", m.LiquidVelocityGradientTexture);
         renderShader.SetTexture(1, "GasVelocityGradient", m.GasVelocityGradientTexture);
-        renderShader.SetTexture(1, "Background", m.backgroundTexture);
         renderShader.SetTexture(1, "Atlas", m.AtlasTexture);
 
         renderShader.SetTexture(2, "Result", m.renderTexture);
-        renderShader.SetTexture(2, "Background", m.backgroundTexture);
         renderShader.SetTexture(2, "Atlas", m.AtlasTexture);
 
         renderShader.SetTexture(3, "Result", m.renderTexture);
@@ -300,9 +297,8 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("GasNoiseDensityDarkeningFactor", m.GasNoiseDensityDarkeningFactor);
         renderShader.SetFloat("GasNoiseDensityOpacityFactor", m.GasNoiseDensityOpacityFactor);
 
-        renderShader.SetFloat("BackgroundUpScaleFactor", m.BackgroundUpScaleFactor);
+        // Keep brightness; upscaling/mirror handled by Background mat now.
         renderShader.SetVector("BackgroundBrightness", Utils.Float3ToVector3(m.BackgroundBrightness));
-        renderShader.SetBool("MirrorRepeatBackgroundUV", m.MirrorRepeatBackgroundUV);
 
         renderShader.SetFloat("RBEdgeWidth", m.RBEdgeWidth);
         renderShader.SetFloat("FluidSensorEdgeWidth", m.FluidSensorEdgeWidth);
@@ -344,7 +340,10 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("Saturation", m.Saturation);
         renderShader.SetFloat("Gamma", m.Gamma);
 
-        // --- New: runtime sun light + RB world UV scale ---
+        // New
+        renderShader.SetInt("BackgroundMatIndex", m.BackgroundMatIndex);
+
+        // New: runtime sun light
         renderShader.SetVector("sunDir", new Vector2(m.SunDirection.x, m.SunDirection.y));
     }
 
