@@ -1095,6 +1095,7 @@ public class Main : MonoBehaviour
 
     private void BuildAtlasAndMats()
     {
+#if UNITY_EDITOR
         var list = new List<CustomMat>(materialInput.materialInputs ?? Array.Empty<CustomMat>());
         BackgroundMatIndex = -1;
         if (BackgroundCustomMat != null)
@@ -1105,6 +1106,14 @@ public class Main : MonoBehaviour
 
         (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(list.ToArray());
         RecreateOrUpdateMaterialBuffer();
+
+        if (PM.Instance.programStarted && renderTexture != null)
+        {
+            shaderHelper.SetRenderShaderTextures(renderShader);
+            shaderHelper.SetRenderShaderBuffers(renderShader);
+            shaderHelper.UpdateRenderShaderVariables(renderShader);
+        }
+#endif
     }
 
     public void OnBackgroundMatChanged()

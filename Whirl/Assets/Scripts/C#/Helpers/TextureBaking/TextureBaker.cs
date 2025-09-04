@@ -50,10 +50,21 @@ public class TextureBaker : MonoBehaviour
     string _lastMatsSig = "";
     string _lastChildrenSig = "";
 
+    // --- Auto-update watch state (Edit & Play) ---
+    struct MatSnapshot
+    {
+        public float light;
+        public int materialId; // track Material reference changes via instance id
+    }
+    readonly Dictionary<RenderMat, MatSnapshot> _matSnapshots = new();
+
     void Start()
     {
         SyncChildrenToRenderMats();
         ApplyVisibleChild(visibleTextureIndex);
+
+        // Prime snapshots so the first change is detected cleanly
+        PrimeMatSnapshots();
 
         // Batch update on start (play mode only)
         if (doUpdateRenderMats && Application.isPlaying && texturesRoot)
@@ -68,6 +79,9 @@ public class TextureBaker : MonoBehaviour
         // Keep child set synced with RenderMats by NAME (edit & play)
         if (NeedsSync())
             SyncChildrenToRenderMats();
+
+        // Auto-update when a RenderMat's 'material' or 'light' field is modified
+        WatchRenderMatChanges();
 
         // Visibility watcher (edit & play)
         if (!_suppressIndexWatcher && texturesRoot)
@@ -255,6 +269,73 @@ public class TextureBaker : MonoBehaviour
         if (!sunLight || mat == null) return;
         // Assumes RenderMat exposes "public float light" which we use as the intensity value.
         sunLight.intensity = mat.light;
+    }
+
+    // ---------------------- AUTO-UPDATE: watch for RenderMat field edits ----------------------
+    void PrimeMatSnapshots()
+    {
+        _matSnapshots.Clear();
+        foreach (var m in renderMats)
+        {
+            if (!m) continue;
+            _matSnapshots[m] = new MatSnapshot
+            {
+                light = m.light,
+                materialId = m.material ? m.material.GetInstanceID() : 0
+            };
+        }
+    }
+
+    void WatchRenderMatChanges()
+    {
+        // Remove snapshots for deleted mats
+        if (_matSnapshots.Count > renderMats.Count)
+        {
+            var keep = new HashSet<RenderMat>(renderMats.Where(m => m));
+            var toRemove = _matSnapshots.Keys.Where(k => !keep.Contains(k)).ToList();
+            foreach (var k in toRemove) _matSnapshots.Remove(k);
+        }
+
+        // Check current mats for changes
+        foreach (var mat in renderMats)
+        {
+            if (!mat) continue;
+
+            int curMatId = mat.material ? mat.material.GetInstanceID() : 0;
+            float curLight = mat.light;
+
+            MatSnapshot prev;
+            bool known = _matSnapshots.TryGetValue(mat, out prev);
+
+            bool lightChanged = !known || !Mathf.Approximately(prev.light, curLight);
+            bool materialChanged = !known || prev.materialId != curMatId;
+
+            if (lightChanged || materialChanged)
+            {
+                // Update snapshot
+                _matSnapshots[mat] = new MatSnapshot { light = curLight, materialId = curMatId };
+
+                // Ensure child exists (sync might already have done this)
+                var child = FindChildByName(mat.name);
+                if (!child)
+                {
+                    SyncChildrenToRenderMats();
+                    child = FindChildByName(mat.name);
+                }
+
+                // If material reference changed, apply it to the child renderer right away
+                if (materialChanged && child)
+                    ApplyMaterialToChild(child, mat.material);
+
+                // If the currently visible texture corresponds to this mat, update light immediately
+                if (lightChanged && sunLight && texturesRoot && visibleTextureIndex >= 0 && visibleTextureIndex < texturesRoot.childCount)
+                {
+                    var visibleChild = texturesRoot.GetChild(visibleTextureIndex);
+                    if (visibleChild && string.Equals(visibleChild.name, mat.name, StringComparison.Ordinal))
+                        ApplySunLightIntensity(mat);
+                }
+            }
+        }
     }
 
     // ---------------------- Batch update (Play Mode) ----------------------
