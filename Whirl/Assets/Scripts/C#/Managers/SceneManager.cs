@@ -79,9 +79,9 @@ public class SceneManager : MonoBehaviour
     }
 
     // ===============================
-    // UPDATED: supports any BaseMat[]
+    // UPDATED: supports any CustomMat[]
     // ===============================
-    public (Texture2D, Mat[]) ConstructTextureAtlas(BaseMat[] materials)
+    public (Texture2D, Mat[]) ConstructTextureAtlas(CustomMat[] materials)
     {
         // Collect the color textures (from either SimpleMat.coltex or RenderMat.bakedTexture)
         List<Texture2D> textures = new();
@@ -125,7 +125,7 @@ public class SceneManager : MonoBehaviour
         Mat[] renderMats = new Mat[materials.Length];
         for (int i = 0; i < materials.Length; i++)
         {
-            BaseMat bm = materials[i];
+            CustomMat bm = materials[i];
 
             bool hasCol = colRects[i].width > 0f;
             int2 colLoc  = hasCol ? GetTexLoc(colRects[i])  : new int2(-1, -1);
@@ -142,8 +142,7 @@ public class SceneManager : MonoBehaviour
         return (atlas, renderMats);
     }
 
-    // NEW: simple helper that pulls the appropriate texture from any BaseMat subtype
-    private static Texture2D GetColTexture(BaseMat bm)
+    private static Texture2D GetColTexture(CustomMat bm)
     {
         if (bm == null) return null;
 
@@ -156,14 +155,14 @@ public class SceneManager : MonoBehaviour
         return null;
     }
 
-    // UPDATED: now accepts BaseMat instead of SimpleMat
-    private Mat InitMat(BaseMat baseMat,
+    // UPDATED: now accepts CustomMat instead of SimpleMat
+    private Mat InitMat(CustomMat CustomMat,
                         float3 baseCol,
                         int2 colTexLoc, int2 colTexDims,
                         float2 sampleOffset)
     {
-        float upScale = (baseMat != null) ? baseMat.colorTextureUpScaleFactor : 1.0f;
-        bool disableMirror = (baseMat != null) && baseMat.disableMirrorRepeat;
+        float upScale = (CustomMat != null) ? CustomMat.colorTextureUpScaleFactor : 1.0f;
+        bool disableMirror = (CustomMat != null) && CustomMat.disableMirrorRepeat;
 
         return new Mat
         {
@@ -174,9 +173,9 @@ public class SceneManager : MonoBehaviour
             colTexUpScaleFactor = disableMirror ? -upScale : upScale,
 
             baseCol = baseCol,
-            opacity = Mathf.Clamp(baseMat != null ? baseMat.opacity : 1.0f, 0.0f, 1.0f),
-            sampleColMul = baseMat != null ? baseMat.sampleColorMultiplier : new float3(1,1,1),
-            edgeCol = (baseMat != null && baseMat.transparentEdges) ? new float3(-1, -1, -1) : (baseMat != null ? baseMat.edgeColor : new float3(0,0,0))
+            opacity = Mathf.Clamp(CustomMat != null ? CustomMat.opacity : 1.0f, 0.0f, 1.0f),
+            sampleColMul = CustomMat != null ? CustomMat.sampleColorMultiplier : new float3(1,1,1),
+            edgeCol = (CustomMat != null && CustomMat.transparentEdges) ? new float3(-1, -1, -1) : (CustomMat != null ? CustomMat.edgeColor : new float3(0,0,0))
         };
     }
 

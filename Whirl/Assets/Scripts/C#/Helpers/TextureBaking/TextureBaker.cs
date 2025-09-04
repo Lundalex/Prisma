@@ -18,6 +18,12 @@ public class TextureBaker : MonoBehaviour
     // --- Capture controls (Play Mode only) ---
     public bool doUpdateRenderMats;
     public Camera targetCamera;
+
+    // --- Sun light (Edit & Play) ---
+    [Header("Sun Light")]
+    [Tooltip("Directional/scene Light whose intensity will be set from RenderMat.light.")]
+    public Light sunLight;
+
 #if UNITY_EDITOR
     public Vector2Int resolution;
 
@@ -228,11 +234,27 @@ public class TextureBaker : MonoBehaviour
         int clamped = Mathf.Clamp(index, 0, count - 1);
         for (int i = 0; i < count; i++)
             SetActive(texturesRoot.GetChild(i), i == clamped);
+
+        // Update sun light intensity for the currently visible mat (preview)
+        if (sunLight)
+        {
+            var child = texturesRoot.GetChild(clamped);
+            var mat = renderMats.FirstOrDefault(m => m && m.name == child.name);
+            ApplySunLightIntensity(mat);
+        }
     }
 
     static void SetActive(Transform t, bool v)
     {
         if (t && t.gameObject.activeSelf != v) t.gameObject.SetActive(v);
+    }
+
+    // ---------------------- Sun light intensity ----------------------
+    void ApplySunLightIntensity(RenderMat mat)
+    {
+        if (!sunLight || mat == null) return;
+        // Assumes RenderMat exposes "public float light" which we use as the intensity value.
+        sunLight.intensity = mat.light;
     }
 
     // ---------------------- Batch update (Play Mode) ----------------------
@@ -243,6 +265,8 @@ public class TextureBaker : MonoBehaviour
         int originalIndex = visibleTextureIndex;
         _suppressIndexWatcher = true;
 
+        float prevLightIntensity = sunLight ? sunLight.intensity : 0f;
+
         foreach (var mat in renderMats)
         {
             if (!mat) continue;
@@ -252,7 +276,10 @@ public class TextureBaker : MonoBehaviour
 
             int idx = child.GetSiblingIndex();
             visibleTextureIndex = idx;
-            ApplyVisibleChild(idx);
+            ApplyVisibleChild(idx); // also updates sun light intensity for preview
+
+            // Ensure intensity is set for this mat before capture
+            if (sunLight) ApplySunLightIntensity(mat);
 
             yield return null;
             yield return new WaitForEndOfFrame();
@@ -276,6 +303,9 @@ public class TextureBaker : MonoBehaviour
         visibleTextureIndex = originalIndex;
         ApplyVisibleChild(visibleTextureIndex);
         _suppressIndexWatcher = false;
+
+        // Restore original light intensity after batch
+        if (sunLight) sunLight.intensity = prevLightIntensity;
     }
 
     Transform FindChildByName(string n)
@@ -471,6 +501,3 @@ public class TextureBaker : MonoBehaviour
     }
 #endif
 }
-
-1. Add the ability in textureBaker to set the light of the sunLight horisontal light component with the light field of the RenderMat
-2. Make the background be a BGRenderMat, inheriting from BaseRenderMat, which has the necessary fields for using the textureBaker, and is inherited bvy the regular RenderMat. This is because the background won't need the other fields of RenderMat. Then modify the Main class to implmenet the new background system. The BGRenderMat should have a Vector2Int for the resolution.
