@@ -4,7 +4,7 @@ using PM = ProgramManager;
 [ExecuteInEditMode]
 public class MaterialInput : MonoBehaviour
 {
-    public MatInput[] materialInputs;
+    public BaseMat[] materialInputs;
 
     void OnValidate() => PM.Instance.doOnSettingsChanged = true;
 }

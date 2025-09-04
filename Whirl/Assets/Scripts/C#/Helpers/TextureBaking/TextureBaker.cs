@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using Unity.VisualScripting;
+
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -15,7 +17,6 @@ public class TextureBaker : MonoBehaviour
 {
     // --- Capture controls (Play Mode only) ---
     public bool doUpdateRenderMats;
-    public bool storeScreenshots = true;
     public Camera targetCamera;
 #if UNITY_EDITOR
     public Vector2Int resolution;
@@ -23,7 +24,8 @@ public class TextureBaker : MonoBehaviour
     [Tooltip("Pixels with alpha > this value are considered content. 0 = keep any non-zero alpha.")]
     [Range(0, 255)] public byte cropAlphaThreshold = 0;
 
-    public string outputFolder = "Assets/BakedTextures";
+    [Tooltip("Folder where screenshots are written. Files are named <RenderMatName>.png (or .jpg if already present).")]
+    public string outputFolder = "Assets/Screenshots";
 
     // --- Prefab used to create children for RenderMats ---
     public GameObject childPrefab;           // Must have a MeshRenderer on the root or a child
@@ -160,7 +162,7 @@ public class TextureBaker : MonoBehaviour
             go = new GameObject("Child");
             go.transform.SetParent(texturesRoot, false);
             if (!go.TryGetComponent<MeshRenderer>(out _)) go.AddComponent<MeshRenderer>();
-            if (!go.TryGetComponent<MeshFilter>(out _))   go.AddComponent<MeshFilter>();
+            if (!go.TryGetComponent<MeshFilter>(out _)) go.AddComponent<MeshFilter>();
         }
 
         go.name = childName;
@@ -258,18 +260,18 @@ public class TextureBaker : MonoBehaviour
             Texture2D savedAsset = null;
             yield return StartCoroutine(CaptureAndSaveCoroutine(mat.name, t => savedAsset = t));
 
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
             if (savedAsset)
             {
                 mat.bakedTexture = savedAsset;
                 EditorUtility.SetDirty(mat);
             }
-        #endif
+#endif
         }
 
-        #if UNITY_EDITOR
-            AssetDatabase.SaveAssets();
-        #endif
+#if UNITY_EDITOR
+        AssetDatabase.SaveAssets();
+#endif
 
         visibleTextureIndex = originalIndex;
         ApplyVisibleChild(visibleTextureIndex);
@@ -293,7 +295,7 @@ public class TextureBaker : MonoBehaviour
         var cam = targetCamera ? targetCamera : GetComponent<Camera>();
         if (!cam) yield break;
 
-        int w = resolution.x > 0 ? resolution.x : (Application.isPlaying && cam.pixelWidth  > 0 ? cam.pixelWidth  : 1024);
+        int w = resolution.x > 0 ? resolution.x : (Application.isPlaying && cam.pixelWidth > 0 ? cam.pixelWidth : 1024);
         int h = resolution.y > 0 ? resolution.y : (Application.isPlaying && cam.pixelHeight > 0 ? cam.pixelHeight : 1024);
 
         var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32);
@@ -322,16 +324,13 @@ public class TextureBaker : MonoBehaviour
         cam.targetTexture = prevTarget;
         RenderTexture.active = prevActive;
 
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
         Texture2D asset = null;
-        if (storeScreenshots)
-        {
-            asset = SaveTextureAsset(toSave, baseName);
-        }
+        asset = SaveTextureAsset(toSave, baseName);
         onSavedAsset?.Invoke(asset);
-    #else
+#else
         onSavedAsset?.Invoke(null);
-    #endif
+#endif
 
         // Cleanup
         if (toSave != tex) Destroy(toSave);
@@ -406,14 +405,42 @@ public class TextureBaker : MonoBehaviour
     // ---------------------- Editor helpers ----------------------
     Texture2D SaveTextureAsset(Texture2D tex, string baseName)
     {
+        // Ensure folder exists and is inside Assets
         string folder = !string.IsNullOrEmpty(outputFolder) && outputFolder.StartsWith("Assets")
-            ? outputFolder : "Assets/BakedTextures";
+            ? outputFolder : "Assets/Screenshots";
         Directory.CreateDirectory(folder);
 
+        // Name exactly after the RenderMat
         string safe = Sanitize(string.IsNullOrEmpty(baseName) ? name : baseName);
-        string path = Path.Combine(folder, $"{safe}_{System.DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png").Replace("\\", "/");
 
-        File.WriteAllBytes(path, tex.EncodeToPNG());
+        // If a file with this base name already exists, reuse its extension to keep the same GUID/meta.
+        // Otherwise, default to PNG.
+        string[] candidateExts = { ".png", ".jpg", ".jpeg" };
+        string chosenExt = null;
+        string path = null;
+        foreach (var ext in candidateExts)
+        {
+            var p = Path.Combine(folder, safe + ext).Replace("\\", "/");
+            if (File.Exists(p))
+            {
+                chosenExt = ext;
+                path = p;
+                break;
+            }
+        }
+        if (path == null)
+        {
+            chosenExt = ".png";
+            path = Path.Combine(folder, safe + chosenExt).Replace("\\", "/");
+        }
+
+        // Encode accordingly and overwrite
+        byte[] bytes = (chosenExt.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                        chosenExt.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+                        ? tex.EncodeToJPG(95)
+                        : tex.EncodeToPNG();
+
+        File.WriteAllBytes(path, bytes);
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
 
         var importer = AssetImporter.GetAtPath(path) as TextureImporter;
@@ -444,3 +471,6 @@ public class TextureBaker : MonoBehaviour
     }
 #endif
 }
+
+1. Add the ability in textureBaker to set the light of the sunLight horisontal light component with the light field of the RenderMat
+2. Make the background be a BGRenderMat, inheriting from BaseRenderMat, which has the necessary fields for using the textureBaker, and is inherited bvy the regular RenderMat. This is because the background won't need the other fields of RenderMat. Then modify the Main class to implmenet the new background system. The BGRenderMat should have a Vector2Int for the resolution.

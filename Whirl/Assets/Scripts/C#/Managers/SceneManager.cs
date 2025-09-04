@@ -78,20 +78,22 @@ public class SceneManager : MonoBehaviour
         return true;
     }
 
-    public (Texture2D, Mat[]) ConstructTextureAtlas(MatInput[] matInputs)
+    // ===============================
+    // UPDATED: supports any BaseMat[]
+    // ===============================
+    public (Texture2D, Mat[]) ConstructTextureAtlas(BaseMat[] materials)
     {
-        // Collect colTex from renderMat.bakedTexture
+        // Collect the color textures (from either SimpleMat.coltex or RenderMat.bakedTexture)
         List<Texture2D> textures = new();
-        List<int> mapping = new(); // rect index -> mat index
+        List<int> mapping = new(); // rect index -> material index
 
-        for (int i = 0; i < matInputs.Length; i++)
+        for (int i = 0; i < materials.Length; i++)
         {
-            var mi = matInputs[i];
-            var colTex = (mi != null && mi.renderMat != null) ? mi.renderMat.bakedTexture : null;
+            Texture2D colTex = GetColTexture(materials[i]);
             if (colTex != null)
             {
                 if (!colTex.isReadable)
-                    Debug.LogWarning("Baked Texture " + colTex.name + " is not readable. Enable Read/Write.");
+                    Debug.LogWarning("Texture " + colTex.name + " is not readable. Enable Read/Write.");
                 textures.Add(colTex);
                 mapping.Add(i);
             }
@@ -104,14 +106,14 @@ public class SceneManager : MonoBehaviour
             : Array.Empty<Rect>();
 
         float sizeMB = (atlas.width * atlas.height * 8f) / (1024f * 1024f);
-        StringUtils.LogIfInEditor($"Texture atlas (colTex only) with {rects.Length} sub-textures, size {sizeMB:0.00} MB");
+        StringUtils.LogIfInEditor($"Texture atlas (colTex) with {rects.Length} sub-textures, size {sizeMB:0.00} MB");
 
         // Helpers to convert rects to atlas-space int2 coords/dims
         int2 GetTexLoc(Rect rect)  => new((int)(rect.x * atlas.width), (int)(rect.y * atlas.height));
         int2 GetTexDims(Rect rect) => new((int)(rect.width * atlas.width), (int)(rect.height * atlas.height));
 
         // For each material, record the colTex rect (or mark as missing)
-        Rect[] colRects = Enumerable.Repeat(new Rect(0, 0, 0, 0), matInputs.Length).ToArray();
+        Rect[] colRects = Enumerable.Repeat(new Rect(0, 0, 0, 0), materials.Length).ToArray();
 
         for (int i = 0; i < mapping.Count; i++)
         {
@@ -120,33 +122,48 @@ public class SceneManager : MonoBehaviour
         }
 
         // Build render materials (Mat) array
-        Mat[] renderMats = new Mat[matInputs.Length];
-        for (int i = 0; i < matInputs.Length; i++)
+        Mat[] renderMats = new Mat[materials.Length];
+        for (int i = 0; i < materials.Length; i++)
         {
-            var mi = matInputs[i];
+            BaseMat bm = materials[i];
 
             bool hasCol = colRects[i].width > 0f;
             int2 colLoc  = hasCol ? GetTexLoc(colRects[i])  : new int2(-1, -1);
             int2 colDims = hasCol ? GetTexDims(colRects[i]) : new int2(-1, -1);
 
             renderMats[i] = InitMat(
-                mi,
-                mi != null ? mi.baseColor : new float3(0,0,0),
+                bm,
+                bm != null ? bm.baseColor : new float3(0,0,0),
                 colLoc, colDims,
-                mi != null ? mi.sampleOffset : new float2(0,0)
+                bm != null ? bm.sampleOffset : new float2(0,0)
             );
         }
 
         return (atlas, renderMats);
     }
 
-    private Mat InitMat(MatInput matInput,
+    // NEW: simple helper that pulls the appropriate texture from any BaseMat subtype
+    private static Texture2D GetColTexture(BaseMat bm)
+    {
+        if (bm == null) return null;
+
+        if (bm is SimpleMat mi && mi.colTexture != null)
+            return mi.colTexture;
+
+        if (bm is RenderMat rm && rm.bakedTexture != null)
+            return rm.bakedTexture;
+
+        return null;
+    }
+
+    // UPDATED: now accepts BaseMat instead of SimpleMat
+    private Mat InitMat(BaseMat baseMat,
                         float3 baseCol,
                         int2 colTexLoc, int2 colTexDims,
                         float2 sampleOffset)
     {
-        float upScale = (matInput != null) ? matInput.colorTextureUpScaleFactor : 1.0f;
-        bool disableMirror = (matInput != null) && matInput.disableMirrorRepeat;
+        float upScale = (baseMat != null) ? baseMat.colorTextureUpScaleFactor : 1.0f;
+        bool disableMirror = (baseMat != null) && baseMat.disableMirrorRepeat;
 
         return new Mat
         {
@@ -157,9 +174,9 @@ public class SceneManager : MonoBehaviour
             colTexUpScaleFactor = disableMirror ? -upScale : upScale,
 
             baseCol = baseCol,
-            opacity = Mathf.Clamp(matInput != null ? matInput.opacity : 1.0f, 0.0f, 1.0f),
-            sampleColMul = matInput != null ? matInput.sampleColorMultiplier : new float3(1,1,1),
-            edgeCol = (matInput != null && matInput.transparentEdges) ? new float3(-1, -1, -1) : (matInput != null ? matInput.edgeColor : new float3(0,0,0))
+            opacity = Mathf.Clamp(baseMat != null ? baseMat.opacity : 1.0f, 0.0f, 1.0f),
+            sampleColMul = baseMat != null ? baseMat.sampleColorMultiplier : new float3(1,1,1),
+            edgeCol = (baseMat != null && baseMat.transparentEdges) ? new float3(-1, -1, -1) : (baseMat != null ? baseMat.edgeColor : new float3(0,0,0))
         };
     }
 

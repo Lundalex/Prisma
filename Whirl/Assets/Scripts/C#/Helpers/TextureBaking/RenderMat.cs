@@ -1,8 +1,11 @@
-using UnityEngine; 
+using UnityEngine;
 
 [CreateAssetMenu(menuName = "Rendering/RenderMat", fileName = "RenderMat")]
-public class RenderMat : ScriptableObject
+public class RenderMat : BaseMat
 {
-    public Texture2D bakedTexture;
+    [Header("Generation Settings")]
     public Material material;
+    [Range(0, 5)] public float light;
+
+    public Texture2D bakedTexture;
 }
