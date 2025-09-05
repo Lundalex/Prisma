@@ -79,7 +79,7 @@ public class SceneManager : MonoBehaviour
     }
 
     // ===============================
-    // UPDATED: supports any CustomMat[]
+    // UPDATED: supports any CustomMat[]; uses only RenderMat.bakedTexture at runtime
     // ===============================
     public (Texture2D, Mat[]) ConstructTextureAtlas(CustomMat[] materials)
     {
@@ -146,11 +146,19 @@ public class SceneManager : MonoBehaviour
     {
         if (bm == null) return null;
 
+        // SimpleMat: author-provided color texture (intended for runtime use)
         if (bm is SimpleMat mi && mi.colTexture != null)
             return mi.colTexture;
 
-        if (bm is RenderMat rm && rm.bakedTexture != null)
-            return rm.bakedTexture;
+        // RenderMat: RUNTIME MUST USE THE BAKED TEXTURE ONLY
+        if (bm is RenderMat rm)
+        {
+            if (rm.bakedTexture != null)
+                return rm.bakedTexture;
+
+            Debug.LogWarning($"RenderMat '{rm.name}' has no bakedTexture; skipping in atlas.");
+            return null;
+        }
 
         return null;
     }

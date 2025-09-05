@@ -1,1158 +1,3 @@
-#pragma kernel RenderBackground       // 0 
-#pragma kernel RenderFluids           // 1
-#pragma kernel RenderRigidBodies      // 2
-#pragma kernel RenderRigidBodySprings // 3
-#pragma kernel RenderUI               // 4
-
-#pragma multi_compile _ DRAW_RB_CENTROIDS
-#pragma multi_compile _ DRAW_FLUID_OUTLINES
-#pragma multi_compile _ DISPLAY_FLUID_VELOCITIES
-#pragma multi_compile _ USE_CAUSTICS
-#pragma multi_compile _ USE_DYNAMIC_CAUSTICS
-#pragma multi_compile _ DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
-#pragma multi_compile _ DRAW_RB_OUTLINES
-#pragma multi_compile _ USE_METABALLS
-#pragma multi_compile _ USE_BILINEAR_SAMPLER
-#pragma multi_compile _ DO_USE_FAST_COMPILATION
-
-#include "./Helpers/MathResources.hlsl"
-#include "./Helpers/DataTypes.hlsl"
-#include "./Helpers/Constants.hlsl"
-
-// Liquid rendering settings
-const float LiquidMetaballsThreshold;
-const float LiquidMetaballsEdgeDensityWidth;
-const float VisualLiquidParticleRadius;
-const float LiquidEdgeWidth;
-const float InvLiquidVelocityGradientMaxValue;
-
-// Gas rendering settings
-const float GasMetaballsThreshold;
-const float GasMetaballsEdgeDensityWidth;
-const float VisualGasParticleRadius;
-const float GasEdgeWidth;
-const float InvGasVelocityGradientMaxValue;
-const float GasNoiseStrength;
-const float GasNoiseDensityDarkeningFactor;
-const float GasNoiseDensityOpacityFactor;
-
-// Background
-const float3 BackgroundBrightness;
-const int    BackgroundMatIndex;
-
-// Other
-const float RBEdgeWidth;
-const float FluidSensorEdgeWidth;
-const float SensorAreaAnimationSpeed;
-
-// ShadowMask strengths
-const float RBShadowStrength;
-const float LiquidShadowStrength;
-const float GasShadowStrength;
-
-// Rigid body springs
-const int   SpringRenderNumPeriods;
-const float SpringRenderWidth;
-const float SpringRenderHalfMatWidth;
-const float SpringRenderRodLength;
-const float TaperThresoldNormalised;
-const float2 SpringTextureUVFactor;
-
-// View / sim
-const uint2 Resolution;
-const uint2 BoundaryDims;
-const float2 ScreenToViewFactor;
-const float2 ViewScale;
-const float2 ViewOffset;
-const float  InvMaxInfluenceRadius;
-const int    MaxInfluenceRadius;
-const int    MaxInfluenceRadiusSqr;
-const int    NumMaterials;
-const int2   ChunksNum;
-const uint   ChunksNumAll;
-const int    ParticlesNum;
-const uint   PTypesNum;
-const uint   NumRigidBodies;
-const uint   NumFluidSensors;
-const int3   PrecomputedCausticsDims;
-const float  PrecomputedCausticsScaleFactor;
-const float  DynamicCausticsScaleFactor;
-const float  PrecomputedCausticsZBlurFactor;
-
-// Global rendering settings
-const float3 GlobalBrightness;
-const float  GlobalBrightnessFactor;
-const float  Contrast;
-const float  Saturation;
-const float  Gamma;
-
-// Per-timestep-set variables
-const float TotalScaledTimeElapsed;
-const int   LastTimeSetRand;
-const int   NextTimeSetRand;
-const float TimeSetLerpFactor;
-const int   PrecomputedCausticsZ;
-
-// -------------------------
-// Resources
-// -------------------------
-
-// Outputs
-RWTexture2D<unorm float4> Result;
-
-// High res shadow mask
-RWStructuredBuffer<float> ShadowMask;
-
-Texture2D<unorm float4> DynamicCaustics;
-Texture2DArray<unorm float> PrecomputedCaustics;
-
-Texture2D<unorm float4> LiquidVelocityGradient;
-Texture2D<unorm float4> GasVelocityGradient;
-Texture2D<unorm float4> UITexture;
-
-// Packed material atlas (all color textures)
-Texture2D<unorm float4> Atlas;
-
-StructuredBuffer<int2> SpatialLookup; 
-StructuredBuffer<int>  StartIndices;
-
-StructuredBuffer<PData>  PDatas;
-StructuredBuffer<PType>  PTypes;
-
-StructuredBuffer<RigidBody> RigidBodies;
-StructuredBuffer<RBVector>  RBVectors;
-
-StructuredBuffer<SensorArea> SensorAreas;
-
-StructuredBuffer<Mat> Materials;
-
-// -------------------------
-// Helpers
-// -------------------------
-
-int Extract_PType(int LastChunkKey_PType_POrder)
-{
-    return ((uint)LastChunkKey_PType_POrder % (ChunksNumAll * PTypesNum)) / ChunksNumAll;
-}
-
-float2 GetTexDims(Texture2D<unorm float4> tex)
-{
-    float t;
-    float2 texDims;
-    tex.GetDimensions(0, texDims.x, texDims.y, t);
-    return texDims;
-}
-
-float3 SampleTextureBilinear(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
-{
-    float2 pixelPos = uv * texDims;
- 
-    int2 texelCoord00 = ((int2)floor(pixelPos)) % texDims;
-    int2 texelCoord10 = (texelCoord00 + int2(1, 0)) % texDims;
-    int2 texelCoord01 = (texelCoord00 + int2(0, 1)) % texDims;
-    int2 texelCoord11 = (texelCoord00 + int2(1, 1)) % texDims;
- 
-    float3 c00 = tex.Load(int3(texelCoord00 + texLoc, 0)).rgb;
-    float3 c10 = tex.Load(int3(texelCoord10 + texLoc, 0)).rgb;
-    float3 c01 = tex.Load(int3(texelCoord01 + texLoc, 0)).rgb;
-    float3 c11 = tex.Load(int3(texelCoord11 + texLoc, 0)).rgb;
- 
-    float2 fraction = frac(pixelPos);
-    float3 c0 = lerp(c00, c10, fraction.x);
-    float3 c1 = lerp(c01, c11, fraction.x);
-    float3 sampleCol = lerp(c0, c1, fraction.y);
- 
-    return sampleCol;
-}
- 
-float3 SampleTexturePoint(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
-{
-    uint2 texelCoord = texLoc + ((floor(uv * float2(texDims.x, texDims.y))) % texDims);
-    float3 sampleCol = tex.Load(int3(texelCoord, 0)).rgb;
-    return sampleCol;
-}
-
-float3 SampleTexture(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
-{
-    uv = frac(uv);
-    
-    #if USE_BILINEAR_SAMPLER
-        return SampleTextureBilinear(uv, texLoc, texDims, tex);
-    #else
-        return SampleTexturePoint(uv, texLoc, texDims, tex);
-    #endif
-}
-
-float3 SampleTextureBandlimited(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex, float footprintTexels)
-{
-    if (footprintTexels <= 1.0)
-        return SampleTexture(uv, texLoc, texDims, tex);
-
-    float2 rUV = (0.5 * footprintTexels) / float2(texDims);
-
-    const float wC  = 1.0;
-    const float wA  = 0.5;
-    const float wD  = 0.35;
-    const float wSum = wC + 4.0*wA + 4.0*wD;
-
-    float3 acc = 0;
-
-    acc += wC * SampleTexture(uv, texLoc, texDims, tex);
-
-    acc += wA * SampleTexture(uv + float2( rUV.x, 0.0), texLoc, texDims, tex);
-    acc += wA * SampleTexture(uv + float2(-rUV.x, 0.0), texLoc, texDims, tex);
-    acc += wA * SampleTexture(uv + float2(0.0,  rUV.y), texLoc, texDims, tex);
-    acc += wA * SampleTexture(uv + float2(0.0, -rUV.y), texLoc, texDims, tex);
-
-    acc += wD * SampleTexture(uv + float2( rUV.x,  rUV.y), texLoc, texDims, tex);
-    acc += wD * SampleTexture(uv + float2(-rUV.x,  rUV.y), texLoc, texDims, tex);
-    acc += wD * SampleTexture(uv + float2( rUV.x, -rUV.y), texLoc, texDims, tex);
-    acc += wD * SampleTexture(uv + float2(-rUV.x, -rUV.y), texLoc, texDims, tex);
-
-    return acc / wSum;
-}
-
-float4 SampleGradient(float u, Texture2D<unorm float4> gradientTex)
-{
-    int gradientWidth = GetTexDims(gradientTex).x;
-    uint x = (int)(u * gradientWidth);
-    x = clamp(x, 0, gradientWidth-1);
-    float4 sample = gradientTex.Load(int3(x, 0, 0));
-    return float4(sample.rgb, sample.a);
-}
-
-float3 GetMaterialColor(Mat mat, float2 uv, Texture2D<unorm float4> atlas)
-{
-    if (mat.colTexLoc.x != -1)
-    {
-        float3 sampledColor = SampleTexture(uv, mat.colTexLoc, mat.colTexDims, atlas) * mat.sampleColMul;
-        return sampledColor + mat.baseCol;
-    }
-    else return mat.baseCol;
-}
-
-void AdjustContrast(inout float3 color)
-{
-    color = (color - 0.5) * Contrast + 0.5;
-}
-
-void AdjustSaturation(inout float3 color)
-{
-    float grey = dot(color, float3(0.3, 0.59, 0.11));
-    color = lerp(float3(grey, grey, grey), color, Saturation);
-}
-
-void ApplyGammaCorrection(inout float3 color)
-{
-    float invGamma = 1.0 / Gamma;
-    color.x = pow(max(color.x, 0.0), invGamma);
-    color.y = pow(max(color.y, 0.0), invGamma);
-    color.z = pow(max(color.z, 0.0), invGamma);
-}
-
-void SetResultColor(uint2 id, float3 color)
-{
-    // Apply rendering adjustments
-    AdjustContrast(color);
-    AdjustSaturation(color);
-    ApplyGammaCorrection(color);
-
-    // Apply brightness factors
-    color *= GlobalBrightness * GlobalBrightnessFactor;
-
-    color = saturate(color);
-    Result[id] = float4(color, 1.0);
-}
-
-bool ValidChunk(int2 chunk)
-{
-    return chunk.x >= 0 && chunk.x < ChunksNum.x && chunk.y >= 0 && chunk.y < ChunksNum.y;
-}
-
-int GetChunkKey(int2 chunk)
-{
-    return chunk.y * ChunksNum.x + chunk.x;
-}
-
-uint GetPixelKey(uint2 threadID)
-{
-    return threadID.y * Resolution.x + threadID.x;
-}
-
-bool IsOutsideResolutionDims(uint2 threadID)
-{
-    return threadID.x > Resolution.x || threadID.y > Resolution.y;
-}
-
-bool IsOutsideSimBounds(float2 pixelPos)
-{
-    return 0 > pixelPos.x || pixelPos.x > (float)BoundaryDims.x || 0 > pixelPos.y || pixelPos.y > (float)BoundaryDims.y;
-}
-
-bool IsPointInsideRB(float2 pos, RigidBody rb)
-{
-    pos -= rb.pos;
-
-    uint intersections = 0;
-    uint startIndex = rb.startIndex;
-    uint endIndex = rb.endIndex;
-    uint numVertices = endIndex - startIndex + 1;
-    uint pathStartIndex  = startIndex;
-    
-    float2 firstPathVec = RBVectors[startIndex].pos;
-    float2 lastVec = firstPathVec;
-
-    for (uint i = 1; i <= numVertices; i++)
-    {
-        uint vecIndex = (i == numVertices) ? pathStartIndex : (startIndex + i);
-        float2 newVec = RBVectors[vecIndex].pos;
-
-        bool newPathFlag = (newVec.x > PATH_FLAG_THRESHOLD);
-        if (newPathFlag)
-        {
-            if (IsPointToTheLeftOfLine(pos, lastVec, firstPathVec)) intersections++;
-
-            newVec.x -= PATH_FLAG_OFFSET;
-
-            firstPathVec = newVec;
-            lastVec = newVec;
-            pathStartIndex = vecIndex;
-        }
-        else
-        {
-            if (IsPointToTheLeftOfLine(pos, lastVec, newVec)) intersections++;
-
-            lastVec = newVec;
-        }
-    }
-
-    return ((intersections % 2) == 1);
-}
-
-bool IsInsideArea(float2 pos, float2 min2, float2 max2)
-{
-    return pos.x >= min2.x && pos.x <= max2.x && pos.y >= min2.y && pos.y <= max2.y;
-}
-
-float DstToRB(float2 pos, RigidBody rb)
-{
-    pos -= rb.pos;
-
-    float minDstSqr = 1.#INF;
-
-    uint startIndex = rb.startIndex;
-    uint endIndex = rb.endIndex;
-    uint numVertices = endIndex - startIndex + 1;
-    uint pathStartIndex = startIndex;
-
-    float2 firstPathVec = RBVectors[startIndex].pos;
-    float2 lastVec = firstPathVec;
-
-    for (uint i = 1; i <= numVertices; i++)
-    {
-        uint vecIndex = (i == numVertices) ? pathStartIndex : (startIndex + i);
-        float2 newVec    = RBVectors[vecIndex].pos;
-
-        bool newPathFlag = (newVec.x > PATH_FLAG_THRESHOLD);
-        if (newPathFlag)
-        {
-            {
-                float2 dst = DstToLineSegment(lastVec, firstPathVec, pos);
-                float dstSqr = dot2(dst);
-                if (dstSqr < minDstSqr)
-                    minDstSqr = dstSqr;
-            }
-
-            newVec.x -= PATH_FLAG_OFFSET;
-
-            firstPathVec = newVec;
-            lastVec = newVec;
-            pathStartIndex = vecIndex;
-        }
-        else
-        {
-            float2 dst = DstToLineSegment(lastVec, newVec, pos);
-            float dstSqr = dot2(dst);
-            if (dstSqr < minDstSqr) minDstSqr = dstSqr;
-
-            lastVec = newVec;
-        }
-    }
-
-    return (minDstSqr == 1.#INF) ? 1.#INF : sqrt(minDstSqr);
-}
-
-float MetaballsDensity(float dst, float invRadius)
-{
-    float dstR = dst * invRadius;
-    return (1 - dstR);
-}
-
-float NoiseDensity(float dst, float invRadius, int pSeed)
-{
-    int lastRandSeed = LastTimeSetRand * ParticlesNum + pSeed;
-    int nextRandSeed = NextTimeSetRand * ParticlesNum + pSeed;
-
-    float lastNoise = randNormalized(lastRandSeed);
-    float nextNoise = randNormalized(nextRandSeed);
-    float lerpNoise = lerp(lastNoise, nextNoise, TimeSetLerpFactor);
-
-    float densityFactor = (1.0 + lerpNoise * GasNoiseStrength) / (1.0 + GasNoiseStrength);
-    float noiseDensity = dst * invRadius * densityFactor;
-
-    return noiseDensity;
-}
-
-float3 SampleCaustics(uint2 threadID, float3 sampleColMul)
-{
-    float2 referenceCausticsRes = 512;
-
-    float caustics;
-#if USE_DYNAMIC_CAUSTICS
-    float2 causticsTexDims = GetTexDims(DynamicCaustics);
-    uint2 wrappedThreadID = (uint2)(threadID * DynamicCausticsScaleFactor * causticsTexDims / referenceCausticsRes) % causticsTexDims;
-    caustics = (float)DynamicCaustics[wrappedThreadID].rgb;
-#else
-    uint2 wrappedThreadID = (uint2)(threadID * PrecomputedCausticsScaleFactor * PrecomputedCausticsDims.xy / referenceCausticsRes) % PrecomputedCausticsDims.xy;
-
-    uint zDim = PrecomputedCausticsDims.z;
-    uint z = PrecomputedCausticsZ;
-
-    float current = PrecomputedCaustics.Load(int4(wrappedThreadID, z % zDim, 0));
-    float next = PrecomputedCaustics.Load(int4(wrappedThreadID, (z + 1) % zDim, 0));
-    float prev = PrecomputedCaustics.Load(int4(wrappedThreadID, (z - 1 + zDim) % zDim, 0));
-        
-    float noBlur = current;
-    float fullBlur = (current + next + prev) / 3.0;
-        
-    caustics = lerp(noBlur, fullBlur, PrecomputedCausticsZBlurFactor);
-#endif
-
-    float3 color = caustics * sampleColMul;
-
-    return color;
-}
-
-float2 MirrorRepeatUV(float2 uv)
-{
-    float2 intPart;
-    float2 fracPart = frac(uv);
-    
-    float2 isOdd = floor(uv) - floor(uv / 2.0) * 2.0;
-    fracPart = lerp(fracPart, 1.0 - fracPart, step(0.5, isOdd));
-
-    return fracPart;
-}
-
-float2 GetPixelPos(uint2 pixelID)
-{
-    float2 p = (float2)pixelID - (float2)Resolution * 0.5;
-
-    float2 a = 1.0 / ScreenToViewFactor;
-
-    p *= a;
-
-    p += (float2)Resolution * 0.5;
-
-    return p * ViewScale + ViewOffset;
-}
-
-float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos, Mat bg)
-{
-    // Convert world/view position back to screen pixel space (as before)
-    float2 pixelID = (pixelPos - ViewOffset) / ViewScale - 0.5;
-
-    float2 texDims = (float2)bg.colTexDims;
-    float scaleX = (float)Resolution.x / texDims.x;
-    float scaleY = (float)Resolution.y / texDims.y;
-    float scale  = max(scaleX, scaleY);
-    float2 scaledTexDims = texDims * scale;
-
-    float2 offset = (scaledTexDims - (float2)Resolution) * 0.5;
-
-    float up = abs(bg.colTexUpScaleFactor);
-    float2 uv = ((pixelID + offset) * up) / scaledTexDims + bg.sampleOffset;
-
-    bool doMirror = (bg.colTexUpScaleFactor > 0);
-    uv = doMirror ? MirrorRepeatUV(uv) : frac(uv);
-
-    return uv;
-}
-
-float3 SampleBackgroundColor(uint2 threadID)
-{
-    if (BackgroundMatIndex < 0 || BackgroundMatIndex >= NumMaterials)
-        return 0;
-
-    Mat bg = Materials[BackgroundMatIndex];
-
-    // If background has no texture, just base color.
-    if (bg.colTexLoc.x == -1)
-        return bg.baseCol * BackgroundBrightness;
-
-    float2 pixelPos = GetPixelPos(threadID);
-    float2 uv = ComputeBackgroundUVFromPixelPos(pixelPos, bg);
-
-    // Estimate footprint (texels per pixel) analytically (mapping is linear).
-    float2 texDims = (float2)bg.colTexDims;
-    float scaleX = (float)Resolution.x / texDims.x;
-    float scaleY = (float)Resolution.y / texDims.y;
-    float scale  = max(scaleX, scaleY);            
-    float2 scaledTexDims = texDims * scale;        
-    float  up = abs(bg.colTexUpScaleFactor);       
-
-    // Convert UV-per-pixel to texels-per-pixel in each axis, take max as isotropic bound.
-    float2 ddx_texels = float2(up / scaledTexDims.x, 0.0) * texDims;
-    float2 ddy_texels = float2(0.0, up / scaledTexDims.y) * texDims;
-    float  footprintTexels = max(length(ddx_texels), length(ddy_texels));
-
-    float3 sampled = SampleTextureBandlimited(uv, bg.colTexLoc, bg.colTexDims, Atlas, footprintTexels) * bg.sampleColMul;
-    float3 col = sampled + bg.baseCol;
-    return col * BackgroundBrightness;
-}
-
-// -------------------------
-// Kernels
-// -------------------------
-
-[numthreads(TN_R, TN_R, 1)]
-void RenderBackground(uint3 id : SV_DispatchThreadID)
-{
-    if (IsOutsideResolutionDims(id.xy)) return;
-
-    float3 sampleCol = SampleBackgroundColor(id.xy);
-    SetResultColor(id.xy, sampleCol);
-
-    uint shadowIndex = id.y * Resolution.x + id.x;
-    ShadowMask[shadowIndex] = 0.0;
-}
-
-float3 BlendWithBackground(float3 color, float opacity, uint2 threadID)
-{
-    float transparency = 1 - opacity;
-    if (transparency <= 0) return color;
-
-    float3 bg = SampleBackgroundColor(threadID);
-    return color * opacity + transparency * bg;
-}
-
-float DstToBorder(float2 pos, float2 min2, float2 max2)
-{
-    float dstToLeft = abs(pos.x - min2.x);
-    float dstToRight = abs(pos.x - max2.x);
-    float dstToBottom = abs(pos.y - min2.y);
-    float dstToTop = abs(pos.y - max2.y);
-
-    return min(min(dstToLeft, dstToRight), min(dstToBottom, dstToTop));
-}
-
-[numthreads(TN_R,TN_R,1)]
-void RenderFluids(uint3 id : SV_DispatchThreadID)
-{
-    if (IsOutsideResolutionDims(id.xy)) return;
-
-    float2 pixelPos = GetPixelPos(id.xy);
-    if (IsOutsideSimBounds(pixelPos))
-    {
-        SetResultColor(id.xy, 0.1);
-        return;
-    }
-
-    int2 chunk = (int2)(pixelPos * InvMaxInfluenceRadius);
-
-    int nearestGasLastChunkKey_PType_POrder = INT_MAX;
-    int nearestNonGasLastChunkKey_PType_POrder = INT_MAX;
-    bool nearestIsNotGas = false;
-    float totDensity = 0;
-    float totNoiseDensity = 0;
-    bool doDrawFluid = false;
-    bool drawOutline = false;
-    float minDstSqr = 1.#INF;
-#if !USE_METABALLS
-    float minLiquidRadius = min(MaxInfluenceRadius, VisualLiquidParticleRadius);
-    float minLiquidRadiusSqr = minLiquidRadius * minLiquidRadius;
-    float minGasRadius = min(MaxInfluenceRadius, VisualGasParticleRadius);
-    float minGasRadiusSqr = minGasRadius * minGasRadius;
-#endif
-#if DISPLAY_FLUID_VELOCITIES
-    float totVelocitiesSummative = 0;
-    int numParticles = 0;
-#endif
-    for (int x = -1; x <= 1; x++)
-    {
-        for (int y = -1; y <= 1; y++)
-        {
-            int2 curChunk = chunk + int2(x, y);
-
-            if (!ValidChunk(curChunk)) continue;
-
-            int chunkKey = GetChunkKey(curChunk);
-            int startIndex = StartIndices[chunkKey];
-            
-            int iterationCount = 0;
-            int index = startIndex;
-            while (index < ParticlesNum && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
-            {
-                if (chunkKey != SpatialLookup[index].y) break;
-
-                int pIndex = SpatialLookup[index].x;
-                PData pData = PDatas[pIndex];
-
-                float dstSqr = dot2(pixelPos - pData.pos);
-                int lastChunkKey_PType_POrder = pData.lastChunkKey_PType_POrder;
-                int pTypeIndex = Extract_PType(lastChunkKey_PType_POrder);
-                bool isGas = ((uint)pTypeIndex % 3) == 2;
-
-#if USE_METABALLS
-                if (dstSqr < MaxInfluenceRadiusSqr)
-                {
-                    if (dstSqr < minDstSqr)
-                    {
-                        minDstSqr = dstSqr;
-                        if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-                        else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-                    }
-
-#if DISPLAY_FLUID_VELOCITIES
-                    totVelocitiesSummative += length(pData.vel);
-                    numParticles++;
-#endif
-
-                    float dst = sqrt(dstSqr);
-                    totDensity += MetaballsDensity(dst, InvMaxInfluenceRadius);
-                    totNoiseDensity += NoiseDensity(dst, InvMaxInfluenceRadius, pIndex);
-
-                    if (!isGas) nearestIsNotGas = true;
-
-#if DRAW_FLUID_OUTLINES
-                    if (totDensity > (isGas ? (GasMetaballsThreshold - GasMetaballsEdgeDensityWidth) : (LiquidMetaballsThreshold - LiquidMetaballsEdgeDensityWidth)))
-                    {
-                        drawOutline = true;
-                        doDrawFluid = true;
-                    }
-#endif
-
-                    if (totDensity > (isGas ? GasMetaballsThreshold : LiquidMetaballsThreshold))
-                    {
-#if DRAW_FLUID_OUTLINES
-                        drawOutline = false;
-#else
-                        doDrawFluid = true;
-#endif
-                    }
-                }
-#else
-                if (dstSqr < (isGas ? min(minGasRadius, minDstSqr) : min(minLiquidRadiusSqr, minDstSqr)))
-                {
-#if DISPLAY_FLUID_VELOCITIES
-                    totVelocitiesSummative += length(pData.vel);
-                    numParticles++;
-#endif
-
-                    doDrawFluid = true;
-                    minDstSqr = dstSqr;
-                    if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-                    else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-
-                    if (!isGas) nearestIsNotGas = true;
-
-#if DRAW_FLUID_OUTLINES
-                    if (sqrt(dstSqr) > (isGas ? (minGasRadius - GasEdgeWidth) : (minLiquidRadius - LiquidEdgeWidth))) drawOutline = true;
-                    else drawOutline = false;
-#endif
-                }
-#endif
-
-                index++;
-            }
-        }
-    }
-
-    float3 result = 0;
-    float4 sensorAreaTint = 0;
-    bool isInsideAnySensorArea = false;
-    for (uint sensorAreaIndex = 0; sensorAreaIndex < NumFluidSensors; sensorAreaIndex++)
-    {
-        SensorArea sensorArea = SensorAreas[sensorAreaIndex];
-        if (IsInsideArea(pixelPos, sensorArea.min, sensorArea.max))
-        {
-            isInsideAnySensorArea = true;
-
-            float distanceToBorder = DstToBorder(pixelPos, sensorArea.min, sensorArea.max);
-            if (distanceToBorder < FluidSensorEdgeWidth)
-            {
-                sensorAreaTint += sensorArea.lineColor;
-                continue;
-            }
-
-            float patternMod = sensorArea.patternMod;
-            float patternPos = pixelPos.x + pixelPos.y + TotalScaledTimeElapsed * SensorAreaAnimationSpeed;
-            float patternPosMod = patternPos % patternMod;
-
-            if (patternPosMod < patternMod * 0.5) sensorAreaTint += sensorArea.colorTint;
-        }
-    }
-
-    sensorAreaTint.a = clamp(sensorAreaTint.a, 0.0, 1.0);
-
-    int nearestLastChunkKey_PType_POrder = nearestIsNotGas ? nearestNonGasLastChunkKey_PType_POrder : nearestGasLastChunkKey_PType_POrder;
-    if (doDrawFluid)
-    {
-        int nearestPTypeIndex = Extract_PType(nearestLastChunkKey_PType_POrder);
-        Mat mat = Materials[PTypes[nearestPTypeIndex].matIndex];
-
-        if (drawOutline) result = mat.edgeCol;
-        else
-        {
-            float3 color;
-            float opacity;
-#if DISPLAY_FLUID_VELOCITIES
-            float avgVel = totVelocitiesSummative / numParticles;
-            float4 gradientCol;
-#endif
-            if (nearestIsNotGas)
-            {
-#if USE_CAUSTICS
-                color = SampleCaustics(id.xy, mat.sampleColMul) + mat.baseCol;
-#else
-                color = mat.baseCol;
-#endif
-                opacity = mat.opacity;
-
-#if DISPLAY_FLUID_VELOCITIES
-                gradientCol = SampleGradient(avgVel * InvLiquidVelocityGradientMaxValue, LiquidVelocityGradient);
-#endif
-            }
-            else // isGas
-            {
-                opacity = mat.opacity * max(1.0 + totDensity * GasNoiseDensityOpacityFactor, 0.0);
-                color = mat.baseCol + max(1.0 - totNoiseDensity * GasNoiseDensityDarkeningFactor, 0.0);
-
-#if DISPLAY_FLUID_VELOCITIES
-                float gradientFactor = avgVel * InvGasVelocityGradientMaxValue;
-                gradientCol = SampleGradient(gradientFactor, GasVelocityGradient);
-#endif
-            }
-            color *= GlobalBrightness;
-            result = BlendWithBackground(color, opacity, id.xy);
-
-#if DISPLAY_FLUID_VELOCITIES
-            result = lerp(result, gradientCol.rgb, gradientCol.a);
-#endif
-        }
-
-#if !DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
-        if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
-        SetResultColor(id.xy, result);
-#endif
-
-        uint shadowIndex = id.y * Resolution.x + id.x;
-        ShadowMask[shadowIndex] = nearestIsNotGas ? LiquidShadowStrength : GasShadowStrength;
-    }
-
-#if DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
-    if (!doDrawFluid && isInsideAnySensorArea)
-    {
-        float3 background = BlendWithBackground(0, 0, id.xy);
-        result = sensorAreaTint.rgb * sensorAreaTint.a + background * (1.0 - sensorAreaTint.a);
-    }
-    else if (!doDrawFluid) result = BlendWithBackground(0, 0, id.xy);
-
-    if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
-
-    SetResultColor(id.xy, result);
-#endif
-}
-
-[numthreads(TN_R,TN_R,1)]
-void RenderRigidBodies(uint3 id : SV_DispatchThreadID) (modified body)
-{
-    if (IsOutsideResolutionDims(id.xy)) return;
-    
-    float2 pixelPos = GetPixelPos(id.xy);
-
-    int   highestRenderPriority = 0;
-    bool  rigidBodyFound = false;
-    bool  drawOutline    = false;
-    int   matIndex = 0;
-    float3 transformData = 0;
-    float outlineAlpha   = 1.0;
-    
-    for (uint rbIndex = 0; rbIndex < NumRigidBodies; rbIndex++)
-    {
-        RigidBody rb = RigidBodies[rbIndex];
-
-        float dstSqr = dot2(pixelPos - rb.pos);
-
-#if DRAW_RB_CENTROIDS
-        // (optional centroid drawing omitted)
-#endif
-
-        int renderPriority = rb.renderPriority;
-        if (renderPriority > highestRenderPriority && dstSqr < abs(rb.maxRadiusSqr))
-        {
-            if (IsPointInsideRB(pixelPos, rb))
-            {
-                highestRenderPriority = renderPriority;
-                rigidBodyFound = true;
-                matIndex = rb.matIndex;
-                transformData = float3(rb.pos.x, rb.pos.y, rb.totRot);
-
-#if DRAW_RB_OUTLINES
-                float dst = DstToRB(pixelPos, rb);
-                float realRBEdgeWidth = RBEdgeWidth;
-                float aaRange = RBEdgeWidth;
-                float outerEdge = realRBEdgeWidth + aaRange;
-                if (dst < outerEdge)
-                {
-                    drawOutline = true;
-                    outlineAlpha = (dst > realRBEdgeWidth)
-                        ? (1.0 - saturate((dst - realRBEdgeWidth) / aaRange))
-                        : 1.0;
-                }
-                else
-                {
-                    drawOutline = false;
-                }
-#endif
-            }
-        }
-    }
-
-    if (rigidBodyFound)
-    {
-        Mat mat = Materials[matIndex];
-
-        float2 localPixelPos =
-            rotate2D(pixelPos - transformData.xy, -transformData.z);
-        bool doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
-        float  scaleAbs     = abs(mat.colTexUpScaleFactor);
-        float  minDim       = (float)min(BoundaryDims.x, BoundaryDims.y);
-
-        float2 localUV =
-            scaleAbs * localPixelPos / minDim + mat.sampleOffset; (uses scaleAbs)
-        localUV = doMirrorRepeat ? MirrorRepeatUV(localUV) : frac(localUV);
-
-        // Estimate isotropic footprint in texels per pixel for this mapping
-        float2 a = (1.0 / ScreenToViewFactor) * ViewScale; // per-screen-pixel scale in sim units
-        float  dPos_per_pix = max(abs(a.x), abs(a.y));     // conservative isotropic bound      
-        float  dUV_per_pix  = (scaleAbs / minDim) * dPos_per_pix;
-
-        float2 texDims = (float2)mat.colTexDims;          
-        float  footprintTexels = dUV_per_pix * max(texDims.x, texDims.y);
-
-        float3 baseColor;
-        if (mat.colTexLoc.x != -1)
-        {
-            // Band-limited sample to avoid shimmer
-            float3 sampled = SampleTextureBandlimited(localUV, mat.colTexLoc, mat.colTexDims, Atlas, footprintTexels) * mat.sampleColMul;
-            baseColor = sampled + mat.baseCol;
-        }
-        else
-        {
-            baseColor = mat.baseCol;
-        }
-
-        float3 finalColor = baseColor;
-        if (drawOutline)
-        {
-            float3 edgeCol = mat.edgeCol;
-            if (!AreAllComponentsEqualTo(edgeCol, -1))
-            {
-                finalColor = lerp(baseColor, edgeCol, outlineAlpha);
-            }
-        }
-
-        float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);
-        SetResultColor(id.xy, result);
-
-        uint shadowIndexRB = id.y * Resolution.x + id.x;
-        ShadowMask[shadowIndexRB] = RBShadowStrength;
-    }
-}
-
-float2 ClosestPointZigZag(float2 localPos, float amplitude, int numPeriods, float startX, float totalLength)
-{
-    float totalPeriodLength = totalLength / numPeriods;
-    float halfPeriod = totalPeriodLength * 0.5;
-
-    float x = localPos.x - startX;
-
-    int periodIndex = int(floor(x / totalPeriodLength));
-
-    float xInPeriod = x - periodIndex * totalPeriodLength;
-
-    float t = x / totalLength;
-    float taperFactor = saturate(min(t / TaperThresoldNormalised, (1.0 - t) / TaperThresoldNormalised));
-
-    float taperedAmplitude = amplitude * taperFactor;
-
-    float2 segmentStart, segmentEnd;
-
-    if (xInPeriod < halfPeriod)
-    {
-        segmentStart = float2(startX + periodIndex * totalPeriodLength, -taperedAmplitude * 0.5);
-        segmentEnd = float2(segmentStart.x + halfPeriod, taperedAmplitude * 0.5);
-    }
-    else
-    {
-        segmentStart = float2(startX + periodIndex * totalPeriodLength + halfPeriod, taperedAmplitude * 0.5);
-        segmentEnd = float2(segmentStart.x + halfPeriod, -taperedAmplitude * 0.5);
-    }
-
-    float2 segmentVec = segmentEnd - segmentStart;
-    float2 pointVec = localPos - segmentStart;
-
-    float u = dot(pointVec, segmentVec) / dot(segmentVec, segmentVec);
-    u = clamp(u, 0.0, 1.0);
-
-    float2 closestPoint = segmentStart + u * segmentVec;
-    return closestPoint;
-}
-
-bool IsOnSpring(float2 localPos, float springLength, float halfSpringWidth)
-{
-    if (!(localPos.x >= 0.0 && localPos.x <= springLength && abs(localPos.y) <= halfSpringWidth)) return false;
-    
-    if ((localPos.x < SpringRenderRodLength || localPos.x > springLength - SpringRenderRodLength) && abs(localPos.y) < SpringRenderHalfMatWidth) return true;
-
-    float midStartX = SpringRenderRodLength;
-    float midEndX = springLength - SpringRenderRodLength;
-
-    if (localPos.x >= midStartX && localPos.x <= midEndX)
-    {
-        float midLength = midEndX - midStartX;
-
-        float amplitude = halfSpringWidth - SpringRenderHalfMatWidth;
-        float2 closestPoint = ClosestPointZigZag(localPos, amplitude, SpringRenderNumPeriods, midStartX, midLength);
-
-        if (length(localPos - closestPoint) <= SpringRenderHalfMatWidth) return true;
-    }
-
-    return false;
-}
-
-void TintRed(inout float3 color, float redTint)
-{
-    redTint = saturate(redTint);
-    color = lerp(color, float3(1.0, 0.0, 0.0), redTint);
-}
-
-float2 NormalizeLocalSpringPos(float2 value, float rodLength, float totalLength, float springLength, float halfSpringWidth)
-{
-    if (value.x < rodLength)
-    {
-        value.x = value.x / rodLength * (rodLength / totalLength);
-    }
-    else if (value.x > springLength - rodLength)
-    {
-        value.x = (value.x - (springLength - rodLength)) / rodLength * ((rodLength / totalLength)) + (1.0 - (rodLength / totalLength));
-    }
-    else
-    {
-        float middleLength = springLength - 2.0 * rodLength;
-        value.x = (value.x - rodLength) / middleLength * ((totalLength - 2.0 * rodLength) / totalLength) + (rodLength / totalLength);
-    }
-
-    value.y = (value.y / halfSpringWidth) * 0.5 + 0.5;
-
-    return value;
-}
-
-[numthreads(TN_R,TN_R,1)]
-void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
-{
-    if (IsOutsideResolutionDims(id.xy))return;
-
-    float2 pixelPos = GetPixelPos(id.xy);
-
-    bool  springFound = false;
-    float2 posNorm    = 0;
-    float springForce = 0;
-    int   matIndex    = 0;
-    int   highestRenderPriority = -1;
-
-#if !DO_USE_FAST_COMPILATION
-    // [unroll(MAX_RIGIDBODIES_NUM)] // optional
-#endif
-    for (uint rbIndex = 0; rbIndex < MAX_RIGIDBODIES_NUM; rbIndex++)
-    {
-        if (rbIndex >= NumRigidBodies) break;
-
-        RigidBody rbA = RigidBodies[rbIndex];
-        if (rbA.springMatIndex == -1) continue;
-        
-        float stiffness = rbA.springStiffness;
-
-        bool isLinked = rbA.linkedRBIndex != -1 && rbA.linkedRBIndex != (int)rbIndex;
-        bool rigidConstraint = stiffness == 0.0;
-        int renderPriority = rbA.renderPriority;
-        if (!isLinked || rigidConstraint || renderPriority <= highestRenderPriority) continue;
-
-        RigidBody rbB = RigidBodies[rbA.linkedRBIndex];
-
-        float2 worldLinkPosA = rbA.pos + rotate2D(rbA.localLinkPosThisRB, rbA.totRot);
-        float2 worldLinkPosB = rbB.pos + rotate2D(rbA.localLinkPosOtherRB, rbB.totRot);
-        
-        float2 localSpringEnd = worldLinkPosB - worldLinkPosA;
-        float springLength = length(localSpringEnd);
-
-        if (springLength == 0.0) continue;
-
-        float theta = atan2(localSpringEnd.y, localSpringEnd.x);
-
-        float2 pixelVec = pixelPos - worldLinkPosA;
-
-        float2 localPixelPos = rotate2D(pixelVec, -theta);
-
-        float halfSpringWidth = SpringRenderWidth * 0.5;
-
-        bool isOnSpring = IsOnSpring(localPixelPos, springLength, halfSpringWidth);
-        if (isOnSpring)
-        {
-            springFound = true;
-            highestRenderPriority = renderPriority;
-            springForce = rbA.recordedSpringForce;
-            matIndex = rbA.springMatIndex;
-            posNorm = NormalizeLocalSpringPos(localPixelPos, SpringRenderRodLength, rbA.springRestLength, springLength, halfSpringWidth);
-        }
-    }
-
-    if (springFound)
-    {
-        Mat mat = Materials[matIndex];
-        if (mat.opacity <= 0) return;
-
-        float2 uv = MirrorRepeatUV(abs(mat.colTexUpScaleFactor) * posNorm / (float2)BoundaryDims + mat.sampleOffset);
-        uv *= SpringTextureUVFactor;
-
-        float3 result = GetMaterialColor(mat, uv, Atlas) + mat.baseCol;
-
-        float redTint = RED_TINT_FACTOR * springForce;
-        TintRed(result, redTint);
-        
-        SetResultColor(id.xy, result);
-
-        uint  shadowIndexRB = id.y * Resolution.x + id.x;
-        float prev          = ShadowMask[shadowIndexRB];
-        float prevMag       = max(prev, 0.0);
-        ShadowMask[shadowIndexRB] = -(prevMag + 1.0);
-    }
-}
-
-[numthreads(TN_R,TN_R,1)]
-void RenderUI(uint3 id : SV_DispatchThreadID)
-{
-    if (IsOutsideResolutionDims(id.xy))return;
-
-    float4 uiColor = UITexture[id.xy];
-    if (uiColor.a != 0) Result[id.xy] = uiColor;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ROUNDED RB RENDERER - PROOF OF CONCEPT
-
 // #pragma kernel RenderBackground       // 0 
 // #pragma kernel RenderFluids           // 1
 // #pragma kernel RenderRigidBodies      // 2
@@ -1247,19 +92,6 @@ void RenderUI(uint3 id : SV_DispatchThreadID)
 // const int   NextTimeSetRand;
 // const float TimeSetLerpFactor;
 // const int   PrecomputedCausticsZ;
-
-// // -------------------------
-// // Beveled RB edge settings (static compile-time)
-// // -------------------------
-// static const float  RB_BEVEL_WIDTH_MULT      = 1.0;     // NEW  // Bevel region = RBEdgeWidth * this
-// static const float  RB_BEVEL_AA               = 1.0;     // NEW  // Extra AA fade outside bevel
-// static const float  RB_BEVEL_NORMAL_EPS       = 1.0;     // NEW  // SDF gradient step in sim units
-// static const float2 RB_BEVEL_SUN_DIR          = float2(0.6, 0.8); // NEW  // World/view 2D dir
-// static const float  RB_BEVEL_LIGHT_STRENGTH   = 0.6;     // NEW  // Multiplier for lit side
-// static const float  RB_BEVEL_SHADOW_STRENGTH  = 0.6;     // NEW  // Multiplier for shadow side
-// static const float  RB_BEVEL_SAMPLE_PUSH      = 2.0;     // NEW  // Inward UV push in sim units
-// static const float  RB_BEVEL_CURVE_POWER      = 1.0;     // NEW  // Shape of the bevel mask [0..]
-// static const float  RB_BEVEL_MIN_N_LEN        = 1e-4;    // NEW
 
 // // -------------------------
 // // Resources
@@ -1933,7 +765,7 @@ void RenderUI(uint3 id : SV_DispatchThreadID)
 // }
 
 // [numthreads(TN_R,TN_R,1)]
-// void RenderRigidBodies(uint3 id : SV_DispatchThreadID) // NEW (modified body to use rounded/beveled edge)
+// void RenderRigidBodies(uint3 id : SV_DispatchThreadID) (modified body)
 // {
 //     if (IsOutsideResolutionDims(id.xy)) return;
     
@@ -1945,7 +777,6 @@ void RenderUI(uint3 id : SV_DispatchThreadID)
 //     int   matIndex = 0;
 //     float3 transformData = 0;
 //     float outlineAlpha   = 1.0;
-//     RigidBody selRB; // NEW
     
 //     for (uint rbIndex = 0; rbIndex < NumRigidBodies; rbIndex++)
 //     {
@@ -1966,7 +797,6 @@ void RenderUI(uint3 id : SV_DispatchThreadID)
 //                 rigidBodyFound = true;
 //                 matIndex = rb.matIndex;
 //                 transformData = float3(rb.pos.x, rb.pos.y, rb.totRot);
-//                 selRB = rb; // NEW
 
 // #if DRAW_RB_OUTLINES
 //                 float dst = DstToRB(pixelPos, rb);
@@ -1993,93 +823,29 @@ void RenderUI(uint3 id : SV_DispatchThreadID)
 //     {
 //         Mat mat = Materials[matIndex];
 
-//         // Local mapping
-//         float2 localPixelPos = rotate2D(pixelPos - transformData.xy, -transformData.z);
-//         bool   doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
-//         float  scaleAbs       = abs(mat.colTexUpScaleFactor);
-//         float  minDim         = (float)min(BoundaryDims.x, BoundaryDims.y);
+//         float2 localPixelPos =
+//             rotate2D(pixelPos - transformData.xy, -transformData.z);
+//         bool doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
+//         float  scaleAbs     = abs(mat.colTexUpScaleFactor);
+//         float  minDim       = (float)min(BoundaryDims.x, BoundaryDims.y);
 
-//         // Base (pre-wrap) UV
-//         float2 baseUV = scaleAbs * localPixelPos / minDim + mat.sampleOffset; // NEW
+//         float2 localUV =
+//             scaleAbs * localPixelPos / minDim + mat.sampleOffset; (uses scaleAbs)
+//         localUV = doMirrorRepeat ? MirrorRepeatUV(localUV) : frac(localUV);
 
-//         // Estimate footprint for band-limited sampling
-//         float2 a = (1.0 / ScreenToViewFactor) * ViewScale;
-//         float  dPos_per_pix = max(abs(a.x), abs(a.y));
+//         // Estimate isotropic footprint in texels per pixel for this mapping
+//         float2 a = (1.0 / ScreenToViewFactor) * ViewScale; // per-screen-pixel scale in sim units
+//         float  dPos_per_pix = max(abs(a.x), abs(a.y));     // conservative isotropic bound      
 //         float  dUV_per_pix  = (scaleAbs / minDim) * dPos_per_pix;
-//         float2 texDims      = (float2)mat.colTexDims;
+
+//         float2 texDims = (float2)mat.colTexDims;          
 //         float  footprintTexels = dUV_per_pix * max(texDims.x, texDims.y);
-
-//         // Default: no bevel modification
-//         float2 uvForSample = baseUV; // NEW
-
-// #if DRAW_RB_OUTLINES
-//         if (drawOutline) // NEW
-//         {
-//             // Signed distance at pixel (negative inside)
-//             float  d  = DstToRB(pixelPos, selRB);     // +distance to edge
-//             float  s0 = -d;                           // signed inside
-//             float  eps = RB_BEVEL_NORMAL_EPS;         // step in sim units (view space)
-
-//             // Finite-difference SDF gradient (world/view space)
-//             float sdx = -DstToRB(pixelPos + float2(eps, 0.0), selRB);
-//             float sdy = -DstToRB(pixelPos + float2(0.0, eps), selRB);
-//             float2 grad = float2(sdx - s0, sdy - s0) / max(eps, 1e-4);
-//             float lenG = max(length(grad), RB_BEVEL_MIN_N_LEN);
-//             float2 nWorld = grad / lenG;            // outward normal (world) NEW
-
-//             // Convert normal to local space for UV push
-//             float2 nLocal = rotate2D(nWorld, -transformData.z); // NEW
-
-//             // Bevel mask across inner band
-//             float bevelWidth = RBEdgeWidth * RB_BEVEL_WIDTH_MULT;                         // NEW
-//             float tEdge = saturate(1.0 - (d / max(bevelWidth, 1e-4)));                    // NEW 1 at edge -> 0 at inner bevel bound
-//             tEdge = pow(tEdge, RB_BEVEL_CURVE_POWER);                                     // NEW shaping
-//             float aa = 1.0 - saturate((d - bevelWidth) / max(RB_BEVEL_AA, 1e-4));         // NEW fade outside
-//             float bevelMask = tEdge * aa * outlineAlpha;                                   // NEW
-
-//             // UV push inward (simulate rounded profile by compressing texels near edge)
-//             float uvPush = (scaleAbs / minDim) * RB_BEVEL_SAMPLE_PUSH * bevelMask;         // NEW
-//             uvForSample = baseUV - nLocal * uvPush;                                        // NEW
-
-//             // Lighting from sun direction (world/view space)
-//             float2 L = RB_BEVEL_SUN_DIR;                                                  // NEW
-//             float lenL = max(length(L), 1e-5);                                            // NEW
-//             L /= lenL;                                                                     // NEW
-//             float lambert = 0.5 + 0.5 * dot(nWorld, L);                                    // NEW [0..1]
-//             float lightFactor = lerp(1.0 - RB_BEVEL_SHADOW_STRENGTH,
-//                                      1.0 + RB_BEVEL_LIGHT_STRENGTH,
-//                                      lambert);                                            // NEW
-
-//             // Wrap UV after offset
-//             uvForSample = doMirrorRepeat ? MirrorRepeatUV(uvForSample) : frac(uvForSample); // NEW
-
-//             // Sample with anti-shimmer
-//             float3 sampled = (mat.colTexLoc.x != -1)
-//                 ? SampleTextureBandlimited(uvForSample, mat.colTexLoc, mat.colTexDims, Atlas, footprintTexels) * mat.sampleColMul
-//                 : 0;                                                                       // NEW
-
-//             float3 baseCol = (mat.colTexLoc.x != -1) ? sampled + mat.baseCol : mat.baseCol; // NEW
-
-//             // Apply bevel lighting only within mask
-//             float3 litCol = baseCol * lightFactor;                                         // NEW
-//             float3 finalColor = lerp(baseCol, litCol, bevelMask);                          // NEW
-
-//             float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);           // NEW
-//             SetResultColor(id.xy, result);                                                 // NEW
-
-//             uint shadowIndexRB = id.y * Resolution.x + id.x;                               // NEW
-//             ShadowMask[shadowIndexRB] = RBShadowStrength;                                   // NEW
-//             return;                                                                         // NEW (done for this pixel)
-//         }
-// #endif
-
-//         // Fallback: interior (no bevel region)
-//         uvForSample = doMirrorRepeat ? MirrorRepeatUV(uvForSample) : frac(uvForSample);     // NEW
 
 //         float3 baseColor;
 //         if (mat.colTexLoc.x != -1)
 //         {
-//             float3 sampled = SampleTextureBandlimited(uvForSample, mat.colTexLoc, mat.colTexDims, Atlas, footprintTexels) * mat.sampleColMul; // NEW
+//             // Band-limited sample to avoid shimmer
+//             float3 sampled = SampleTextureBandlimited(localUV, mat.colTexLoc, mat.colTexDims, Atlas, footprintTexels) * mat.sampleColMul;
 //             baseColor = sampled + mat.baseCol;
 //         }
 //         else
@@ -2087,8 +853,18 @@ void RenderUI(uint3 id : SV_DispatchThreadID)
 //             baseColor = mat.baseCol;
 //         }
 
-//         float3 result = BlendWithBackground(baseColor, mat.opacity, id.xy); // NEW
-//         SetResultColor(id.xy, result);                                      // NEW
+//         float3 finalColor = baseColor;
+//         if (drawOutline)
+//         {
+//             float3 edgeCol = mat.edgeCol;
+//             if (!AreAllComponentsEqualTo(edgeCol, -1))
+//             {
+//                 finalColor = lerp(baseColor, edgeCol, outlineAlpha);
+//             }
+//         }
+
+//         float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);
+//         SetResultColor(id.xy, result);
 
 //         uint shadowIndexRB = id.y * Resolution.x + id.x;
 //         ShadowMask[shadowIndexRB] = RBShadowStrength;
@@ -2272,3 +1048,1227 @@ void RenderUI(uint3 id : SV_DispatchThreadID)
 //     float4 uiColor = UITexture[id.xy];
 //     if (uiColor.a != 0) Result[id.xy] = uiColor;
 // }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ROUNDED RB RENDERER - PROOF OF CONCEPT
+
+#pragma kernel RenderBackground       // 0 
+#pragma kernel RenderFluids           // 1
+#pragma kernel RenderRigidBodies      // 2
+#pragma kernel RenderRigidBodySprings // 3
+#pragma kernel RenderUI               // 4
+
+#pragma multi_compile _ DRAW_RB_CENTROIDS
+#pragma multi_compile _ DRAW_FLUID_OUTLINES
+#pragma multi_compile _ DISPLAY_FLUID_VELOCITIES
+#pragma multi_compile _ USE_CAUSTICS
+#pragma multi_compile _ USE_DYNAMIC_CAUSTICS
+#pragma multi_compile _ DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
+#pragma multi_compile _ DRAW_RB_OUTLINES
+#pragma multi_compile _ USE_METABALLS
+#pragma multi_compile _ USE_BILINEAR_SAMPLER
+#pragma multi_compile _ DO_USE_FAST_COMPILATION
+
+#include "./Helpers/MathResources.hlsl"
+#include "./Helpers/DataTypes.hlsl"
+#include "./Helpers/Constants.hlsl"
+
+// Liquid rendering settings
+const float LiquidMetaballsThreshold;
+const float LiquidMetaballsEdgeDensityWidth;
+const float VisualLiquidParticleRadius;
+const float LiquidEdgeWidth;
+const float InvLiquidVelocityGradientMaxValue;
+
+// Gas rendering settings
+const float GasMetaballsThreshold;
+const float GasMetaballsEdgeDensityWidth;
+const float VisualGasParticleRadius;
+const float GasEdgeWidth;
+const float InvGasVelocityGradientMaxValue;
+const float GasNoiseStrength;
+const float GasNoiseDensityDarkeningFactor;
+const float GasNoiseDensityOpacityFactor;
+
+// Background
+const float3 BackgroundBrightness;
+const int    BackgroundMatIndex;
+
+// Other
+const float RBEdgeWidth;
+const float FluidSensorEdgeWidth;
+const float SensorAreaAnimationSpeed;
+
+// ShadowMask strengths
+const float RBShadowStrength;
+const float LiquidShadowStrength;
+const float GasShadowStrength;
+
+// Rigid body springs
+const int   SpringRenderNumPeriods;
+const float SpringRenderWidth;
+const float SpringRenderHalfMatWidth;
+const float SpringRenderRodLength;
+const float TaperThresoldNormalised;
+const float2 SpringTextureUVFactor;
+
+// View / sim
+const uint2 Resolution;
+const uint2 BoundaryDims;
+const float2 ScreenToViewFactor;
+const float2 ViewScale;
+const float2 ViewOffset;
+const float  InvMaxInfluenceRadius;
+const int    MaxInfluenceRadius;
+const int    MaxInfluenceRadiusSqr;
+const int    NumMaterials;
+const int2   ChunksNum;
+const uint   ChunksNumAll;
+const int    ParticlesNum;
+const uint   PTypesNum;
+const uint   NumRigidBodies;
+const uint   NumFluidSensors;
+const int3   PrecomputedCausticsDims;
+const float  PrecomputedCausticsScaleFactor;
+const float  DynamicCausticsScaleFactor;
+const float  PrecomputedCausticsZBlurFactor;
+
+// Global rendering settings
+const float3 GlobalBrightness;
+const float  GlobalBrightnessFactor;
+const float  Contrast;
+const float  Saturation;
+const float  Gamma;
+
+// Per-timestep-set variables
+const float TotalScaledTimeElapsed;
+const int   LastTimeSetRand;
+const int   NextTimeSetRand;
+const float TimeSetLerpFactor;
+const int   PrecomputedCausticsZ;
+
+// -------------------------
+// Beveled RB edge settings (static compile-time)
+// -------------------------
+static const float  RB_BEVEL_WIDTH_MULT      = 1.0;     // NEW  // Bevel region = RBEdgeWidth * this
+static const float  RB_BEVEL_AA               = 1.0;     // NEW  // Extra AA fade outside bevel
+static const float  RB_BEVEL_NORMAL_EPS       = 1.0;     // NEW  // SDF gradient step in sim units
+static const float2 RB_BEVEL_SUN_DIR          = float2(0.6, 0.8); // NEW  // World/view 2D dir
+static const float  RB_BEVEL_LIGHT_STRENGTH   = 0.6;     // NEW  // Multiplier for lit side
+static const float  RB_BEVEL_SHADOW_STRENGTH  = 0.6;     // NEW  // Multiplier for shadow side
+static const float  RB_BEVEL_SAMPLE_PUSH      = 2.0;     // NEW  // Inward UV push in sim units
+static const float  RB_BEVEL_CURVE_POWER      = 1.0;     // NEW  // Shape of the bevel mask [0..]
+static const float  RB_BEVEL_MIN_N_LEN        = 1e-4;    // NEW
+
+// -------------------------
+// Resources
+// -------------------------
+
+// Outputs
+RWTexture2D<unorm float4> Result;
+
+// High res shadow mask
+RWStructuredBuffer<float> ShadowMask;
+
+Texture2D<unorm float4> DynamicCaustics;
+Texture2DArray<unorm float> PrecomputedCaustics;
+
+Texture2D<unorm float4> LiquidVelocityGradient;
+Texture2D<unorm float4> GasVelocityGradient;
+Texture2D<unorm float4> UITexture;
+
+// Packed material atlas (all color textures)
+Texture2D<unorm float4> Atlas;
+
+StructuredBuffer<int2> SpatialLookup; 
+StructuredBuffer<int>  StartIndices;
+
+StructuredBuffer<PData>  PDatas;
+StructuredBuffer<PType>  PTypes;
+
+StructuredBuffer<RigidBody> RigidBodies;
+StructuredBuffer<RBVector>  RBVectors;
+
+StructuredBuffer<SensorArea> SensorAreas;
+
+StructuredBuffer<Mat> Materials;
+
+// -------------------------
+// Helpers
+// -------------------------
+
+int Extract_PType(int LastChunkKey_PType_POrder)
+{
+    return ((uint)LastChunkKey_PType_POrder % (ChunksNumAll * PTypesNum)) / ChunksNumAll;
+}
+
+float2 GetTexDims(Texture2D<unorm float4> tex)
+{
+    float t;
+    float2 texDims;
+    tex.GetDimensions(0, texDims.x, texDims.y, t);
+    return texDims;
+}
+
+float3 SampleTextureBilinear(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
+{
+    float2 pixelPos = uv * texDims;
+ 
+    int2 texelCoord00 = ((int2)floor(pixelPos)) % texDims;
+    int2 texelCoord10 = (texelCoord00 + int2(1, 0)) % texDims;
+    int2 texelCoord01 = (texelCoord00 + int2(0, 1)) % texDims;
+    int2 texelCoord11 = (texelCoord00 + int2(1, 1)) % texDims;
+ 
+    float3 c00 = tex.Load(int3(texelCoord00 + texLoc, 0)).rgb;
+    float3 c10 = tex.Load(int3(texelCoord10 + texLoc, 0)).rgb;
+    float3 c01 = tex.Load(int3(texelCoord01 + texLoc, 0)).rgb;
+    float3 c11 = tex.Load(int3(texelCoord11 + texLoc, 0)).rgb;
+ 
+    float2 fraction = frac(pixelPos);
+    float3 c0 = lerp(c00, c10, fraction.x);
+    float3 c1 = lerp(c01, c11, fraction.x);
+    float3 sampleCol = lerp(c0, c1, fraction.y);
+ 
+    return sampleCol;
+}
+ 
+float3 SampleTexturePoint(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
+{
+    uint2 texelCoord = texLoc + ((floor(uv * float2(texDims.x, texDims.y))) % texDims);
+    float3 sampleCol = tex.Load(int3(texelCoord, 0)).rgb;
+    return sampleCol;
+}
+
+float3 SampleTexture(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex)
+{
+    uv = frac(uv);
+    
+    #if USE_BILINEAR_SAMPLER
+        return SampleTextureBilinear(uv, texLoc, texDims, tex);
+    #else
+        return SampleTexturePoint(uv, texLoc, texDims, tex);
+    #endif
+}
+
+float3 SampleTextureBandlimited(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex, float footprintTexels)
+{
+    if (footprintTexels <= 1.0)
+        return SampleTexture(uv, texLoc, texDims, tex);
+
+    float2 rUV = (0.5 * footprintTexels) / float2(texDims);
+
+    const float wC  = 1.0;
+    const float wA  = 0.5;
+    const float wD  = 0.35;
+    const float wSum = wC + 4.0*wA + 4.0*wD;
+
+    float3 acc = 0;
+
+    acc += wC * SampleTexture(uv, texLoc, texDims, tex);
+
+    acc += wA * SampleTexture(uv + float2( rUV.x, 0.0), texLoc, texDims, tex);
+    acc += wA * SampleTexture(uv + float2(-rUV.x, 0.0), texLoc, texDims, tex);
+    acc += wA * SampleTexture(uv + float2(0.0,  rUV.y), texLoc, texDims, tex);
+    acc += wA * SampleTexture(uv + float2(0.0, -rUV.y), texLoc, texDims, tex);
+
+    acc += wD * SampleTexture(uv + float2( rUV.x,  rUV.y), texLoc, texDims, tex);
+    acc += wD * SampleTexture(uv + float2(-rUV.x,  rUV.y), texLoc, texDims, tex);
+    acc += wD * SampleTexture(uv + float2( rUV.x, -rUV.y), texLoc, texDims, tex);
+    acc += wD * SampleTexture(uv + float2(-rUV.x, -rUV.y), texLoc, texDims, tex);
+
+    return acc / wSum;
+}
+
+float4 SampleGradient(float u, Texture2D<unorm float4> gradientTex)
+{
+    int gradientWidth = GetTexDims(gradientTex).x;
+    uint x = (int)(u * gradientWidth);
+    x = clamp(x, 0, gradientWidth-1);
+    float4 sample = gradientTex.Load(int3(x, 0, 0));
+    return float4(sample.rgb, sample.a);
+}
+
+float3 GetMaterialColor(Mat mat, float2 uv, Texture2D<unorm float4> atlas)
+{
+    if (mat.colTexLoc.x != -1)
+    {
+        float3 sampledColor = SampleTexture(uv, mat.colTexLoc, mat.colTexDims, atlas) * mat.sampleColMul;
+        return sampledColor + mat.baseCol;
+    }
+    else return mat.baseCol;
+}
+
+void AdjustContrast(inout float3 color)
+{
+    color = (color - 0.5) * Contrast + 0.5;
+}
+
+void AdjustSaturation(inout float3 color)
+{
+    float grey = dot(color, float3(0.3, 0.59, 0.11));
+    color = lerp(float3(grey, grey, grey), color, Saturation);
+}
+
+void ApplyGammaCorrection(inout float3 color)
+{
+    float invGamma = 1.0 / Gamma;
+    color.x = pow(max(color.x, 0.0), invGamma);
+    color.y = pow(max(color.y, 0.0), invGamma);
+    color.z = pow(max(color.z, 0.0), invGamma);
+}
+
+void SetResultColor(uint2 id, float3 color)
+{
+    // Apply rendering adjustments
+    AdjustContrast(color);
+    AdjustSaturation(color);
+    ApplyGammaCorrection(color);
+
+    // Apply brightness factors
+    color *= GlobalBrightness * GlobalBrightnessFactor;
+
+    color = saturate(color);
+    Result[id] = float4(color, 1.0);
+}
+
+bool ValidChunk(int2 chunk)
+{
+    return chunk.x >= 0 && chunk.x < ChunksNum.x && chunk.y >= 0 && chunk.y < ChunksNum.y;
+}
+
+int GetChunkKey(int2 chunk)
+{
+    return chunk.y * ChunksNum.x + chunk.x;
+}
+
+uint GetPixelKey(uint2 threadID)
+{
+    return threadID.y * Resolution.x + threadID.x;
+}
+
+bool IsOutsideResolutionDims(uint2 threadID)
+{
+    return threadID.x > Resolution.x || threadID.y > Resolution.y;
+}
+
+bool IsOutsideSimBounds(float2 pixelPos)
+{
+    return 0 > pixelPos.x || pixelPos.x > (float)BoundaryDims.x || 0 > pixelPos.y || pixelPos.y > (float)BoundaryDims.y;
+}
+
+bool IsPointInsideRB(float2 pos, RigidBody rb)
+{
+    pos -= rb.pos;
+
+    uint intersections = 0;
+    uint startIndex = rb.startIndex;
+    uint endIndex = rb.endIndex;
+    uint numVertices = endIndex - startIndex + 1;
+    uint pathStartIndex  = startIndex;
+    
+    float2 firstPathVec = RBVectors[startIndex].pos;
+    float2 lastVec = firstPathVec;
+
+    for (uint i = 1; i <= numVertices; i++)
+    {
+        uint vecIndex = (i == numVertices) ? pathStartIndex : (startIndex + i);
+        float2 newVec = RBVectors[vecIndex].pos;
+
+        bool newPathFlag = (newVec.x > PATH_FLAG_THRESHOLD);
+        if (newPathFlag)
+        {
+            if (IsPointToTheLeftOfLine(pos, lastVec, firstPathVec)) intersections++;
+
+            newVec.x -= PATH_FLAG_OFFSET;
+
+            firstPathVec = newVec;
+            lastVec = newVec;
+            pathStartIndex = vecIndex;
+        }
+        else
+        {
+            if (IsPointToTheLeftOfLine(pos, lastVec, newVec)) intersections++;
+
+            lastVec = newVec;
+        }
+    }
+
+    return ((intersections % 2) == 1);
+}
+
+bool IsInsideArea(float2 pos, float2 min2, float2 max2)
+{
+    return pos.x >= min2.x && pos.x <= max2.x && pos.y >= min2.y && pos.y <= max2.y;
+}
+
+float DstToRB(float2 pos, RigidBody rb)
+{
+    pos -= rb.pos;
+
+    float minDstSqr = 1.#INF;
+
+    uint startIndex = rb.startIndex;
+    uint endIndex = rb.endIndex;
+    uint numVertices = endIndex - startIndex + 1;
+    uint pathStartIndex = startIndex;
+
+    float2 firstPathVec = RBVectors[startIndex].pos;
+    float2 lastVec = firstPathVec;
+
+    for (uint i = 1; i <= numVertices; i++)
+    {
+        uint vecIndex = (i == numVertices) ? pathStartIndex : (startIndex + i);
+        float2 newVec    = RBVectors[vecIndex].pos;
+
+        bool newPathFlag = (newVec.x > PATH_FLAG_THRESHOLD);
+        if (newPathFlag)
+        {
+            {
+                float2 dst = DstToLineSegment(lastVec, firstPathVec, pos);
+                float dstSqr = dot2(dst);
+                if (dstSqr < minDstSqr)
+                    minDstSqr = dstSqr;
+            }
+
+            newVec.x -= PATH_FLAG_OFFSET;
+
+            firstPathVec = newVec;
+            lastVec = newVec;
+            pathStartIndex = vecIndex;
+        }
+        else
+        {
+            float2 dst = DstToLineSegment(lastVec, newVec, pos);
+            float dstSqr = dot2(dst);
+            if (dstSqr < minDstSqr) minDstSqr = dstSqr;
+
+            lastVec = newVec;
+        }
+    }
+
+    return (minDstSqr == 1.#INF) ? 1.#INF : sqrt(minDstSqr);
+}
+
+float MetaballsDensity(float dst, float invRadius)
+{
+    float dstR = dst * invRadius;
+    return (1 - dstR);
+}
+
+float NoiseDensity(float dst, float invRadius, int pSeed)
+{
+    int lastRandSeed = LastTimeSetRand * ParticlesNum + pSeed;
+    int nextRandSeed = NextTimeSetRand * ParticlesNum + pSeed;
+
+    float lastNoise = randNormalized(lastRandSeed);
+    float nextNoise = randNormalized(nextRandSeed);
+    float lerpNoise = lerp(lastNoise, nextNoise, TimeSetLerpFactor);
+
+    float densityFactor = (1.0 + lerpNoise * GasNoiseStrength) / (1.0 + GasNoiseStrength);
+    float noiseDensity = dst * invRadius * densityFactor;
+
+    return noiseDensity;
+}
+
+float3 SampleCaustics(uint2 threadID, float3 sampleColMul)
+{
+    float2 referenceCausticsRes = 512;
+
+    float caustics;
+#if USE_DYNAMIC_CAUSTICS
+    float2 causticsTexDims = GetTexDims(DynamicCaustics);
+    uint2 wrappedThreadID = (uint2)(threadID * DynamicCausticsScaleFactor * causticsTexDims / referenceCausticsRes) % causticsTexDims;
+    caustics = (float)DynamicCaustics[wrappedThreadID].rgb;
+#else
+    uint2 wrappedThreadID = (uint2)(threadID * PrecomputedCausticsScaleFactor * PrecomputedCausticsDims.xy / referenceCausticsRes) % PrecomputedCausticsDims.xy;
+
+    uint zDim = PrecomputedCausticsDims.z;
+    uint z = PrecomputedCausticsZ;
+
+    float current = PrecomputedCaustics.Load(int4(wrappedThreadID, z % zDim, 0));
+    float next = PrecomputedCaustics.Load(int4(wrappedThreadID, (z + 1) % zDim, 0));
+    float prev = PrecomputedCaustics.Load(int4(wrappedThreadID, (z - 1 + zDim) % zDim, 0));
+        
+    float noBlur = current;
+    float fullBlur = (current + next + prev) / 3.0;
+        
+    caustics = lerp(noBlur, fullBlur, PrecomputedCausticsZBlurFactor);
+#endif
+
+    float3 color = caustics * sampleColMul;
+
+    return color;
+}
+
+float2 MirrorRepeatUV(float2 uv)
+{
+    float2 intPart;
+    float2 fracPart = frac(uv);
+    
+    float2 isOdd = floor(uv) - floor(uv / 2.0) * 2.0;
+    fracPart = lerp(fracPart, 1.0 - fracPart, step(0.5, isOdd));
+
+    return fracPart;
+}
+
+float2 GetPixelPos(uint2 pixelID)
+{
+    float2 p = (float2)pixelID - (float2)Resolution * 0.5;
+
+    float2 a = 1.0 / ScreenToViewFactor;
+
+    p *= a;
+
+    p += (float2)Resolution * 0.5;
+
+    return p * ViewScale + ViewOffset;
+}
+
+float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos, Mat bg)
+{
+    // Convert world/view position back to screen pixel space (as before)
+    float2 pixelID = (pixelPos - ViewOffset) / ViewScale - 0.5;
+
+    float2 texDims = (float2)bg.colTexDims;
+    float scaleX = (float)Resolution.x / texDims.x;
+    float scaleY = (float)Resolution.y / texDims.y;
+    float scale  = max(scaleX, scaleY);
+    float2 scaledTexDims = texDims * scale;
+
+    float2 offset = (scaledTexDims - (float2)Resolution) * 0.5;
+
+    float up = abs(bg.colTexUpScaleFactor);
+    float2 uv = ((pixelID + offset) * up) / scaledTexDims + bg.sampleOffset;
+
+    bool doMirror = (bg.colTexUpScaleFactor > 0);
+    uv = doMirror ? MirrorRepeatUV(uv) : frac(uv);
+
+    return uv;
+}
+
+float3 SampleBackgroundColor(uint2 threadID)
+{
+    if (BackgroundMatIndex < 0 || BackgroundMatIndex >= NumMaterials)
+        return 0;
+
+    Mat bg = Materials[BackgroundMatIndex];
+
+    // If background has no texture, just base color.
+    if (bg.colTexLoc.x == -1)
+        return bg.baseCol * BackgroundBrightness;
+
+    float2 pixelPos = GetPixelPos(threadID);
+    float2 uv = ComputeBackgroundUVFromPixelPos(pixelPos, bg);
+
+    // Estimate footprint (texels per pixel) analytically (mapping is linear).
+    float2 texDims = (float2)bg.colTexDims;
+    float scaleX = (float)Resolution.x / texDims.x;
+    float scaleY = (float)Resolution.y / texDims.y;
+    float scale  = max(scaleX, scaleY);            
+    float2 scaledTexDims = texDims * scale;        
+    float  up = abs(bg.colTexUpScaleFactor);       
+
+    // Convert UV-per-pixel to texels-per-pixel in each axis, take max as isotropic bound.
+    float2 ddx_texels = float2(up / scaledTexDims.x, 0.0) * texDims;
+    float2 ddy_texels = float2(0.0, up / scaledTexDims.y) * texDims;
+    float  footprintTexels = max(length(ddx_texels), length(ddy_texels));
+
+    float3 sampled = SampleTextureBandlimited(uv, bg.colTexLoc, bg.colTexDims, Atlas, footprintTexels) * bg.sampleColMul;
+    float3 col = sampled + bg.baseCol;
+    return col * BackgroundBrightness;
+}
+
+// -------------------------
+// Kernels
+// -------------------------
+
+[numthreads(TN_R, TN_R, 1)]
+void RenderBackground(uint3 id : SV_DispatchThreadID)
+{
+    if (IsOutsideResolutionDims(id.xy)) return;
+
+    float3 sampleCol = SampleBackgroundColor(id.xy);
+    SetResultColor(id.xy, sampleCol);
+
+    uint shadowIndex = id.y * Resolution.x + id.x;
+    ShadowMask[shadowIndex] = 0.0;
+}
+
+float3 BlendWithBackground(float3 color, float opacity, uint2 threadID)
+{
+    float transparency = 1 - opacity;
+    if (transparency <= 0) return color;
+
+    float3 bg = SampleBackgroundColor(threadID);
+    return color * opacity + transparency * bg;
+}
+
+float DstToBorder(float2 pos, float2 min2, float2 max2)
+{
+    float dstToLeft = abs(pos.x - min2.x);
+    float dstToRight = abs(pos.x - max2.x);
+    float dstToBottom = abs(pos.y - min2.y);
+    float dstToTop = abs(pos.y - max2.y);
+
+    return min(min(dstToLeft, dstToRight), min(dstToBottom, dstToTop));
+}
+
+[numthreads(TN_R,TN_R,1)]
+void RenderFluids(uint3 id : SV_DispatchThreadID)
+{
+    if (IsOutsideResolutionDims(id.xy)) return;
+
+    float2 pixelPos = GetPixelPos(id.xy);
+    if (IsOutsideSimBounds(pixelPos))
+    {
+        SetResultColor(id.xy, 0.1);
+        return;
+    }
+
+    int2 chunk = (int2)(pixelPos * InvMaxInfluenceRadius);
+
+    int nearestGasLastChunkKey_PType_POrder = INT_MAX;
+    int nearestNonGasLastChunkKey_PType_POrder = INT_MAX;
+    bool nearestIsNotGas = false;
+    float totDensity = 0;
+    float totNoiseDensity = 0;
+    bool doDrawFluid = false;
+    bool drawOutline = false;
+    float minDstSqr = 1.#INF;
+#if !USE_METABALLS
+    float minLiquidRadius = min(MaxInfluenceRadius, VisualLiquidParticleRadius);
+    float minLiquidRadiusSqr = minLiquidRadius * minLiquidRadius;
+    float minGasRadius = min(MaxInfluenceRadius, VisualGasParticleRadius);
+    float minGasRadiusSqr = minGasRadius * minGasRadius;
+#endif
+#if DISPLAY_FLUID_VELOCITIES
+    float totVelocitiesSummative = 0;
+    int numParticles = 0;
+#endif
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            int2 curChunk = chunk + int2(x, y);
+
+            if (!ValidChunk(curChunk)) continue;
+
+            int chunkKey = GetChunkKey(curChunk);
+            int startIndex = StartIndices[chunkKey];
+            
+            int iterationCount = 0;
+            int index = startIndex;
+            while (index < ParticlesNum && iterationCount++ < MAX_SPATIAL_LOOKUP_ITERATIONS)
+            {
+                if (chunkKey != SpatialLookup[index].y) break;
+
+                int pIndex = SpatialLookup[index].x;
+                PData pData = PDatas[pIndex];
+
+                float dstSqr = dot2(pixelPos - pData.pos);
+                int lastChunkKey_PType_POrder = pData.lastChunkKey_PType_POrder;
+                int pTypeIndex = Extract_PType(lastChunkKey_PType_POrder);
+                bool isGas = ((uint)pTypeIndex % 3) == 2;
+
+#if USE_METABALLS
+                if (dstSqr < MaxInfluenceRadiusSqr)
+                {
+                    if (dstSqr < minDstSqr)
+                    {
+                        minDstSqr = dstSqr;
+                        if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
+                        else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
+                    }
+
+#if DISPLAY_FLUID_VELOCITIES
+                    totVelocitiesSummative += length(pData.vel);
+                    numParticles++;
+#endif
+
+                    float dst = sqrt(dstSqr);
+                    totDensity += MetaballsDensity(dst, InvMaxInfluenceRadius);
+                    totNoiseDensity += NoiseDensity(dst, InvMaxInfluenceRadius, pIndex);
+
+                    if (!isGas) nearestIsNotGas = true;
+
+#if DRAW_FLUID_OUTLINES
+                    if (totDensity > (isGas ? (GasMetaballsThreshold - GasMetaballsEdgeDensityWidth) : (LiquidMetaballsThreshold - LiquidMetaballsEdgeDensityWidth)))
+                    {
+                        drawOutline = true;
+                        doDrawFluid = true;
+                    }
+#endif
+
+                    if (totDensity > (isGas ? GasMetaballsThreshold : LiquidMetaballsThreshold))
+                    {
+#if DRAW_FLUID_OUTLINES
+                        drawOutline = false;
+#else
+                        doDrawFluid = true;
+#endif
+                    }
+                }
+#else
+                if (dstSqr < (isGas ? min(minGasRadius, minDstSqr) : min(minLiquidRadiusSqr, minDstSqr)))
+                {
+#if DISPLAY_FLUID_VELOCITIES
+                    totVelocitiesSummative += length(pData.vel);
+                    numParticles++;
+#endif
+
+                    doDrawFluid = true;
+                    minDstSqr = dstSqr;
+                    if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
+                    else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
+
+                    if (!isGas) nearestIsNotGas = true;
+
+#if DRAW_FLUID_OUTLINES
+                    if (sqrt(dstSqr) > (isGas ? (minGasRadius - GasEdgeWidth) : (minLiquidRadius - LiquidEdgeWidth))) drawOutline = true;
+                    else drawOutline = false;
+#endif
+                }
+#endif
+
+                index++;
+            }
+        }
+    }
+
+    float3 result = 0;
+    float4 sensorAreaTint = 0;
+    bool isInsideAnySensorArea = false;
+    for (uint sensorAreaIndex = 0; sensorAreaIndex < NumFluidSensors; sensorAreaIndex++)
+    {
+        SensorArea sensorArea = SensorAreas[sensorAreaIndex];
+        if (IsInsideArea(pixelPos, sensorArea.min, sensorArea.max))
+        {
+            isInsideAnySensorArea = true;
+
+            float distanceToBorder = DstToBorder(pixelPos, sensorArea.min, sensorArea.max);
+            if (distanceToBorder < FluidSensorEdgeWidth)
+            {
+                sensorAreaTint += sensorArea.lineColor;
+                continue;
+            }
+
+            float patternMod = sensorArea.patternMod;
+            float patternPos = pixelPos.x + pixelPos.y + TotalScaledTimeElapsed * SensorAreaAnimationSpeed;
+            float patternPosMod = patternPos % patternMod;
+
+            if (patternPosMod < patternMod * 0.5) sensorAreaTint += sensorArea.colorTint;
+        }
+    }
+
+    sensorAreaTint.a = clamp(sensorAreaTint.a, 0.0, 1.0);
+
+    int nearestLastChunkKey_PType_POrder = nearestIsNotGas ? nearestNonGasLastChunkKey_PType_POrder : nearestGasLastChunkKey_PType_POrder;
+    if (doDrawFluid)
+    {
+        int nearestPTypeIndex = Extract_PType(nearestLastChunkKey_PType_POrder);
+        Mat mat = Materials[PTypes[nearestPTypeIndex].matIndex];
+
+        if (drawOutline) result = mat.edgeCol;
+        else
+        {
+            float3 color;
+            float opacity;
+#if DISPLAY_FLUID_VELOCITIES
+            float avgVel = totVelocitiesSummative / numParticles;
+            float4 gradientCol;
+#endif
+            if (nearestIsNotGas)
+            {
+#if USE_CAUSTICS
+                color = SampleCaustics(id.xy, mat.sampleColMul) + mat.baseCol;
+#else
+                color = mat.baseCol;
+#endif
+                opacity = mat.opacity;
+
+#if DISPLAY_FLUID_VELOCITIES
+                gradientCol = SampleGradient(avgVel * InvLiquidVelocityGradientMaxValue, LiquidVelocityGradient);
+#endif
+            }
+            else // isGas
+            {
+                opacity = mat.opacity * max(1.0 + totDensity * GasNoiseDensityOpacityFactor, 0.0);
+                color = mat.baseCol + max(1.0 - totNoiseDensity * GasNoiseDensityDarkeningFactor, 0.0);
+
+#if DISPLAY_FLUID_VELOCITIES
+                float gradientFactor = avgVel * InvGasVelocityGradientMaxValue;
+                gradientCol = SampleGradient(gradientFactor, GasVelocityGradient);
+#endif
+            }
+            color *= GlobalBrightness;
+            result = BlendWithBackground(color, opacity, id.xy);
+
+#if DISPLAY_FLUID_VELOCITIES
+            result = lerp(result, gradientCol.rgb, gradientCol.a);
+#endif
+        }
+
+#if !DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
+        if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
+        SetResultColor(id.xy, result);
+#endif
+
+        uint shadowIndex = id.y * Resolution.x + id.x;
+        ShadowMask[shadowIndex] = nearestIsNotGas ? LiquidShadowStrength : GasShadowStrength;
+    }
+
+#if DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
+    if (!doDrawFluid && isInsideAnySensorArea)
+    {
+        float3 background = BlendWithBackground(0, 0, id.xy);
+        result = sensorAreaTint.rgb * sensorAreaTint.a + background * (1.0 - sensorAreaTint.a);
+    }
+    else if (!doDrawFluid) result = BlendWithBackground(0, 0, id.xy);
+
+    if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
+
+    SetResultColor(id.xy, result);
+#endif
+}
+
+[numthreads(TN_R,TN_R,1)]
+void RenderRigidBodies(uint3 id : SV_DispatchThreadID) // NEW (modified body to use rounded/beveled edge)
+{
+    if (IsOutsideResolutionDims(id.xy)) return;
+    
+    float2 pixelPos = GetPixelPos(id.xy);
+
+    int   highestRenderPriority = 0;
+    bool  rigidBodyFound = false;
+    bool  drawOutline    = false;
+    int   matIndex = 0;
+    float3 transformData = 0;
+    float outlineAlpha   = 1.0;
+    RigidBody selRB; // NEW
+    
+    for (uint rbIndex = 0; rbIndex < NumRigidBodies; rbIndex++)
+    {
+        RigidBody rb = RigidBodies[rbIndex];
+
+        float dstSqr = dot2(pixelPos - rb.pos);
+
+#if DRAW_RB_CENTROIDS
+        // (optional centroid drawing omitted)
+#endif
+
+        int renderPriority = rb.renderPriority;
+        if (renderPriority > highestRenderPriority && dstSqr < abs(rb.maxRadiusSqr))
+        {
+            if (IsPointInsideRB(pixelPos, rb))
+            {
+                highestRenderPriority = renderPriority;
+                rigidBodyFound = true;
+                matIndex = rb.matIndex;
+                transformData = float3(rb.pos.x, rb.pos.y, rb.totRot);
+                selRB = rb; // NEW
+
+#if DRAW_RB_OUTLINES
+                float dst = DstToRB(pixelPos, rb);
+                float realRBEdgeWidth = RBEdgeWidth;
+                float aaRange = RBEdgeWidth;
+                float outerEdge = realRBEdgeWidth + aaRange;
+                if (dst < outerEdge)
+                {
+                    drawOutline = true;
+                    outlineAlpha = (dst > realRBEdgeWidth)
+                        ? (1.0 - saturate((dst - realRBEdgeWidth) / aaRange))
+                        : 1.0;
+                }
+                else
+                {
+                    drawOutline = false;
+                }
+#endif
+            }
+        }
+    }
+
+    if (rigidBodyFound)
+    {
+        Mat mat = Materials[matIndex];
+
+        // Local mapping
+        float2 localPixelPos = rotate2D(pixelPos - transformData.xy, -transformData.z);
+        bool   doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
+        float  scaleAbs       = abs(mat.colTexUpScaleFactor);
+        float  minDim         = (float)min(BoundaryDims.x, BoundaryDims.y);
+
+        // Base (pre-wrap) UV
+        float2 baseUV = scaleAbs * localPixelPos / minDim + mat.sampleOffset; // NEW
+
+        // Estimate footprint for band-limited sampling
+        float2 a = (1.0 / ScreenToViewFactor) * ViewScale;
+        float  dPos_per_pix = max(abs(a.x), abs(a.y));
+        float  dUV_per_pix  = (scaleAbs / minDim) * dPos_per_pix;
+        float2 texDims      = (float2)mat.colTexDims;
+        float  footprintTexels = dUV_per_pix * max(texDims.x, texDims.y);
+
+        // Default: no bevel modification
+        float2 uvForSample = baseUV; // NEW
+
+#if DRAW_RB_OUTLINES
+        if (drawOutline) // NEW
+        {
+            // Signed distance at pixel (negative inside)
+            float  d  = DstToRB(pixelPos, selRB);     // +distance to edge
+            float  s0 = -d;                           // signed inside
+            float  eps = RB_BEVEL_NORMAL_EPS;         // step in sim units (view space)
+
+            // Finite-difference SDF gradient (world/view space)
+            float sdx = -DstToRB(pixelPos + float2(eps, 0.0), selRB);
+            float sdy = -DstToRB(pixelPos + float2(0.0, eps), selRB);
+            float2 grad = float2(sdx - s0, sdy - s0) / max(eps, 1e-4);
+            float lenG = max(length(grad), RB_BEVEL_MIN_N_LEN);
+            float2 nWorld = grad / lenG;            // outward normal (world) NEW
+
+            // Convert normal to local space for UV push
+            float2 nLocal = rotate2D(nWorld, -transformData.z); // NEW
+
+            // Bevel mask across inner band
+            float bevelWidth = RBEdgeWidth * RB_BEVEL_WIDTH_MULT;                         // NEW
+            float tEdge = saturate(1.0 - (d / max(bevelWidth, 1e-4)));                    // NEW 1 at edge -> 0 at inner bevel bound
+            tEdge = pow(tEdge, RB_BEVEL_CURVE_POWER);                                     // NEW shaping
+            float aa = 1.0 - saturate((d - bevelWidth) / max(RB_BEVEL_AA, 1e-4));         // NEW fade outside
+            float bevelMask = tEdge * aa * outlineAlpha;                                   // NEW
+
+            // UV push inward (simulate rounded profile by compressing texels near edge)
+            float uvPush = (scaleAbs / minDim) * RB_BEVEL_SAMPLE_PUSH * bevelMask;         // NEW
+            uvForSample = baseUV - nLocal * uvPush;                                        // NEW
+
+            // Lighting from sun direction (world/view space)
+            float2 L = RB_BEVEL_SUN_DIR;                                                  // NEW
+            float lenL = max(length(L), 1e-5);                                            // NEW
+            L /= lenL;                                                                     // NEW
+            float lambert = 0.5 + 0.5 * dot(nWorld, L);                                    // NEW [0..1]
+            float lightFactor = lerp(1.0 - RB_BEVEL_SHADOW_STRENGTH,
+                                     1.0 + RB_BEVEL_LIGHT_STRENGTH,
+                                     lambert);                                            // NEW
+
+            // Wrap UV after offset
+            uvForSample = doMirrorRepeat ? MirrorRepeatUV(uvForSample) : frac(uvForSample); // NEW
+
+            // Sample with anti-shimmer
+            float3 sampled = (mat.colTexLoc.x != -1)
+                ? SampleTextureBandlimited(uvForSample, mat.colTexLoc, mat.colTexDims, Atlas, footprintTexels) * mat.sampleColMul
+                : 0;                                                                       // NEW
+
+            float3 baseCol = (mat.colTexLoc.x != -1) ? sampled + mat.baseCol : mat.baseCol; // NEW
+
+            // Apply bevel lighting only within mask
+            float3 litCol = baseCol * lightFactor;                                         // NEW
+            float3 finalColor = lerp(baseCol, litCol, bevelMask);                          // NEW
+
+            float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);           // NEW
+            SetResultColor(id.xy, result);                                                 // NEW
+
+            uint shadowIndexRB = id.y * Resolution.x + id.x;                               // NEW
+            ShadowMask[shadowIndexRB] = RBShadowStrength;                                   // NEW
+            return;                                                                         // NEW (done for this pixel)
+        }
+#endif
+
+        // Fallback: interior (no bevel region)
+        uvForSample = doMirrorRepeat ? MirrorRepeatUV(uvForSample) : frac(uvForSample);     // NEW
+
+        float3 baseColor;
+        if (mat.colTexLoc.x != -1)
+        {
+            float3 sampled = SampleTextureBandlimited(uvForSample, mat.colTexLoc, mat.colTexDims, Atlas, footprintTexels) * mat.sampleColMul; // NEW
+            baseColor = sampled + mat.baseCol;
+        }
+        else
+        {
+            baseColor = mat.baseCol;
+        }
+
+        float3 result = BlendWithBackground(baseColor, mat.opacity, id.xy); // NEW
+        SetResultColor(id.xy, result);                                      // NEW
+
+        uint shadowIndexRB = id.y * Resolution.x + id.x;
+        ShadowMask[shadowIndexRB] = RBShadowStrength;
+    }
+}
+
+float2 ClosestPointZigZag(float2 localPos, float amplitude, int numPeriods, float startX, float totalLength)
+{
+    float totalPeriodLength = totalLength / numPeriods;
+    float halfPeriod = totalPeriodLength * 0.5;
+
+    float x = localPos.x - startX;
+
+    int periodIndex = int(floor(x / totalPeriodLength));
+
+    float xInPeriod = x - periodIndex * totalPeriodLength;
+
+    float t = x / totalLength;
+    float taperFactor = saturate(min(t / TaperThresoldNormalised, (1.0 - t) / TaperThresoldNormalised));
+
+    float taperedAmplitude = amplitude * taperFactor;
+
+    float2 segmentStart, segmentEnd;
+
+    if (xInPeriod < halfPeriod)
+    {
+        segmentStart = float2(startX + periodIndex * totalPeriodLength, -taperedAmplitude * 0.5);
+        segmentEnd = float2(segmentStart.x + halfPeriod, taperedAmplitude * 0.5);
+    }
+    else
+    {
+        segmentStart = float2(startX + periodIndex * totalPeriodLength + halfPeriod, taperedAmplitude * 0.5);
+        segmentEnd = float2(segmentStart.x + halfPeriod, -taperedAmplitude * 0.5);
+    }
+
+    float2 segmentVec = segmentEnd - segmentStart;
+    float2 pointVec = localPos - segmentStart;
+
+    float u = dot(pointVec, segmentVec) / dot(segmentVec, segmentVec);
+    u = clamp(u, 0.0, 1.0);
+
+    float2 closestPoint = segmentStart + u * segmentVec;
+    return closestPoint;
+}
+
+bool IsOnSpring(float2 localPos, float springLength, float halfSpringWidth)
+{
+    if (!(localPos.x >= 0.0 && localPos.x <= springLength && abs(localPos.y) <= halfSpringWidth)) return false;
+    
+    if ((localPos.x < SpringRenderRodLength || localPos.x > springLength - SpringRenderRodLength) && abs(localPos.y) < SpringRenderHalfMatWidth) return true;
+
+    float midStartX = SpringRenderRodLength;
+    float midEndX = springLength - SpringRenderRodLength;
+
+    if (localPos.x >= midStartX && localPos.x <= midEndX)
+    {
+        float midLength = midEndX - midStartX;
+
+        float amplitude = halfSpringWidth - SpringRenderHalfMatWidth;
+        float2 closestPoint = ClosestPointZigZag(localPos, amplitude, SpringRenderNumPeriods, midStartX, midLength);
+
+        if (length(localPos - closestPoint) <= SpringRenderHalfMatWidth) return true;
+    }
+
+    return false;
+}
+
+void TintRed(inout float3 color, float redTint)
+{
+    redTint = saturate(redTint);
+    color = lerp(color, float3(1.0, 0.0, 0.0), redTint);
+}
+
+float2 NormalizeLocalSpringPos(float2 value, float rodLength, float totalLength, float springLength, float halfSpringWidth)
+{
+    if (value.x < rodLength)
+    {
+        value.x = value.x / rodLength * (rodLength / totalLength);
+    }
+    else if (value.x > springLength - rodLength)
+    {
+        value.x = (value.x - (springLength - rodLength)) / rodLength * ((rodLength / totalLength)) + (1.0 - (rodLength / totalLength));
+    }
+    else
+    {
+        float middleLength = springLength - 2.0 * rodLength;
+        value.x = (value.x - rodLength) / middleLength * ((totalLength - 2.0 * rodLength) / totalLength) + (rodLength / totalLength);
+    }
+
+    value.y = (value.y / halfSpringWidth) * 0.5 + 0.5;
+
+    return value;
+}
+
+[numthreads(TN_R,TN_R,1)]
+void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
+{
+    if (IsOutsideResolutionDims(id.xy))return;
+
+    float2 pixelPos = GetPixelPos(id.xy);
+
+    bool  springFound = false;
+    float2 posNorm    = 0;
+    float springForce = 0;
+    int   matIndex    = 0;
+    int   highestRenderPriority = -1;
+
+#if !DO_USE_FAST_COMPILATION
+    // [unroll(MAX_RIGIDBODIES_NUM)] // optional
+#endif
+    for (uint rbIndex = 0; rbIndex < MAX_RIGIDBODIES_NUM; rbIndex++)
+    {
+        if (rbIndex >= NumRigidBodies) break;
+
+        RigidBody rbA = RigidBodies[rbIndex];
+        if (rbA.springMatIndex == -1) continue;
+        
+        float stiffness = rbA.springStiffness;
+
+        bool isLinked = rbA.linkedRBIndex != -1 && rbA.linkedRBIndex != (int)rbIndex;
+        bool rigidConstraint = stiffness == 0.0;
+        int renderPriority = rbA.renderPriority;
+        if (!isLinked || rigidConstraint || renderPriority <= highestRenderPriority) continue;
+
+        RigidBody rbB = RigidBodies[rbA.linkedRBIndex];
+
+        float2 worldLinkPosA = rbA.pos + rotate2D(rbA.localLinkPosThisRB, rbA.totRot);
+        float2 worldLinkPosB = rbB.pos + rotate2D(rbA.localLinkPosOtherRB, rbB.totRot);
+        
+        float2 localSpringEnd = worldLinkPosB - worldLinkPosA;
+        float springLength = length(localSpringEnd);
+
+        if (springLength == 0.0) continue;
+
+        float theta = atan2(localSpringEnd.y, localSpringEnd.x);
+
+        float2 pixelVec = pixelPos - worldLinkPosA;
+
+        float2 localPixelPos = rotate2D(pixelVec, -theta);
+
+        float halfSpringWidth = SpringRenderWidth * 0.5;
+
+        bool isOnSpring = IsOnSpring(localPixelPos, springLength, halfSpringWidth);
+        if (isOnSpring)
+        {
+            springFound = true;
+            highestRenderPriority = renderPriority;
+            springForce = rbA.recordedSpringForce;
+            matIndex = rbA.springMatIndex;
+            posNorm = NormalizeLocalSpringPos(localPixelPos, SpringRenderRodLength, rbA.springRestLength, springLength, halfSpringWidth);
+        }
+    }
+
+    if (springFound)
+    {
+        Mat mat = Materials[matIndex];
+        if (mat.opacity <= 0) return;
+
+        float2 uv = MirrorRepeatUV(abs(mat.colTexUpScaleFactor) * posNorm / (float2)BoundaryDims + mat.sampleOffset);
+        uv *= SpringTextureUVFactor;
+
+        float3 result = GetMaterialColor(mat, uv, Atlas) + mat.baseCol;
+
+        float redTint = RED_TINT_FACTOR * springForce;
+        TintRed(result, redTint);
+        
+        SetResultColor(id.xy, result);
+
+        uint  shadowIndexRB = id.y * Resolution.x + id.x;
+        float prev          = ShadowMask[shadowIndexRB];
+        float prevMag       = max(prev, 0.0);
+        ShadowMask[shadowIndexRB] = -(prevMag + 1.0);
+    }
+}
+
+[numthreads(TN_R,TN_R,1)]
+void RenderUI(uint3 id : SV_DispatchThreadID)
+{
+    if (IsOutsideResolutionDims(id.xy))return;
+
+    float4 uiColor = UITexture[id.xy];
+    if (uiColor.a != 0) Result[id.xy] = uiColor;
+}

@@ -37,6 +37,7 @@ public class TextureBaker : MonoBehaviour
     public GameObject childPrefab;           // Must have a MeshRenderer on the root or a child
 
     // --- Child visibility (Edit & Play) ---
+    [Tooltip("This root and its children are renamed to 'EditorOnly' so Unity strips them from Player builds.")]
     public Transform texturesRoot;           // Parent whose children are the “textures”
     public int visibleTextureIndex = -1;     // -1 = show none; else 0..last child
 
@@ -58,8 +59,19 @@ public class TextureBaker : MonoBehaviour
     }
     readonly Dictionary<RenderMat, MatSnapshot> _matSnapshots = new();
 
+    // --- NEW: Enforce EditorOnly stripping for the preview hierarchy ---
+    void OnValidate()
+    {
+        if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
+            texturesRoot.gameObject.name = "EditorOnly";
+    }
+
     void Start()
     {
+        // Ensure the preview hierarchy uses the EditorOnly stripping name
+        if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
+            texturesRoot.gameObject.name = "EditorOnly";
+
         SyncChildrenToRenderMats();
         ApplyVisibleChild(visibleTextureIndex);
 
@@ -128,7 +140,7 @@ public class TextureBaker : MonoBehaviour
                 child = CreateChild(mat.name);
                 childMap[mat.name] = child;
             }
-            // Apply material slot 0
+            // Apply material slot 0 (Editor-only authoring)
             ApplyMaterialToChild(child, mat.material);
         }
 
@@ -189,6 +201,10 @@ public class TextureBaker : MonoBehaviour
         go.transform.localPosition = new(0, 0, 100);
         go.transform.localRotation = Quaternion.identity;
         go.transform.localScale = new(75, 75, 1);
+
+        // Ensure parent carries the EditorOnly stripping name
+        if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
+            texturesRoot.gameObject.name = "EditorOnly";
 
         return go.transform;
     }
@@ -512,7 +528,6 @@ public class TextureBaker : MonoBehaviour
         return dst;
     }
 
-#if UNITY_EDITOR
     // ---------------------- Editor helpers ----------------------
     Texture2D SaveTextureAsset(Texture2D tex, string baseName)
     {
@@ -573,8 +588,8 @@ public class TextureBaker : MonoBehaviour
         foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
         return string.IsNullOrEmpty(s) ? "Baked" : s;
     }
-#endif
 #else
+    // In Player builds, make sure the helper camera stays out of the way.
     void Awake()
     {
         var cam = targetCamera ? targetCamera : GetComponent<Camera>();
