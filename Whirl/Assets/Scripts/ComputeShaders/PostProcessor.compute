@@ -1,9 +1,3 @@
-// ------------------------------------------------------------
-// Shadows & (optional) rim lighting — streamlined version
-// - Avoids repeated code via small helpers
-// - Adds multi_compile keyword for optional rim lighting
-// ------------------------------------------------------------
-
 // Create shadows 
 #pragma kernel CreateShadowsVertical
 #pragma kernel CreateShadowsDiagonal
@@ -18,6 +12,9 @@
 #pragma kernel ApplySharpShadows
 #pragma kernel ApplyBlurredShadows
 #pragma kernel ApplyWithoutShadows
+// Anti-aliasing
+#pragma kernel ApplyAA
+#pragma kernel CopyResultToPP
 
 #pragma multi_compile _ APPLY_RIM_LIGHTING
 
@@ -54,11 +51,19 @@ const float RimShadingStrength;
 const float RimShadingBleed;
 const float RimShadingOpaqueBleed;
 
+// Anti-aliasing
+const float AAThreshold;
+const float AAMaxBlend;
+
 // ---------------------------
 // Textures
 // ---------------------------
 Texture2D<unorm float4> Result;
 RWTexture2D<unorm float4> PPResult;
+
+// AA I/O (bind in C#; see ShaderHelper.SetPostProcessorTextures)
+Texture2D<unorm float4> AAInput;
+RWTexture2D<unorm float4> AAOutput;
 
 // ---------------------------
 // Buffers
@@ -595,6 +600,70 @@ void ApplyWithoutShadows(uint3 id : SV_DispatchThreadID)
     uint2 px = id.xy;
     if (IsOutsideFullDims(px)) return;
     PPResult[px] = Result[px];
+}
+
+// ---------------------------
+// Anti-aliasing
+// ---------------------------
+
+static const float3 LUMA = float3(0.299, 0.587, 0.114);
+
+float3 ReadAA_rgb(int2 p)
+{
+    p.x = clamp(p.x, 0, (int)Resolution.x - 1);
+    p.y = clamp(p.y, 0, (int)Resolution.y - 1);
+    return AAInput.Load(int3(p,0)).rgb;
+}
+
+float  ReadAA_a(int2 p)
+{
+    p.x = clamp(p.x, 0, (int)Resolution.x - 1);
+    p.y = clamp(p.y, 0, (int)Resolution.y - 1);
+    return AAInput.Load(int3(p,0)).a;
+}
+
+[numthreads(TN_PP2, TN_PP2, 1)]
+void ApplyAA(uint3 id : SV_DispatchThreadID)
+{
+    uint2 upx = id.xy;
+    if (IsOutsideFullDims(upx)) return;
+
+    int2 p = int2(upx);
+
+    float3 c  = ReadAA_rgb(p);
+    float3 cN = ReadAA_rgb(int2(p.x, p.y - 1));
+    float3 cS = ReadAA_rgb(int2(p.x, p.y + 1));
+    float3 cW = ReadAA_rgb(int2(p.x - 1, p.y));
+    float3 cE = ReadAA_rgb(int2(p.x + 1, p.y));
+
+    float lC = dot(c , LUMA);
+    float lN = dot(cN, LUMA);
+    float lS = dot(cS, LUMA);
+    float lW = dot(cW, LUMA);
+    float lE = dot(cE, LUMA);
+
+    float gradH = abs(lW - lE);
+    float gradV = abs(lN - lS);
+    float edge  = max(gradH, gradV);
+
+    float blend = saturate((edge - AAThreshold) / (1.0 - AAThreshold)) * AAMaxBlend;
+
+    // Directional 3-tap blur along minor gradient axis
+    float3 blurH = (cW + c + cE) * (1.0/3.0);
+    float3 blurV = (cN + c + cS) * (1.0/3.0);
+    float3 aaCol = (gradH > gradV) ? blurV : blurH;
+
+    float3 outCol = lerp(c, aaCol, blend);
+    float  outA   = ReadAA_a(p); // preserve alpha
+
+    AAOutput[upx] = float4(outCol, outA);
+}
+
+[numthreads(TN_PP2,TN_PP2,1)]
+void CopyResultToPP(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)Resolution.x || id.y >= (uint)Resolution.y) return;
+    PPResult[id.xy] = Result[id.xy];
 }
 
 // Instead of the current rim lighting, use the sunDir in_ renderer to apply an effect near the edges pacing the sun.

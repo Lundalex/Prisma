@@ -197,23 +197,37 @@ public class ShaderHelper : MonoBehaviour
         int kApplySharp = SafeFindKernel(ppShader, "ApplySharpShadows");
         int kApplyBlur  = SafeFindKernel(ppShader, "ApplyBlurredShadows");
         int kApplyNo    = SafeFindKernel(ppShader, "ApplyWithoutShadows");
+        int kAA         = SafeFindKernel(ppShader, "ApplyAA");
+        int kCopy       = SafeFindKernel(ppShader, "CopyResultToPP");
 
         if (kApplySharp >= 0)
         {
-            ppShader.SetTexture(kApplySharp, "Result", m.renderTexture);
+            ppShader.SetTexture(kApplySharp, "Result",   m.renderTexture);
             ppShader.SetTexture(kApplySharp, "PPResult", m.ppRenderTexture);
         }
 
         if (kApplyBlur >= 0)
         {
-            ppShader.SetTexture(kApplyBlur, "Result", m.renderTexture);
+            ppShader.SetTexture(kApplyBlur, "Result",   m.renderTexture);
             ppShader.SetTexture(kApplyBlur, "PPResult", m.ppRenderTexture);
         }
 
         if (kApplyNo >= 0)
         {
-            ppShader.SetTexture(kApplyNo, "Result", m.renderTexture);
+            ppShader.SetTexture(kApplyNo, "Result",   m.renderTexture);
             ppShader.SetTexture(kApplyNo, "PPResult", m.ppRenderTexture);
+        }
+
+        if (kAA >= 0)
+        {
+            ppShader.SetTexture(kAA, "AAInput",  m.ppRenderTexture);
+            ppShader.SetTexture(kAA, "AAOutput", m.renderTexture);
+        }
+
+        if (kCopy >= 0)
+        {
+            ppShader.SetTexture(kCopy, "Result",   m.renderTexture);
+            ppShader.SetTexture(kCopy, "PPResult", m.ppRenderTexture);
         }
     }
 
@@ -297,10 +311,10 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("GasNoiseDensityDarkeningFactor", m.GasNoiseDensityDarkeningFactor);
         renderShader.SetFloat("GasNoiseDensityOpacityFactor", m.GasNoiseDensityOpacityFactor);
 
-        // Keep brightness; upscaling/mirror handled by Background mat now.
         renderShader.SetVector("BackgroundBrightness", Utils.Float3ToVector3(m.BackgroundBrightness));
 
         renderShader.SetFloat("RBEdgeWidth", m.RBEdgeWidth);
+        renderShader.SetFloat("RBEdgeRoundDst", m.RBEdgeRoundDst);
         renderShader.SetFloat("FluidSensorEdgeWidth", m.FluidSensorEdgeWidth);
         renderShader.SetFloat("SensorAreaAnimationSpeed", m.SensorAreaAnimationSpeed);
 
@@ -341,7 +355,11 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("Gamma", m.Gamma);
 
         renderShader.SetInt("BackgroundMatIndex", m.BackgroundMatIndex);
-        renderShader.SetVector("sunDir", new Vector2(m.SunDirection.x, m.SunDirection.y));
+        renderShader.SetVector("SunDir", new Vector2(m.SunDirection.x, m.SunDirection.y));
+        renderShader.SetFloat("RBRoundLightStrength", m.RBRoundLightStrength);
+        renderShader.SetFloat("RBRoundShadowStrength", m.RBRoundShadowStrength);
+        renderShader.SetFloat("RBRoundSamplePush", m.RBRoundSamplePush);
+        renderShader.SetFloat("RBFalloff", m.RBFalloff);
     }
 
     public void SetPostProcessorVariables(ComputeShader ppShader)
@@ -359,6 +377,9 @@ public class ShaderHelper : MonoBehaviour
         ppShader.SetFloat("RimShadingStrength", m.RimShadingStrength);
         ppShader.SetFloat("RimShadingBleed", m.RimShadingBleed);
         ppShader.SetFloat("RimShadingOpaqueBleed", m.RimShadingOpaqueBleed);
+
+        ppShader.SetFloat("AAThreshold", m.AAThreshold);
+        ppShader.SetFloat("AAMaxBlend", m.AAMaxBlend);
 
         // Low-resolution shadow grid parameters
         int factor = 1 << Mathf.Clamp(m.ShadowDownSampling, 0, 30);

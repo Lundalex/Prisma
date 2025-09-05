@@ -304,6 +304,9 @@ MonoBehaviour:
   RimShadingStrength: 4
   RimShadingBleed: 0.15
   RimShadingOpaqueBleed: 4
+  DoUseAntiAliasing: 1
+  AAThreshold: 0.08
+  AAMaxBlend: 0.75
   ShadowDownSampling: 0
   Resolution:
     x: 1920
@@ -407,7 +410,12 @@ MonoBehaviour:
     m_NumAlphaKeys: 2
   GasVelocityGradientResolution: 256
   GasVelocityGradientMaxValue: 25
-  RBEdgeWidth: 0.1
+  RBEdgeWidth: 0
+  RBEdgeRoundDst: 1
+  RBRoundLightStrength: 1
+  RBRoundShadowStrength: 1
+  RBRoundSamplePush: 2
+  RBFalloff: 1
   FluidSensorEdgeWidth: 1
   SensorAreaAnimationSpeed: 10
   GlobalSettingsViewChangeSpeed: 10
@@ -11604,7 +11612,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2795778342208220742, guid: d1b1fce8d679c124a8a6ca7cd9677d8c, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 65
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2795778342208220742, guid: d1b1fce8d679c124a8a6ca7cd9677d8c, type: 3}
       propertyPath: m_SizeDelta.y
@@ -12120,7 +12128,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9159628492619072400, guid: d1b1fce8d679c124a8a6ca7cd9677d8c, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 55
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9159628492619072400, guid: d1b1fce8d679c124a8a6ca7cd9677d8c, type: 3}
       propertyPath: m_SizeDelta.y

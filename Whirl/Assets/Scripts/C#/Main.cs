@@ -130,6 +130,13 @@ public class Main : MonoBehaviour
     public float RimShadingStrength = 2.0f;
     public float RimShadingBleed = 0.2f;
     public float RimShadingOpaqueBleed = 3.0f;
+
+    // Anti-aliasing
+    public bool DoUseAntiAliasing = true;
+    public float AAThreshold = 0.08f;
+    public float AAMaxBlend = 0.75f;
+
+    // Optimisations
     public int ShadowDownSampling = 1;
     #endregion
 
@@ -188,7 +195,12 @@ public class Main : MonoBehaviour
     public float GasVelocityGradientMaxValue;
 
     // Rigid Bodies
-    public float RBEdgeWidth = 0.5f;
+    public float RBEdgeWidth = 0.1f;
+    public float RBEdgeRoundDst = 1.0f;
+    public float RBRoundLightStrength = 4.0f;
+    public float  RBRoundShadowStrength = 1.5f;
+    public float  RBRoundSamplePush = 2.0f;
+    public float  RBFalloff = 1.0f;
 
     // Sensor Areas
     public float FluidSensorEdgeWidth = 3.0f;
@@ -906,61 +918,87 @@ public class Main : MonoBehaviour
         int2 shadowThreads2D = GetShadowResolution();
         int shadowThreadsX = shadowThreads2D.x;
 
+        void Shadows()
+        {
+            void GenerateShadows()
+            {
+                // Downsample the full-res source mask into the working low-res ShadowMask_dbA
+                int kDown = ppShader.FindKernel("DownsampleShadowMask");
+                if (kDown >= 0)
+                {
+                    ComputeHelper.DispatchKernel(ppShader, "DownsampleShadowMask", shadowThreads2D, ppShaderThreadSize2);
+                }
+
+                // Create shadows at LOW RES (ray march)
+                if (ShadowType == ShadowType.Vertical_Sharp || ShadowType == ShadowType.Vertical_Blurred)
+                {
+                    // vertical kernel uses X dimension only (one ray per column)
+                    ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", shadowThreadsX, ppShaderThreadSize1);
+                }
+                else if (ShadowType == ShadowType.Diagonal_Sharp || ShadowType == ShadowType.Diagonal_Blurred)
+                {
+                    ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDiagonal", shadowThreadsX, ppShaderThreadSize1);
+                }
+                else if (ShadowType == ShadowType.Directional_Sharp || ShadowType == ShadowType.Directional_Blurred)
+                {
+                    ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDirectional", shadowThreadsX, ppShaderThreadSize1);
+                }
+            }
+
+            void BlurAndApplyShadows()
+            {
+                bool isBlurred =
+                    ShadowType == ShadowType.Vertical_Blurred ||
+                    ShadowType == ShadowType.Diagonal_Blurred ||
+                    ShadowType == ShadowType.Directional_Blurred;
+
+                if (isBlurred)
+                {
+                    // Work in low resolution for blur
+                    ComputeHelper.DispatchKernel(ppShader, "CopySharpShadows", shadowThreads2D, ppShaderThreadSize2);
+
+                    bool stepBufferCycle = true;
+                    for (int i = 0; i < ShadowBlurIterations; i++)
+                    {
+                        ppShader.SetBool("StepBufferCycle", stepBufferCycle);
+                        ppShader.SetInt("BlurOffset", Func.Pow2(ShadowBlurIterations - 1 - i));
+                        ComputeHelper.DispatchKernel(ppShader, "BlurShadowsGaussian", shadowThreads2D, ppShaderThreadSize2);
+                        stepBufferCycle = !stepBufferCycle;
+                    }
+
+                    ppShader.SetBool("StepBufferCycle", !stepBufferCycle);
+                    ComputeHelper.DispatchKernel(ppShader, "ApplyBlurredShadows", fullThreads2D, ppShaderThreadSize2);
+                }
+                else
+                {
+                    ComputeHelper.DispatchKernel(ppShader, "ApplySharpShadows", fullThreads2D, ppShaderThreadSize2);
+                }
+            }
+
+            GenerateShadows();
+            BlurAndApplyShadows();
+        }
+
+        void ApplyAA()
+        {
+            if (DoUseAntiAliasing)
+            {
+                ComputeHelper.DispatchKernel(ppShader, "ApplyAA", fullThreads2D, ppShaderThreadSize2);
+                ComputeHelper.DispatchKernel(ppShader, "CopyResultToPP", fullThreads2D, ppShaderThreadSize2);
+            }
+        }
+
         if (ShadowType == ShadowType.None)
         {
-            // No shadows — straight copy to PP
             ComputeHelper.DispatchKernel(ppShader, "ApplyWithoutShadows", fullThreads2D, ppShaderThreadSize2);
+
+            ApplyAA();
+            
             return;
         }
 
-        // Downsample the full-res source mask into the working low-res ShadowMask_dbA
-        int kDown = ppShader.FindKernel("DownsampleShadowMask");
-        if (kDown >= 0)
-        {
-            ComputeHelper.DispatchKernel(ppShader, "DownsampleShadowMask", shadowThreads2D, ppShaderThreadSize2);
-        }
-
-        // Create shadows at LOW RES (ray march)
-        if (ShadowType == ShadowType.Vertical_Sharp || ShadowType == ShadowType.Vertical_Blurred)
-        {
-            // vertical kernel uses X dimension only (one ray per column)
-            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", shadowThreadsX, ppShaderThreadSize1);
-        }
-        else if (ShadowType == ShadowType.Diagonal_Sharp || ShadowType == ShadowType.Diagonal_Blurred)
-        {
-            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDiagonal", shadowThreadsX, ppShaderThreadSize1);
-        }
-        else if (ShadowType == ShadowType.Directional_Sharp || ShadowType == ShadowType.Directional_Blurred)
-        {
-            ComputeHelper.DispatchKernel(ppShader, "CreateShadowsDirectional", shadowThreadsX, ppShaderThreadSize1);
-        }
-
-        bool isBlurred =
-            ShadowType == ShadowType.Vertical_Blurred ||
-            ShadowType == ShadowType.Diagonal_Blurred ||
-            ShadowType == ShadowType.Directional_Blurred;
-
-        if (isBlurred)
-        {
-            // Work in low resolution for blur
-            ComputeHelper.DispatchKernel(ppShader, "CopySharpShadows", shadowThreads2D, ppShaderThreadSize2);
-
-            bool stepBufferCycle = true;
-            for (int i = 0; i < ShadowBlurIterations; i++)
-            {
-                ppShader.SetBool("StepBufferCycle", stepBufferCycle);
-                ppShader.SetInt("BlurOffset", Func.Pow2(ShadowBlurIterations - 1 - i));
-                ComputeHelper.DispatchKernel(ppShader, "BlurShadowsGaussian", shadowThreads2D, ppShaderThreadSize2);
-                stepBufferCycle = !stepBufferCycle;
-            }
-
-            ppShader.SetBool("StepBufferCycle", !stepBufferCycle);
-            ComputeHelper.DispatchKernel(ppShader, "ApplyBlurredShadows", fullThreads2D, ppShaderThreadSize2);
-        }
-        else
-        {
-            ComputeHelper.DispatchKernel(ppShader, "ApplySharpShadows", fullThreads2D, ppShaderThreadSize2);
-        }
+        Shadows();
+        ApplyAA();
     }
 
     private void InitTimeSetRand()

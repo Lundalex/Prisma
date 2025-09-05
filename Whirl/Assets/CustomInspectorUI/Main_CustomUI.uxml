@@ -85,7 +85,7 @@
         <uie:PropertyField binding-path="RenderOrder" name="PropertyField" tooltip="Recommended: Keep default settings. The render order of different program layers." />
     </ui:Foldout>
     <ui:Foldout text="Post-processing" name="Post-processing" value="false" style="-unity-font-style: bold; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-color: rgb(0, 0, 0); padding-top: 4px; padding-right: 4px; padding-bottom: 4px; padding-left: 4px;">
-        <ui:Foldout text="Shadows" value="true" name="Shadows" style="-unity-font-style: bold;">
+        <ui:Foldout text="Shadows" value="true" name="Shadows" toggle-on-label-click="false" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="ShadowType" label="Shadows" />
             <ui:Slider label="Darkness" value="0.4" high-value="1" binding-path="ShadowDarkness" show-input-field="true" fill="true" name="Slider" low-value="0" />
             <ui:Slider label="Falloff" value="0.01" high-value="1" binding-path="ShadowFalloff" show-input-field="true" fill="true" name="Slider" low-value="0" />
@@ -96,13 +96,19 @@
             <ui:SliderInt label="Blur Radius" value="2" high-value="5" fill="true" show-input-field="true" binding-path="ShadowBlurRadius" />
             <ui:SliderInt label="Blur Iterations" value="2" high-value="10" fill="true" show-input-field="true" binding-path="ShadowBlurIterations" low-value="1" />
             <ui:Slider label="Diffusion" value="10" high-value="100" binding-path="ShadowDiffusion" show-input-field="true" fill="true" name="Slider" low-value="0" />
-            <ui:Label text="Casted Shadows" style="left: -10px;" />
-            <ui:Toggle label="Rim Lighting" value="true" binding-path="DoUseRimLighting" tooltip="Whether to display fluid velocities by tinting the red color channel with the average velocity of the neighbouring particles." />
+            <ui:Label text="Casted Light/Shadows" style="left: -10px;" />
+            <ui:Toggle label="Rim Lighting" value="true" binding-path="DoUseRimLighting" />
             <ui:Slider label="Rim Strength" value="10" high-value="100" binding-path="RimShadingStrength" show-input-field="true" fill="true" name="Slider" low-value="0" />
             <ui:Slider label="Rim Bleed" value="10" high-value="0.5" binding-path="RimShadingBleed" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
             <ui:Slider label="Opaque Bleed" value="10" high-value="10" binding-path="RimShadingOpaqueBleed" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
             <ui:Label text="Optimisations" style="left: -10px;" />
             <ui:SliderInt label="Downsampling" value="2" high-value="5" fill="true" show-input-field="true" binding-path="ShadowDownSampling" />
+        </ui:Foldout>
+        <ui:Foldout text="Image Processing" value="true" name="ImageProcessing" tooltip="Image processing applied to final output image before rendering." toggle-on-label-click="false" style="-unity-font-style: bold;">
+            <ui:Label text="Anti Aliasing" style="left: -10px;" />
+            <ui:Toggle label="Anti Aliasing" value="true" binding-path="DoUseAntiAliasing" />
+            <ui:Slider label="Threshold" value="0.08" high-value="1" binding-path="AAThreshold" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
+            <ui:Slider label="Max Blend" value="0.75" high-value="1" binding-path="AAMaxBlend" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
         </ui:Foldout>
     </ui:Foldout>
     <ui:Foldout text="Render Display" name="RenderDisplay" value="false" style="-unity-font-style: bold; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-color: rgb(0, 0, 0); padding-top: 4px; padding-right: 4px; padding-bottom: 4px; padding-left: 4px;">
@@ -150,9 +156,15 @@
             </ui:Foldout>
         </ui:Foldout>
         <ui:Foldout text="Rigid Bodies" name="RigidBodies" value="false" style="-unity-font-style: bold;">
-            <uie:PropertyField binding-path="RBEdgeWidth" label="Edge Width" />
+            <ui:Slider label="Edge Width" value="0.1" high-value="1" binding-path="RBEdgeWidth" show-input-field="true" fill="true" name="Slider" />
+            <ui:Label text="Edge Rounding" style="left: -10px;" />
+            <ui:Slider label="Edge Round" value="1" high-value="2" binding-path="RBEdgeRoundDst" show-input-field="true" fill="true" name="Slider" />
+            <ui:Slider label="Light Strength" value="4" high-value="10" binding-path="RBRoundLightStrength" show-input-field="true" fill="true" name="Slider" />
+            <ui:Slider label="Shadow Strength" value="4" high-value="10" binding-path="RBRoundShadowStrength" show-input-field="true" fill="true" name="Slider" />
+            <ui:Slider label="Sample Push" value="2" high-value="5" binding-path="RBRoundSamplePush" show-input-field="true" fill="true" name="Slider" />
+            <ui:Slider label="Falloff" value="1" high-value="5" binding-path="RBFalloff" show-input-field="true" fill="true" name="Slider" />
         </ui:Foldout>
-        <ui:Foldout text="Rigid Body Springs" value="false" style="-unity-font-style: bold;">
+        <ui:Foldout text="Rigid Body Springs" value="false" name="RigidBodySprings" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="SpringRenderWidth" label="Sprite Width" tooltip="The total width of the spring." />
             <uie:PropertyField binding-path="SpringRenderMatWidth" label="Material Width" tooltip="The width of the spring material, i.e. the spring thickness" />
             <uie:PropertyField binding-path="SpringRenderRodLength" label="Rod Length" tooltip="The length of the start- and end spring rods attached to the rigid bodies." />
@@ -160,7 +172,7 @@
             <ui:Slider label="Normalised Taper" value="42" high-value="0.5" binding-path="TaperThresoldNormalised" fill="true" show-input-field="true" tooltip="How close to the spring start- and end rods to begin linearly lowering the amplitude of the spring pattern." low-value="0.05" />
             <uie:PropertyField binding-path="SpringTextureUVFactor" label="Texture UV Factor" style="color: rgb(255, 255, 255); -unity-font-style: bold;" />
         </ui:Foldout>
-        <ui:Foldout text="Fluid Sensors" value="false">
+        <ui:Foldout text="Fluid Sensors" value="false" name="FluidSensors">
             <uie:PropertyField binding-path="FluidSensorEdgeWidth" label="Edge Width" tooltip="The edge width of fluid sensor area borders" />
             <uie:PropertyField binding-path="SensorAreaAnimationSpeed" label="Animation Speed" tooltip="Animation speed, measured in simulation area units per real life second" />
         </ui:Foldout>
