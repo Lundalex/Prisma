@@ -340,10 +340,7 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("Saturation", m.Saturation);
         renderShader.SetFloat("Gamma", m.Gamma);
 
-        // New
         renderShader.SetInt("BackgroundMatIndex", m.BackgroundMatIndex);
-
-        // New: runtime sun light
         renderShader.SetVector("sunDir", new Vector2(m.SunDirection.x, m.SunDirection.y));
     }
 
@@ -363,7 +360,7 @@ public class ShaderHelper : MonoBehaviour
         ppShader.SetFloat("RimShadingBleed", m.RimShadingBleed);
         ppShader.SetFloat("RimShadingOpaqueBleed", m.RimShadingOpaqueBleed);
 
-        // --- New: low-resolution shadow grid parameters ---
+        // Low-resolution shadow grid parameters
         int factor = 1 << Mathf.Clamp(m.ShadowDownSampling, 0, 30);
         int w = Mathf.Max(1, m.renderTexture.width  / factor);
         int h = Mathf.Max(1, m.renderTexture.height / factor);
@@ -380,7 +377,7 @@ public class ShaderHelper : MonoBehaviour
         sortShader.SetInt("ParticlesNum_NextPow2", m.ParticlesNum_NextPow2);
     }
 
-    // --- Ner RB shader ---
+    // --- RB shader ---
 
     public void SetRBSimShaderBuffers(ComputeShader rbSimShader)
     {

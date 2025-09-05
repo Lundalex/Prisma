@@ -125,6 +125,8 @@ public class Main : MonoBehaviour
     public int ShadowBlurIterations = 1;
     public float ShadowDiffusion = 20.0f;
 
+    // Rim Lighting
+    public bool DoUseRimLighting = true;
     public float RimShadingStrength = 2.0f;
     public float RimShadingBleed = 0.2f;
     public float RimShadingOpaqueBleed = 3.0f;
@@ -633,6 +635,9 @@ public class Main : MonoBehaviour
         // Rigid body simulation shader
         if (DoUseFastShaderCompilation) rbSimShader.EnableKeyword("DO_USE_FAST_COMPILATION");
         else rbSimShader.DisableKeyword("DO_USE_FAST_COMPILATION");
+
+        if (DoUseRimLighting) ppShader.EnableKeyword("APPLY_RIM_LIGHTING");
+        else ppShader.DisableKeyword("APPLY_RIM_LIGHTING");
     }
 
     private void ValidateHardwareCompatibility()

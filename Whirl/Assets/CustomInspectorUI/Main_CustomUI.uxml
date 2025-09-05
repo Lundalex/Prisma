@@ -97,6 +97,7 @@
             <ui:SliderInt label="Blur Iterations" value="2" high-value="10" fill="true" show-input-field="true" binding-path="ShadowBlurIterations" low-value="1" />
             <ui:Slider label="Diffusion" value="10" high-value="100" binding-path="ShadowDiffusion" show-input-field="true" fill="true" name="Slider" low-value="0" />
             <ui:Label text="Casted Shadows" style="left: -10px;" />
+            <ui:Toggle label="Rim Lighting" value="true" binding-path="DoUseRimLighting" tooltip="Whether to display fluid velocities by tinting the red color channel with the average velocity of the neighbouring particles." />
             <ui:Slider label="Rim Strength" value="10" high-value="100" binding-path="RimShadingStrength" show-input-field="true" fill="true" name="Slider" low-value="0" />
             <ui:Slider label="Rim Bleed" value="10" high-value="0.5" binding-path="RimShadingBleed" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
             <ui:Slider label="Opaque Bleed" value="10" high-value="10" binding-path="RimShadingOpaqueBleed" show-input-field="true" fill="true" name="Slider" low-value="0.01" />

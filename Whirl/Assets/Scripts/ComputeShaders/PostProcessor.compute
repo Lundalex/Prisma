@@ -1,8 +1,14 @@
+// ------------------------------------------------------------
+// Shadows & (optional) rim lighting — streamlined version
+// - Avoids repeated code via small helpers
+// - Adds multi_compile keyword for optional rim lighting
+// ------------------------------------------------------------
+
 // Create shadows 
 #pragma kernel CreateShadowsVertical
 #pragma kernel CreateShadowsDiagonal
 #pragma kernel CreateShadowsDirectional
-// New: downsample full-res shadow to low-res working grid
+// Downsample full-res shadow to low-res working grid
 #pragma kernel DownsampleShadowMask
 // Blur shadows
 #pragma kernel CopySharpShadows
@@ -12,6 +18,8 @@
 #pragma kernel ApplySharpShadows
 #pragma kernel ApplyBlurredShadows
 #pragma kernel ApplyWithoutShadows
+
+#pragma multi_compile _ APPLY_RIM_LIGHTING
 
 #include "./Helpers/MathResources.hlsl"
 #include "./Helpers/DataTypes.hlsl"
@@ -70,27 +78,23 @@ RWStructuredBuffer<float> ShadowDstMask;
 RWStructuredBuffer<float> RimLightMask;
 
 // ---------------------------
-// Helpers: indexing
+// Helpers: indexing & clamps
 // ---------------------------
 
-uint GetPixelKeyFull(uint2 p) { return p.y * Resolution.x + p.x; }         // full-res
-uint GetPixelKeyLow (uint2 p) { return p.y * ShadowResolution.x + p.x; }   // low-res
+uint GetPixelKeyFull(uint2 p) { return p.y * Resolution.x + p.x; }
+uint GetPixelKeyLow (uint2 p) { return p.y * ShadowResolution.x + p.x; }
 
-bool IsOutsideFullDims(uint2 p)
-{
-    return p.x >= Resolution.x || p.y >= Resolution.y;
-}
+bool IsOutsideFullDims(uint2 p) { return p.x >= Resolution.x || p.y >= Resolution.y; }
+bool IsOutsideLowDims (uint2 p) { return p.x >= ShadowResolution.x || p.y >= ShadowResolution.y; }
 
-bool IsOutsideLowDims(uint2 p)
-{
-    return p.x >= ShadowResolution.x || p.y >= ShadowResolution.y;
-}
+float2 ClampToLowGrid(float2 pos) { return clamp(pos, float2(-0.5, -0.5), float2(ShadowResolution) - 0.5); }
+int2   ClampToLowCoord(int2 p)    { return clamp(p, int2(0,0), int2(ShadowResolution) - 1); }
 
 // ---------------------------
 // Shadow accumulation helpers
 // ---------------------------
 
-// Per-step, downsample-normalized carry update.
+// Per-step, downsample-normalized carry update:
 // stepFalloff = 1 - (1 - ShadowFalloff)^(stepLenFullRes)
 // pixelShadowScaled = pixelShadow * stepLenFullRes
 float UpdateCarryScaled(inout float carry, float pixelShadowScaled, float stepFalloff)
@@ -101,10 +105,10 @@ float UpdateCarryScaled(inout float carry, float pixelShadowScaled, float stepFa
     return carryDelta;
 }
 
+#if APPLY_RIM_LIGHTING
 // Parallel rim-carry (optical thickness τ) with exponential falloff.
 // Outside RB (fluids/gases), scale by RimShadingBleed.
 // Opaque (rigid), cap per-pixel thickness by RimShadingOpaqueBleed.
-// stepFalloff & stepScale as above.
 float UpdateRimCarryScaled(inout float rimTau, float pixelShadow, bool outsideRB, bool insideSpring,
                            float stepFalloff, float stepScale)
 {
@@ -120,7 +124,6 @@ float UpdateRimCarryScaled(inout float rimTau, float pixelShadow, bool outsideRB
         rimInput = min(pixelShadow, max(0.0, 1.0 / max(1e-6, RimShadingOpaqueBleed)));
     }
 
-    // Normalize for step length
     rimInput *= stepScale;
 
     float oldTau = rimTau;
@@ -133,16 +136,24 @@ float UpdateRimCarryScaled(inout float rimTau, float pixelShadow, bool outsideRB
     float rimDeltaExp = max(Tprev - Tnew, 0.0);
     return rimDeltaExp;
 }
+#endif
 
-// Shared middle function: performs the per-pixel shadow update on LOW-RES grid.
+// Common step parameters for all marching kernels.
+void ComputeStepParams(float stepLenLow, out float stepScale, out float stepFalloff)
+{
+    stepScale   = max(1.0, (float)ShadowDownsampleFactor) * stepLenLow;
+    stepFalloff = 1.0 - pow(1.0 - saturate(ShadowFalloff), stepScale);
+}
+
+// Shared middle function: per-pixel shadow update on LOW-RES grid.
 inline void ShadowStep(uint2 pLow,
                        inout float carry,
                        inout float rimCarry,
                        inout float dst,
                        inout bool  suppressRim,
                        uint        stepsSinceReset,
-                       float       stepScale,     // = ShadowDownsampleFactor * lowResStepLength
-                       float       stepFalloff)   // = 1 - (1 - ShadowFalloff)^stepScale
+                       float       stepScale,
+                       float       stepFalloff)
 {
     uint idx = GetPixelKeyLow(pLow);
     float pixelShadow = ShadowMask_dbA[idx];
@@ -150,34 +161,31 @@ inline void ShadowStep(uint2 pLow,
     // Rigid body detection (RB encoded with value >= 1)
     bool outsideRB = (pixelShadow < 1.0 - 1e-6);
 
-    // Determine the shadow dst (measured in *low-res* steps; used only for blur softness)
+    // Distance-from-occluder in low-res steps (for blur softness)
     dst = outsideRB ? (dst + 1.0) : 0.0;
     ShadowDstMask[idx] = dst;
 
-    // Detect an early opaque hit (within the first N steps after start/reset)
+    // Early opaque hit suppression near the start
     static const int RimEarlyOpaquePixels = 2;
     bool opaqueHit = (!outsideRB);
-    if (stepsSinceReset < (uint)RimEarlyOpaquePixels && opaqueHit)
-    {
-        suppressRim = true;
-    }
-    // Leave the object: stop suppressing once we exit the opaque region
-    if (!opaqueHit)
-    {
-        suppressRim = false;
-    }
+    if (stepsSinceReset < (uint)RimEarlyOpaquePixels && opaqueHit) suppressRim = true;
+    if (!opaqueHit) suppressRim = false; // reset once we leave opaque
 
-    // Normalize accumulation by step length
     float pixelShadowScaled = pixelShadow * stepScale;
 
-    // Update carries
+    // Update main shadow carry
     UpdateCarryScaled(carry, pixelShadowScaled, stepFalloff);
-    float rimDeltaExp = UpdateRimCarryScaled(rimCarry, pixelShadow, outsideRB, /*insideSpring=*/false,
-                                             stepFalloff, stepScale);
 
-    // Output rim using exponential falloff contribution this step,
-    // but zero it if we're suppressing due to an early opaque hit.
-    float rimOut = suppressRim ? 0.0 : (rimDeltaExp * RimShadingStrength);
+    // Optional rim carry
+    float rimOut = 0.0;
+    #if APPLY_RIM_LIGHTING
+    {
+        float rimDeltaExp = UpdateRimCarryScaled(rimCarry, pixelShadow, outsideRB, /*insideSpring=*/false,
+                                                 stepFalloff, stepScale);
+        rimOut = suppressRim ? 0.0 : (rimDeltaExp * RimShadingStrength);
+    }
+    #endif
+
     RimLightMask[idx] = rimOut;
 
     float effectiveShadow = outsideRB ? (carry * ShadowDarkness) : 0.0;
@@ -185,18 +193,16 @@ inline void ShadowStep(uint2 pLow,
 }
 
 // ---------------------------
-// Kernels: build low-res inputs
+// Downsample full-res → low-res
 // ---------------------------
 
-// Downsample the full-resolution source shadow mask into the low-res working buffer.
-// Springs use encoding s = -(m + 1). Recover underlying magnitude with max(0, -s - 1).
+// Springs use encoding s = -(m + 1). Recover magnitude with max(0, -s - 1).
 [numthreads(TN_PP2, TN_PP2, 1)]
 void DownsampleShadowMask(uint3 id : SV_DispatchThreadID)
 {
     uint2 pLow = id.xy;
     if (IsOutsideLowDims(pLow)) return;
 
-    // Full-res block bounds for this low-res pixel
     uint2 start = pLow * (uint)ShadowDownsampleFactor;
     uint2 end   = min(start + (uint2)ShadowDownsampleFactor, Resolution);
 
@@ -212,30 +218,21 @@ void DownsampleShadowMask(uint3 id : SV_DispatchThreadID)
 
             if (v < 0.0)
             {
-                // spring: decode magnitude
                 float mag = max(0.0, -v - 1.0);
                 if (mag >= 1.0 - 1e-6) { hasOpaque = true; }
                 else if (mag > 0.0)    { acc += mag; cnt++; }
             }
-            else if (v >= 1.0 - 1e-6)
-            {
-                hasOpaque = true;
-            }
-            else if (v > 0.0)
-            {
-                acc += v; cnt++;
-            }
+            else if (v >= 1.0 - 1e-6) { hasOpaque = true; }
+            else if (v > 0.0)         { acc += v; cnt++; }
         }
     }
 
-    float outv = 0.0;
-    if (hasOpaque) outv = 1.0;
-    else           outv = (cnt > 0u) ? (acc / cnt) : 0.0;
+    float outv = hasOpaque ? 1.0 : ((cnt > 0u) ? (acc / cnt) : 0.0);
 
     uint idxLow = GetPixelKeyLow(pLow);
     ShadowMask_dbA[idxLow]  = outv;
 
-    // Clear others for safety/debugging
+    // Clear others
     ShadowMask_dbB[idxLow]  = 0.0;
     SharpShadowMask[idxLow] = 0.0;
     ShadowDstMask[idxLow]   = 0.0;
@@ -243,7 +240,7 @@ void DownsampleShadowMask(uint3 id : SV_DispatchThreadID)
 }
 
 // ---------------------------
-// Kernels: build shadows in LOW-RES
+// Build shadows in LOW-RES
 // ---------------------------
 
 [numthreads(TN_PP1, 1, 1)]
@@ -252,17 +249,11 @@ void CreateShadowsVertical(uint3 id : SV_DispatchThreadID)
     uint x = id.x;
     if (x >= ShadowResolution.x) return;
 
-    // Each step moves 1 low-res cell → ShadowDownsampleFactor full-res pixels
-    const float stepLenLow   = 1.0;
-    const float stepScale    = max(1.0, (float)ShadowDownsampleFactor) * stepLenLow;
-    const float stepFalloff  = 1.0 - pow(1.0 - saturate(ShadowFalloff), stepScale);
+    float stepScale, stepFalloff;
+    ComputeStepParams(/*stepLenLow=*/1.0, stepScale, stepFalloff);
 
-    float carry    = 0.0;
-    float rimCarry = 0.0;
-    float dst      = LARGE_FLOAT;
-
-    uint stepCount   = 0u;
-    bool suppressRim = false;
+    float carry = 0.0, rimCarry = 0.0, dst = LARGE_FLOAT;
+    uint  stepCount = 0u; bool suppressRim = false;
 
     const int H = (int)ShadowResolution.y;
     for (int y = H - 1; y >= 0; --y)
@@ -284,17 +275,11 @@ void CreateShadowsDiagonal(uint3 id : SV_DispatchThreadID)
     int x = W - 1 - (int)xStart;
     int y = H - 1;
 
-    // Diagonal march length ≈ √2 low-res → scale to full-res
-    const float stepLenLow   = 1.41421356;
-    const float stepScale    = max(1.0, (float)ShadowDownsampleFactor) * stepLenLow;
-    const float stepFalloff  = 1.0 - pow(1.0 - saturate(ShadowFalloff), stepScale);
+    float stepScale, stepFalloff;
+    ComputeStepParams(/*stepLenLow≈√2*/1.41421356, stepScale, stepFalloff);
 
-    float carry    = 0.0;
-    float rimCarry = 0.0;
-    float dst      = LARGE_FLOAT;
-
-    uint stepCount   = 0u;
-    bool suppressRim = false;
+    float carry = 0.0, rimCarry = 0.0, dst = LARGE_FLOAT;
+    uint  stepCount = 0u; bool suppressRim = false;
 
     for (int i = 0; i < H; ++i)
     {
@@ -307,14 +292,12 @@ void CreateShadowsDiagonal(uint3 id : SV_DispatchThreadID)
         x -= 1;
         stepCount++;
 
-        // horizontal wrap allowed, but reset state so no cross-edge leakage
+        // horizontal wrap allowed; reset state on wrap
         if (x < 0)
         {
             x += W;
             carry = 0.0; rimCarry = 0.0; dst = LARGE_FLOAT;
-
-            stepCount   = 0u;
-            suppressRim = false;
+            stepCount = 0u; suppressRim = false;
         }
     }
 }
@@ -346,17 +329,11 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
     float drift = (ay > 1e-6) ? (ax / ay) : 1e6;
     float acc   = 0.0;
 
-    // Primary step length ≈ 1 low-res row per iter → scale to full-res
-    const float stepLenLow   = 1.0;
-    const float stepScale    = max(1.0, (float)ShadowDownsampleFactor) * stepLenLow;
-    const float stepFalloff  = 1.0 - pow(1.0 - saturate(ShadowFalloff), stepScale);
+    float stepScale, stepFalloff;
+    ComputeStepParams(/*primary row step*/1.0, stepScale, stepFalloff);
 
-    float carry    = 0.0;
-    float rimCarry = 0.0;
-    float dst      = LARGE_FLOAT;
-
-    uint stepCount   = 0u;
-    bool suppressRim = false;
+    float carry = 0.0, rimCarry = 0.0, dst = LARGE_FLOAT;
+    uint  stepCount = 0u; bool suppressRim = false;
 
     const uint maxIters = (uint)H;
     for (uint i = 0; i < maxIters; ++i)
@@ -387,16 +364,14 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
             if (wrapped)
             {
                 carry = 0.0; rimCarry = 0.0; dst = LARGE_FLOAT;
-
-                stepCount   = 0u;
-                suppressRim = false;
+                stepCount = 0u; suppressRim = false;
             }
         }
     }
 }
 
 // ---------------------------
-// Kernels: post-build processing in LOW-RES
+// Post-build processing (LOW-RES)
 // ---------------------------
 
 [numthreads(TN_PP2, TN_PP2, 1)]
@@ -504,41 +479,29 @@ void BlurShadowsBox(uint3 id : SV_DispatchThreadID)
 }
 
 // ---------------------------
-// AA upsampling helpers (LOW->FULL)
+// Generic bilinear sampling from low-res buffers
 // ---------------------------
+static const uint BUF_A     = 0u;
+static const uint BUF_B     = 1u;
+static const uint BUF_SHARP = 2u;
+static const uint BUF_RIM   = 3u;
 
-// Bilinear sample from low-res A
-float bilinearSampleLowA(float2 lowPos)
+float ReadLow(uint2 p, uint kind)
 {
-    // Clamp to [ -0.5 .. size-0.5 ] prior to floor()
-    lowPos = clamp(lowPos, float2(-0.5, -0.5), float2(ShadowResolution) - 0.5);
-
-    int2 p0 = (int2)floor(lowPos);
-    float2 f = frac(lowPos);
-
-    int2 p1 = p0 + int2(1, 0);
-    int2 p2 = p0 + int2(0, 1);
-    int2 p3 = p0 + int2(1, 1);
-
-    p0 = clamp(p0, int2(0, 0), int2(ShadowResolution) - 1);
-    p1 = clamp(p1, int2(0, 0), int2(ShadowResolution) - 1);
-    p2 = clamp(p2, int2(0, 0), int2(ShadowResolution) - 1);
-    p3 = clamp(p3, int2(0, 0), int2(ShadowResolution) - 1);
-
-    float s00 = ShadowMask_dbA[GetPixelKeyLow((uint2)p0)];
-    float s10 = ShadowMask_dbA[GetPixelKeyLow((uint2)p1)];
-    float s01 = ShadowMask_dbA[GetPixelKeyLow((uint2)p2)];
-    float s11 = ShadowMask_dbA[GetPixelKeyLow((uint2)p3)];
-
-    float sx0 = lerp(s00, s10, f.x);
-    float sx1 = lerp(s01, s11, f.x);
-    return lerp(sx0, sx1, f.y);
+    uint idx = GetPixelKeyLow(p);
+    switch (kind)
+    {
+        case BUF_A:     return ShadowMask_dbA[idx];
+        case BUF_B:     return ShadowMask_dbB[idx];
+        case BUF_SHARP: return SharpShadowMask[idx];
+        case BUF_RIM:   return RimLightMask[idx];
+        default:        return 0.0;
+    }
 }
 
-// Bilinear sample from low-res B
-float bilinearSampleLowB(float2 lowPos)
+float bilinearSampleLow(float2 lowPos, uint kind)
 {
-    lowPos = clamp(lowPos, float2(-0.5, -0.5), float2(ShadowResolution) - 0.5);
+    lowPos = ClampToLowGrid(lowPos);
 
     int2 p0 = (int2)floor(lowPos);
     float2 f = frac(lowPos);
@@ -547,69 +510,15 @@ float bilinearSampleLowB(float2 lowPos)
     int2 p2 = p0 + int2(0, 1);
     int2 p3 = p0 + int2(1, 1);
 
-    p0 = clamp(p0, int2(0, 0), int2(ShadowResolution) - 1);
-    p1 = clamp(p1, int2(0, 0), int2(ShadowResolution) - 1);
-    p2 = clamp(p2, int2(0, 0), int2(ShadowResolution) - 1);
-    p3 = clamp(p3, int2(0, 0), int2(ShadowResolution) - 1);
+    p0 = ClampToLowCoord(p0);
+    p1 = ClampToLowCoord(p1);
+    p2 = ClampToLowCoord(p2);
+    p3 = ClampToLowCoord(p3);
 
-    float s00 = ShadowMask_dbB[GetPixelKeyLow((uint2)p0)];
-    float s10 = ShadowMask_dbB[GetPixelKeyLow((uint2)p1)];
-    float s01 = ShadowMask_dbB[GetPixelKeyLow((uint2)p2)];
-    float s11 = ShadowMask_dbB[GetPixelKeyLow((uint2)p3)];
-
-    float sx0 = lerp(s00, s10, f.x);
-    float sx1 = lerp(s01, s11, f.x);
-    return lerp(sx0, sx1, f.y);
-}
-
-// Bilinear sample from low-res SharpShadowMask
-float bilinearSampleLowSharp(float2 lowPos)
-{
-    lowPos = clamp(lowPos, float2(-0.5, -0.5), float2(ShadowResolution) - 0.5);
-
-    int2 p0 = (int2)floor(lowPos);
-    float2 f = frac(lowPos);
-
-    int2 p1 = p0 + int2(1, 0);
-    int2 p2 = p0 + int2(0, 1);
-    int2 p3 = p0 + int2(1, 1);
-
-    p0 = clamp(p0, int2(0, 0), int2(ShadowResolution) - 1);
-    p1 = clamp(p1, int2(0, 0), int2(ShadowResolution) - 1);
-    p2 = clamp(p2, int2(0, 0), int2(ShadowResolution) - 1);
-    p3 = clamp(p3, int2(0, 0), int2(ShadowResolution) - 1);
-
-    float s00 = SharpShadowMask[GetPixelKeyLow((uint2)p0)];
-    float s10 = SharpShadowMask[GetPixelKeyLow((uint2)p1)];
-    float s01 = SharpShadowMask[GetPixelKeyLow((uint2)p2)];
-    float s11 = SharpShadowMask[GetPixelKeyLow((uint2)p3)];
-
-    float sx0 = lerp(s00, s10, f.x);
-    float sx1 = lerp(s01, s11, f.x);
-    return lerp(sx0, sx1, f.y);
-}
-
-// Bilinear sample from low-res RimLightMask
-float bilinearSampleLowRim(float2 lowPos)
-{
-    lowPos = clamp(lowPos, float2(-0.5, -0.5), float2(ShadowResolution) - 0.5);
-
-    int2 p0 = (int2)floor(lowPos);
-    float2 f = frac(lowPos);
-
-    int2 p1 = p0 + int2(1, 0);
-    int2 p2 = p0 + int2(0, 1);
-    int2 p3 = p0 + int2(1, 1);
-
-    p0 = clamp(p0, int2(0, 0), int2(ShadowResolution) - 1);
-    p1 = clamp(p1, int2(0, 0), int2(ShadowResolution) - 1);
-    p2 = clamp(p2, int2(0, 0), int2(ShadowResolution) - 1);
-    p3 = clamp(p3, int2(0, 0), int2(ShadowResolution) - 1);
-
-    float s00 = RimLightMask[GetPixelKeyLow((uint2)p0)];
-    float s10 = RimLightMask[GetPixelKeyLow((uint2)p1)];
-    float s01 = RimLightMask[GetPixelKeyLow((uint2)p2)];
-    float s11 = RimLightMask[GetPixelKeyLow((uint2)p3)];
+    float s00 = ReadLow((uint2)p0, BUF_A * 0u + kind);
+    float s10 = ReadLow((uint2)p1, kind);
+    float s01 = ReadLow((uint2)p2, kind);
+    float s11 = ReadLow((uint2)p3, kind);
 
     float sx0 = lerp(s00, s10, f.x);
     float sx1 = lerp(s01, s11, f.x);
@@ -619,28 +528,19 @@ float bilinearSampleLowRim(float2 lowPos)
 // Map FULL pixel id -> continuous LOW pixel space (centers align).
 float2 fullPxToLowPos(uint2 pxFull)
 {
-    // Center-align using size ratio; the "-0.5" aligns centers to integer coordinates.
     float2 scale = (float2)ShadowResolution / (float2)Resolution;
     return ((float2)pxFull + 0.5) * scale - 0.5;
 }
 
 // ---------------------------
-// Kernels: apply to FULL-RES output
+// Apply to FULL-RES output
 // ---------------------------
 
-[numthreads(TN_PP2, TN_PP2, 1)]
-void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
+inline void ApplyCommon(uint2 px, float2 lowPos, float shadow)
 {
-    uint2 px = id.xy;
-    if (IsOutsideFullDims(px)) return;
+    float light = 1.0 - shadow;
 
-    float2 lowPos = fullPxToLowPos(px);
-
-    // Sample sharp low-res shadow with bilinear AA upsampling
-    float shadow = bilinearSampleLowSharp(lowPos);
-    float light  = 1.0 - shadow;
-
-    // Full-res medium classification:
+    // Medium classification at full-res:
     // s < 0 => spring (no shadows, no rim)
     // 0 < s < 1 => fluid/gas
     // s >= 1 => rigid
@@ -650,8 +550,13 @@ void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
     bool insideRBFull       = (sFull >= 1.0 - 1e-6);
     bool allowRimHere       = !insideSpringFull && (insideFluidGasFull || insideRBFull);
 
-    // Springs: no rim, no darkening.
-    float rim = allowRimHere ? bilinearSampleLowRim(lowPos) : 0.0;
+    float rim = 0.0;
+    #if APPLY_RIM_LIGHTING
+    if (allowRimHere)
+    {
+        rim = bilinearSampleLow(lowPos, BUF_RIM);
+    }
+    #endif
 
     float4 src  = Result[px];
     float3 base = src.rgb;
@@ -659,6 +564,17 @@ void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
 
     float3 combinedCol = saturate(base + rim);
     PPResult[px] = float4(combinedCol, src.a);
+}
+
+[numthreads(TN_PP2, TN_PP2, 1)]
+void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
+{
+    uint2 px = id.xy;
+    if (IsOutsideFullDims(px)) return;
+
+    float2 lowPos = fullPxToLowPos(px);
+    float shadow  = bilinearSampleLow(lowPos, BUF_SHARP);
+    ApplyCommon(px, lowPos, shadow);
 }
 
 [numthreads(TN_PP2, TN_PP2, 1)]
@@ -668,28 +584,9 @@ void ApplyBlurredShadows(uint3 id : SV_DispatchThreadID)
     if (IsOutsideFullDims(px)) return;
 
     float2 lowPos = fullPxToLowPos(px);
-
-    // Sample blurred low-res ping-pong buffer (bilinear)
-    float shadow = StepBufferCycle ? bilinearSampleLowB(lowPos)
-                                   : bilinearSampleLowA(lowPos);
-
-    float light  = 1.0 - shadow;
-
-    // Full-res medium classification (see above)
-    float sFull = ShadowSrcFullRes[GetPixelKeyFull(px)];
-    bool insideSpringFull   = (sFull < 0.0);
-    bool insideFluidGasFull = (sFull > 0.0) && (sFull < 1.0 - 1e-6);
-    bool insideRBFull       = (sFull >= 1.0 - 1e-6);
-    bool allowRimHere       = !insideSpringFull && (insideFluidGasFull || insideRBFull);
-
-    float rim = allowRimHere ? bilinearSampleLowRim(lowPos) : 0.0;
-
-    float4 src  = Result[px];
-    float3 base = src.rgb;
-    if (!insideSpringFull) base *= light;
-
-    float3 combinedCol = saturate(base + rim);
-    PPResult[px] = float4(combinedCol, src.a);
+    uint   buf    = StepBufferCycle ? BUF_B : BUF_A;
+    float  shadow = bilinearSampleLow(lowPos, buf);
+    ApplyCommon(px, lowPos, shadow);
 }
 
 [numthreads(TN_PP2, TN_PP2, 1)]
@@ -697,7 +594,6 @@ void ApplyWithoutShadows(uint3 id : SV_DispatchThreadID)
 {
     uint2 px = id.xy;
     if (IsOutsideFullDims(px)) return;
-
     PPResult[px] = Result[px];
 }
 

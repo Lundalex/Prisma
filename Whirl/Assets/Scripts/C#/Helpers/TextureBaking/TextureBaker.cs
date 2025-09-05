@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
-using Unity.VisualScripting;
 
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEditor.Callbacks;
 #endif
 
 [ExecuteAlways]
@@ -59,7 +59,7 @@ public class TextureBaker : MonoBehaviour
     }
     readonly Dictionary<RenderMat, MatSnapshot> _matSnapshots = new();
 
-    // --- NEW: Enforce EditorOnly stripping for the preview hierarchy ---
+    // Enforce EditorOnly stripping for the preview hierarchy
     void OnValidate()
     {
         if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
@@ -588,6 +588,22 @@ public class TextureBaker : MonoBehaviour
         foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
         return string.IsNullOrEmpty(s) ? "Baked" : s;
     }
+
+    // Helper that the build hook calls to clear preview children
+    public void DestroyPreviewChildrenInBuild()
+    {
+        if (!texturesRoot) return;
+
+        for (int i = texturesRoot.childCount - 1; i >= 0; i--)
+        {
+            var c = texturesRoot.GetChild(i);
+            DestroyImmediate(c.gameObject);
+        }
+
+        // Keep the root named EditorOnly as a belt-and-suspenders
+        if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
+            texturesRoot.gameObject.name = "EditorOnly";
+    }
 #else
     // In Player builds, make sure the helper camera stays out of the way.
     void Awake()
@@ -597,3 +613,18 @@ public class TextureBaker : MonoBehaviour
     }
 #endif
 }
+
+#if UNITY_EDITOR
+static class TextureBakerBuildHooks
+{
+    [PostProcessScene]
+    static void StripPreviewChildrenInBuild()
+    {
+        if (!BuildPipeline.isBuildingPlayer) return;
+
+        var bakers = UnityEngine.Object.FindObjectsByType<TextureBaker>(FindObjectsSortMode.None);
+        foreach (var baker in bakers)
+            baker.DestroyPreviewChildrenInBuild();
+    }
+}
+#endif

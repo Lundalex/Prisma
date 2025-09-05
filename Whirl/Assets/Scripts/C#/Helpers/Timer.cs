@@ -1,21 +1,27 @@
+using System;
 using UnityEngine;
 using PM = ProgramManager;
 
-public class Timer
+public class Timer : IDisposable
 {
     private float time;
     private readonly float threshold;
     private readonly TimeType timeType;
     private readonly bool resetTimerOnThresholdReached;
 
-    /// <summary>A timer which is automatically subscribed to the program update life cycle</summary>
+    private bool _isDisposed;
+
+    /// <summary>
+    /// A timer which is automatically subscribed to the program update life cycle.
+    /// IMPORTANT: Call Dispose() when you're done with the timer (or clear ProgramManager.OnProgramUpdate) to avoid leaks.
+    /// </summary>
     public Timer(float threshold, TimeType timeType = TimeType.Clamped, bool resetTimerOnThresholdReached = true, float time = 0)
     {
         this.threshold = threshold;
         this.timeType = timeType;
         this.resetTimerOnThresholdReached = resetTimerOnThresholdReached;
         this.time = time;
-        
+
         PM.Instance.OnProgramUpdate += IncrementTime;
     }
 
@@ -27,15 +33,12 @@ public class Timer
             case TimeType.Clamped:
                 time += PM.Instance.clampedDeltaTime;
                 break;
-
             case TimeType.NonClamped:
                 time += Time.deltaTime;
                 break;
-
             case TimeType.Scaled:
                 time += PM.Instance.scaledDeltaTime;
                 break;
-
             default:
                 Debug.Log("TimeType not recognised. See class 'Timer'");
                 break;
@@ -47,21 +50,24 @@ public class Timer
     {
         if (time >= threshold)
         {
-            // Reset/subtract from the accumulated time
             if (resetIfThresholdReached)
             {
                 if (resetTimerOnThresholdReached) time = 0;
                 else time -= threshold;
             }
-
             return true;
         }
-        else return false;
+        return false;
     }
-
-    /// <summary>Get the elapsed time since starting/resetting the timer</summary>
+    
     public float GetTime() => time;
-
-    /// <summary>Reset the accumulated time</summary>
     public void Reset() => time = 0;
+    public void Dispose()
+    {
+        if (_isDisposed) return;
+        _isDisposed = true;
+
+        var pm = PM.Instance;
+        if (pm != null) pm.OnProgramUpdate -= IncrementTime;
+    }
 }

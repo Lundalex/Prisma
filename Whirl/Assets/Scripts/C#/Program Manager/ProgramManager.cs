@@ -54,6 +54,7 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public Vector2 ViewOffset;
     [NonSerialized] public bool isStandardResolution;
     [NonSerialized] public string lastOpenedScene;
+
     public event Action<bool> OnProgramUpdate;
     public event Action OnNewLanguageSelected;
     public event Action OnPreStart;
@@ -116,7 +117,7 @@ public class ProgramManager : ScriptableObject
         OnPreStart?.Invoke();
 
         Initialize();
-        
+
         main.StartScript();
         fluidSpawnerManager.StartScript(main);
         sensorManager.StartScript(main);
@@ -194,6 +195,12 @@ public class ProgramManager : ScriptableObject
 
     public void ResetScene()
     {
+        // IMPORTANT: clear timer subscribers to prevent leaks across scene reloads
+        OnProgramUpdate = null;
+        // Dispose ProgramManager-owned timers
+        rapidFrameSteppingTimer?.Dispose();
+        rapidFrameSteppingTimer = null;
+
         startConfirmationStatus = StartConfirmationStatus.None;
         hasBeenReset = true;
         UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
@@ -220,6 +227,7 @@ public class ProgramManager : ScriptableObject
             startConfirmationStatus = StartConfirmationStatus.None;
         }
     }
+
     private bool CheckInputs()
     {
         // Key inputs
@@ -234,7 +242,7 @@ public class ProgramManager : ScriptableObject
             {
                 TriggerSetPauseState(!programPaused);
             }
-            else if (Input.GetKey(KeyCode.F) && rapidFrameSteppingTimer.Check())
+            else if (Input.GetKey(KeyCode.F) && rapidFrameSteppingTimer != null && rapidFrameSteppingTimer.Check())
             {
                 if (!programPaused) TriggerSetPauseState(true);
                 frameStep = !frameStep;
@@ -268,7 +276,7 @@ public class ProgramManager : ScriptableObject
 
     public bool CheckAllowRestart() => startConfirmationStatus == StartConfirmationStatus.Complete || startConfirmationStatus == StartConfirmationStatus.None;
 
-#region Performance Checking
+    #region Performance Checking
     public float InterpolatedFPS = 120.0f;
     public float InterpolatedSimSpeed = 2.0f;
     private const float FPSLerpsFactor = 1.0f;
@@ -285,7 +293,7 @@ public class ProgramManager : ScriptableObject
         InterpolatedFPS = Mathf.Lerp(InterpolatedFPS, currentFPS, FPSLerpsFactor * Time.deltaTime);
         InterpolatedSimSpeed = Mathf.Lerp(InterpolatedSimSpeed, simSpeed, SimSpeedLerpFactor * Time.deltaTime);
     }
-#endregion
+    #endregion
 
     private void UpdateSensorScripts()
     {
@@ -327,6 +335,9 @@ public class ProgramManager : ScriptableObject
 
     public void ResetData(bool pauseOnStart)
     {
+        // Clear any lingering subscribers from a previous run (safety across domain reloads)
+        OnProgramUpdate = null;
+
         programStarted = true;
         sceneIsResetting = false;
         doOnSettingsChanged = false;
@@ -343,7 +354,7 @@ public class ProgramManager : ScriptableObject
         {
             startConfirmationStatus = StartConfirmationStatus.None;
         }
-        
+
         totalTimeElapsed = 0f;
         totalScaledTimeElapsed = 0f;
         totalRLTimeSinceSceneLoad = 0f;
@@ -354,7 +365,10 @@ public class ProgramManager : ScriptableObject
         rigidBodyArrows = new();
         fluidArrowFields = new();
         userUIElements = new();
-        rapidFrameSteppingTimer = new(rapidFrameSteppingDelay, TimeType.NonClamped, true, rapidFrameSteppingDelay);
+
+        // Dispose old timer (if any) before creating a new one
+        rapidFrameSteppingTimer?.Dispose();
+        rapidFrameSteppingTimer = new Timer(rapidFrameSteppingDelay, TimeType.NonClamped, true, rapidFrameSteppingDelay);
 
         InterpolatedFPS = 120.0f;
         InterpolatedSimSpeed = 2.0f;
@@ -393,7 +407,6 @@ public class ProgramManager : ScriptableObject
 
     private void MoveSensorToFront(int sensorIndex)
     {
-        // Move the sensor UI to either the front by setting the sibling index
         int frontIndex = sensorDatas.Count;
         sensorDatas[sensorIndex].sensorUIObject.transform.SetSiblingIndex(frontIndex);
     }
@@ -409,10 +422,8 @@ public class ProgramManager : ScriptableObject
 
     public bool CheckAnyUIElementHovered()
     {
-        // Return false if the program is starting up
         if (startConfirmationStatus == StartConfirmationStatus.Waiting || startConfirmationStatus == StartConfirmationStatus.NotStarted) return false;
 
-        // Check each ui element for pointer hovering
         foreach (SensorData sensorData in sensorDatas)
         {
             if (sensorData.sensorUI.isPointerHovering) return true;
@@ -427,7 +438,6 @@ public class ProgramManager : ScriptableObject
 
     public bool CheckAnySensorBeingMoved()
     {
-        // Return false if the program is starting up
         if (startConfirmationStatus == StartConfirmationStatus.Waiting || startConfirmationStatus == StartConfirmationStatus.NotStarted) return false;
 
         foreach (SensorData sensorData in sensorDatas)
@@ -485,7 +495,7 @@ public class ProgramManager : ScriptableObject
     {
         bool applyDarkening = isAnySensorSettingsViewActive;
         float target = 1f - main.SettingsViewDarkTintPercent * (applyDarkening ? 1f : 0f);
-        
+
         if (globalBrightnessFactor == -1) globalBrightnessFactor = target;
         else globalBrightnessFactor = Mathf.Lerp(globalBrightnessFactor, target, deltaTime * main.GlobalSettingsViewChangeSpeed);
     }
@@ -499,7 +509,7 @@ public class ProgramManager : ScriptableObject
     private void LerpSensorUIScale(float deltaTime)
     {
         foreach (SensorData sensorData in sensorDatas)
-        {   
+        {
             Vector3 targetScale = sensorData.sensorUI.GetTotalScale(sensorData.isSettingsViewActive);
             Vector3 currentScale = sensorData.sensorUIObject.transform.localScale;
 
@@ -568,7 +578,7 @@ public class ProgramManager : ScriptableObject
         float resolutionRatio = Resolution.x / Resolution.y;
         float boundaryDimsRatio = main.BoundaryDims.x / (float)main.BoundaryDims.y;
         float resBoundsratioDiff = Mathf.Abs(resolutionRatio / boundaryDimsRatio - 1);
-        if (resBoundsratioDiff > 0.05) // Small tolerance to prevent small adjustments by sceneManager.GetBounds in Main to trigger unnecessary warnings
+        if (resBoundsratioDiff > 0.05)
         {
             Debug.LogWarning("Resolution ratio and BoundaryDims setting in Main do not match. Rendering artifacts may appear");
         }
@@ -576,11 +586,9 @@ public class ProgramManager : ScriptableObject
 
     private void SetStaticUIPositions()
     {
-        // Calculate the UI offset
         Vector2 halfResolution = Resolution / 2.0f;
         Vector2 offset = halfResolution - halfResolution * ScreenToViewFactorUI;
-        
-        // Apply the offset to all static UI elements
+
         if (languageSelectDropdown != null)
         {
             languageSelectDropdown.localPosition = (Vector2)languageSelectDropdown.localPosition - offset;
@@ -601,6 +609,12 @@ public class ProgramManager : ScriptableObject
     public void OnDestroy()
     {
         UnsubscribeFromActions();
+        // Also clear program update subscribers when the asset gets destroyed (editor/domain reload safety)
+        OnProgramUpdate = null;
+        // Dispose ProgramManager-owned timers
+        rapidFrameSteppingTimer?.Dispose();
+        rapidFrameSteppingTimer = null;
+
         SetLastOpenedScene();
     }
 
