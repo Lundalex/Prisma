@@ -83,7 +83,7 @@ public class UIManager : ScriptableObject
         {
             _cachedHash = h;
             composedFontPreview = ComposeActiveFont();
-            EditorUtility.SetDirty(this);
+            if (this) EditorUtility.SetDirty(this);
         }
     }
 #endif

@@ -198,9 +198,9 @@ public class Main : MonoBehaviour
     public float RBEdgeWidth = 0.1f;
     public float RBEdgeRoundDst = 1.0f;
     public float RBRoundLightStrength = 4.0f;
-    public float  RBRoundShadowStrength = 1.5f;
-    public float  RBRoundSamplePush = 2.0f;
-    public float  RBFalloff = 1.0f;
+    public float RBRoundShadowStrength = 1.5f;
+    public float RBRoundSamplePush = 2.0f;
+    public float RBFalloff = 1.0f;
 
     // Sensor Areas
     public float FluidSensorEdgeWidth = 3.0f;

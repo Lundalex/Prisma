@@ -15,51 +15,36 @@ using UnityEditor.Callbacks;
 [RequireComponent(typeof(Camera))]
 public class TextureBaker : MonoBehaviour
 {
-    // --- Capture controls (Play Mode only) ---
     public bool doUpdateRenderMats;
     public Camera targetCamera;
 
-    // --- Sun light (Edit & Play) ---
     [Header("Sun Light")]
     [Tooltip("Directional/scene Light whose intensity will be set from RenderMat.light.")]
     public Light sunLight;
 
 #if UNITY_EDITOR
     public Vector2Int resolution;
-
-    [Tooltip("Pixels with alpha > this value are considered content. 0 = keep any non-zero alpha.")]
     [Range(0, 255)] public byte cropAlphaThreshold = 0;
-
     [Tooltip("Folder where screenshots are written. Files are named <RenderMatName>.png (or .jpg if already present).")]
     public string outputFolder = "Assets/Screenshots";
-
-    // --- Prefab used to create children for RenderMats ---
-    public GameObject childPrefab;           // Must have a MeshRenderer on the root or a child
-
-    // --- Child visibility (Edit & Play) ---
+    public GameObject childPrefab;
     [Tooltip("This root and its children are renamed to 'EditorOnly' so Unity strips them from Player builds.")]
-    public Transform texturesRoot;           // Parent whose children are the “textures”
-    public int visibleTextureIndex = -1;     // -1 = show none; else 0..last child
+    public Transform texturesRoot;
+    public int visibleTextureIndex = -1;
 
     int _lastVisibleIndex = int.MinValue;
     Transform _lastRoot;
     bool _suppressIndexWatcher;
 
-    // --- RenderMat linkage (Edit & Play) ---
-    public List<RenderMat> renderMats = new(); // One child per RenderMat, matched by name
+    // NOTE: We keep your existing RenderMat list as-is.
+    public List<RenderMat> renderMats = new();
 
     string _lastMatsSig = "";
     string _lastChildrenSig = "";
 
-    // --- Auto-update watch state (Edit & Play) ---
-    struct MatSnapshot
-    {
-        public float light;
-        public int materialId; // track Material reference changes via instance id
-    }
+    struct MatSnapshot { public float light; public int materialId; }
     readonly Dictionary<RenderMat, MatSnapshot> _matSnapshots = new();
 
-    // Enforce EditorOnly stripping for the preview hierarchy
     void OnValidate()
     {
         if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
@@ -68,17 +53,13 @@ public class TextureBaker : MonoBehaviour
 
     void Start()
     {
-        // Ensure the preview hierarchy uses the EditorOnly stripping name
         if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
             texturesRoot.gameObject.name = "EditorOnly";
 
         SyncChildrenToRenderMats();
         ApplyVisibleChild(visibleTextureIndex);
-
-        // Prime snapshots so the first change is detected cleanly
         PrimeMatSnapshots();
 
-        // Batch update on start (play mode only)
         if (doUpdateRenderMats && Application.isPlaying && texturesRoot)
         {
             StartCoroutine(BatchUpdateRenderMats());
@@ -88,14 +69,11 @@ public class TextureBaker : MonoBehaviour
 
     void Update()
     {
-        // Keep child set synced with RenderMats by NAME (edit & play)
         if (NeedsSync())
             SyncChildrenToRenderMats();
 
-        // Auto-update when a RenderMat's 'material' or 'light' field is modified
         WatchRenderMatChanges();
 
-        // Visibility watcher (edit & play)
         if (!_suppressIndexWatcher && texturesRoot)
         {
             int max = texturesRoot.childCount - 1;
@@ -109,11 +87,27 @@ public class TextureBaker : MonoBehaviour
         targetCamera.depth = (visibleTextureIndex > -1 && !Application.isPlaying) ? 5f : -1f;
     }
 
-    // ---------------------- SYNC: RenderMats <-> Children (by NAME) ----------------------
+    // Use 'matName' if the asset has that string (e.g., CustomMat); else fall back to Object.name.
+    string GetMatLabel(RenderMat mat)
+    {
+        if (!mat) return string.Empty;
+#if UNITY_EDITOR
+        try
+        {
+            var so = new SerializedObject(mat);
+            var p = so.FindProperty("matName");
+            if (p != null && !string.IsNullOrEmpty(p.stringValue))
+                return p.stringValue;
+        }
+        catch { }
+#endif
+        return mat.name;
+    }
+
     bool NeedsSync()
     {
         if (!texturesRoot) return false;
-        var matNames = renderMats.Where(m => m).Select(m => m.name).OrderBy(n => n);
+        var matNames = renderMats.Where(m => m).Select(m => GetMatLabel(m)).OrderBy(n => n);
         var childNames = GetChildren(texturesRoot).Select(t => t.name).OrderBy(n => n);
 
         string matsSig = string.Join("|", matNames);
@@ -126,29 +120,26 @@ public class TextureBaker : MonoBehaviour
     {
         if (!texturesRoot) return;
 
-        // Build lookup of existing children by name
         var children = GetChildren(texturesRoot).ToList();
         var childMap = new Dictionary<string, Transform>(StringComparer.Ordinal);
         foreach (var c in children) childMap[c.name] = c;
 
-        // Ensure each RenderMat has a child named exactly as the RenderMat
         foreach (var mat in renderMats)
         {
             if (!mat) continue;
-            if (!childMap.TryGetValue(mat.name, out var child))
+            string label = GetMatLabel(mat);
+            if (!childMap.TryGetValue(label, out var child))
             {
-                child = CreateChild(mat.name);
-                childMap[mat.name] = child;
+                child = CreateChild(label);
+                childMap[label] = child;
             }
-            // Apply material slot 0 (Editor-only authoring)
             ApplyMaterialToChild(child, mat.material);
         }
 
-        // Remove any child that has no corresponding RenderMat name
-        var matNames = new HashSet<string>(renderMats.Where(m => m).Select(m => m.name), StringComparer.Ordinal);
+        var matNameSet = new HashSet<string>(renderMats.Where(m => m).Select(m => GetMatLabel(m)), StringComparer.Ordinal);
         foreach (var c in children)
         {
-            if (!matNames.Contains(c.name))
+            if (!matNameSet.Contains(c.name))
             {
 #if UNITY_EDITOR
                 if (!Application.isPlaying)
@@ -161,13 +152,11 @@ public class TextureBaker : MonoBehaviour
             }
         }
 
-        // Update signatures
-        var matNamesNow = renderMats.Where(m => m).Select(m => m.name).OrderBy(n => n);
+        var matNamesNow = renderMats.Where(m => m).Select(m => GetMatLabel(m)).OrderBy(n => n);
         var childNamesNow = GetChildren(texturesRoot).Select(t => t.name).OrderBy(n => n);
         _lastMatsSig = string.Join("|", matNamesNow);
         _lastChildrenSig = string.Join("|", childNamesNow);
 
-        // Keep visibility index valid
         int max = texturesRoot.childCount - 1;
         if (visibleTextureIndex > max) visibleTextureIndex = max;
         if (max < 0) visibleTextureIndex = -1;
@@ -200,9 +189,8 @@ public class TextureBaker : MonoBehaviour
         go.name = childName;
         go.transform.localPosition = new(0, 0, 100);
         go.transform.localRotation = Quaternion.identity;
-        go.transform.localScale = new(75, 75, 1);
+        go.transform.localScale = new(10, 10, 1);
 
-        // Ensure parent carries the EditorOnly stripping name
         if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
             texturesRoot.gameObject.name = "EditorOnly";
 
@@ -236,7 +224,6 @@ public class TextureBaker : MonoBehaviour
         for (int i = 0; i < root.childCount; i++) yield return root.GetChild(i);
     }
 
-    // ---------------------- Visibility ----------------------
     public void ShowOnlyChild(int index)
     {
         if (!texturesRoot) return;
@@ -265,11 +252,10 @@ public class TextureBaker : MonoBehaviour
         for (int i = 0; i < count; i++)
             SetActive(texturesRoot.GetChild(i), i == clamped);
 
-        // Update sun light intensity for the currently visible mat (preview)
         if (sunLight)
         {
             var child = texturesRoot.GetChild(clamped);
-            var mat = renderMats.FirstOrDefault(m => m && m.name == child.name);
+            var mat = renderMats.FirstOrDefault(m => m && GetMatLabel(m) == child.name);
             ApplySunLightIntensity(mat);
         }
     }
@@ -279,15 +265,12 @@ public class TextureBaker : MonoBehaviour
         if (t && t.gameObject.activeSelf != v) t.gameObject.SetActive(v);
     }
 
-    // ---------------------- Sun light intensity ----------------------
     void ApplySunLightIntensity(RenderMat mat)
     {
         if (!sunLight || mat == null) return;
-        // Assumes RenderMat exposes "public float light" which we use as the intensity value.
         sunLight.intensity = mat.light;
     }
 
-    // ---------------------- AUTO-UPDATE: watch for RenderMat field edits ----------------------
     void PrimeMatSnapshots()
     {
         _matSnapshots.Clear();
@@ -304,7 +287,6 @@ public class TextureBaker : MonoBehaviour
 
     void WatchRenderMatChanges()
     {
-        // Remove snapshots for deleted mats
         if (_matSnapshots.Count > renderMats.Count)
         {
             var keep = new HashSet<RenderMat>(renderMats.Where(m => m));
@@ -312,7 +294,6 @@ public class TextureBaker : MonoBehaviour
             foreach (var k in toRemove) _matSnapshots.Remove(k);
         }
 
-        // Check current mats for changes
         foreach (var mat in renderMats)
         {
             if (!mat) continue;
@@ -328,33 +309,28 @@ public class TextureBaker : MonoBehaviour
 
             if (lightChanged || materialChanged)
             {
-                // Update snapshot
                 _matSnapshots[mat] = new MatSnapshot { light = curLight, materialId = curMatId };
 
-                // Ensure child exists (sync might already have done this)
-                var child = FindChildByName(mat.name);
+                var child = FindChildByName(GetMatLabel(mat));
                 if (!child)
                 {
                     SyncChildrenToRenderMats();
-                    child = FindChildByName(mat.name);
+                    child = FindChildByName(GetMatLabel(mat));
                 }
 
-                // If material reference changed, apply it to the child renderer right away
                 if (materialChanged && child)
                     ApplyMaterialToChild(child, mat.material);
 
-                // If the currently visible texture corresponds to this mat, update light immediately
                 if (lightChanged && sunLight && texturesRoot && visibleTextureIndex >= 0 && visibleTextureIndex < texturesRoot.childCount)
                 {
                     var visibleChild = texturesRoot.GetChild(visibleTextureIndex);
-                    if (visibleChild && string.Equals(visibleChild.name, mat.name, StringComparison.Ordinal))
+                    if (visibleChild && string.Equals(visibleChild.name, GetMatLabel(mat), StringComparison.Ordinal))
                         ApplySunLightIntensity(mat);
                 }
             }
         }
     }
 
-    // ---------------------- Batch update (Play Mode) ----------------------
     IEnumerator BatchUpdateRenderMats()
     {
         SyncChildrenToRenderMats();
@@ -368,20 +344,20 @@ public class TextureBaker : MonoBehaviour
         {
             if (!mat) continue;
 
-            var child = FindChildByName(mat.name);
+            var child = FindChildByName(GetMatLabel(mat));
             if (!child) continue;
 
             int idx = child.GetSiblingIndex();
             visibleTextureIndex = idx;
-            ApplyVisibleChild(idx); // also updates sun light intensity for preview
+            ApplyVisibleChild(idx);
 
-            // Ensure intensity is set for this mat before capture
             if (sunLight) ApplySunLightIntensity(mat);
 
             yield return null;
             yield return new WaitForEndOfFrame();
 
             Texture2D savedAsset = null;
+            // Keep file naming based on the asset object's name.
             yield return StartCoroutine(CaptureAndSaveCoroutine(mat.name, t => savedAsset = t));
 
 #if UNITY_EDITOR
@@ -401,7 +377,6 @@ public class TextureBaker : MonoBehaviour
         ApplyVisibleChild(visibleTextureIndex);
         _suppressIndexWatcher = false;
 
-        // Restore original light intensity after batch
         if (sunLight) sunLight.intensity = prevLightIntensity;
     }
 
@@ -416,7 +391,6 @@ public class TextureBaker : MonoBehaviour
         return null;
     }
 
-    // ---------------------- Capture (Play Mode) ----------------------
     IEnumerator CaptureAndSaveCoroutine(string baseName, Action<Texture2D> onSavedAsset = null)
     {
         var cam = targetCamera ? targetCamera : GetComponent<Camera>();
@@ -438,7 +412,6 @@ public class TextureBaker : MonoBehaviour
         tex.ReadPixels(new Rect(0, 0, w, h), 0, 0, false);
         tex.Apply(false, false);
 
-        // Crop handling
         Texture2D toSave = tex;
         if (TryGetOpaqueBounds(tex, cropAlphaThreshold, out var bounds))
         {
@@ -452,20 +425,17 @@ public class TextureBaker : MonoBehaviour
         RenderTexture.active = prevActive;
 
 #if UNITY_EDITOR
-        Texture2D asset = null;
-        asset = SaveTextureAsset(toSave, baseName);
+        Texture2D asset = SaveTextureAsset(toSave, baseName);
         onSavedAsset?.Invoke(asset);
 #else
         onSavedAsset?.Invoke(null);
 #endif
 
-        // Cleanup
         if (toSave != tex) Destroy(toSave);
         Destroy(rt);
         Destroy(tex);
     }
 
-    // --- Helpers: alpha crop ---
     static bool TryGetOpaqueBounds(Texture2D tex, byte alphaThreshold, out RectInt bounds)
     {
         int w = tex.width;
@@ -474,7 +444,6 @@ public class TextureBaker : MonoBehaviour
 
         int minX = w, minY = h, maxX = -1, maxY = -1;
 
-        // Find tightest bounding box for alpha > threshold
         for (int y = 0; y < h; y++)
         {
             int row = y * w;
@@ -493,7 +462,7 @@ public class TextureBaker : MonoBehaviour
         if (maxX < minX || maxY < minY)
         {
             bounds = new RectInt(0, 0, 0, 0);
-            return false; // all transparent
+            return false;
         }
 
         int cw = maxX - minX + 1;
@@ -528,19 +497,14 @@ public class TextureBaker : MonoBehaviour
         return dst;
     }
 
-    // ---------------------- Editor helpers ----------------------
     Texture2D SaveTextureAsset(Texture2D tex, string baseName)
     {
-        // Ensure folder exists and is inside Assets
         string folder = !string.IsNullOrEmpty(outputFolder) && outputFolder.StartsWith("Assets")
             ? outputFolder : "Assets/Screenshots";
         Directory.CreateDirectory(folder);
 
-        // Name exactly after the RenderMat
         string safe = Sanitize(string.IsNullOrEmpty(baseName) ? name : baseName);
 
-        // If a file with this base name already exists, reuse its extension to keep the same GUID/meta.
-        // Otherwise, default to PNG.
         string[] candidateExts = { ".png", ".jpg", ".jpeg" };
         string chosenExt = null;
         string path = null;
@@ -560,26 +524,25 @@ public class TextureBaker : MonoBehaviour
             path = Path.Combine(folder, safe + chosenExt).Replace("\\", "/");
         }
 
-        // Encode accordingly and overwrite
         byte[] bytes = (chosenExt.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
                         chosenExt.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
                         ? tex.EncodeToJPG(95)
                         : tex.EncodeToPNG();
 
         File.WriteAllBytes(path, bytes);
+#if UNITY_EDITOR
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-
         var importer = AssetImporter.GetAtPath(path) as TextureImporter;
         if (importer != null)
         {
-            importer.isReadable = true; // read/write
+            importer.isReadable = true;
             importer.mipmapEnabled = false;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.sRGBTexture = true;
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
         }
-
+#endif
         return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
     }
 
@@ -589,7 +552,6 @@ public class TextureBaker : MonoBehaviour
         return string.IsNullOrEmpty(s) ? "Baked" : s;
     }
 
-    // Helper that the build hook calls to clear preview children
     public void DestroyPreviewChildrenInBuild()
     {
         if (!texturesRoot) return;
@@ -600,12 +562,10 @@ public class TextureBaker : MonoBehaviour
             DestroyImmediate(c.gameObject);
         }
 
-        // Keep the root named EditorOnly as a belt-and-suspenders
         if (texturesRoot && texturesRoot.gameObject.name != "EditorOnly")
             texturesRoot.gameObject.name = "EditorOnly";
     }
 #else
-    // In Player builds, make sure the helper camera stays out of the way.
     void Awake()
     {
         var cam = targetCamera ? targetCamera : GetComponent<Camera>();
