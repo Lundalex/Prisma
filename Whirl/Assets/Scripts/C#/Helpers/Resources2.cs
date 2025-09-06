@@ -380,7 +380,8 @@ namespace Resources2
             Vector2 containerMin = uiPos - 0.5f * containerSize;
             Vector2 containerMax = uiPos + 0.5f * containerSize;
 
-            Vector2 halfResolution = 0.5f * PM.Instance.Resolution;
+            Vector2 res = Utils.Int2ToVector2(PM.Instance.main.DefaultResolution);
+            Vector2 halfResolution = 0.5f * res;
             Vector2 screenMin = -halfResolution + PM.Instance.main.UIPadding;
             Vector2 screenMax = halfResolution - PM.Instance.main.UIPadding;
             Vector2 minDiff = containerMin - screenMin;

@@ -1,9 +1,13 @@
+// Assets/Scripts/C#/Helpers/TextureBaking/TextureBaker.cs
+#pragma warning disable CS0618
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using PM = ProgramManager;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -17,18 +21,12 @@ public class TextureBaker : MonoBehaviour
 {
     public bool doUpdateRenderMats;
     public Camera targetCamera;
-
-    [Header("Sun Light")]
-    [Tooltip("Directional/scene Light whose intensity will be set from RenderMat.light.")]
     public Light sunLight;
 
 #if UNITY_EDITOR
-    public Vector2Int resolution;
     [Range(0, 255)] public byte cropAlphaThreshold = 0;
-    [Tooltip("Folder where screenshots are written. Files are named <RenderMatName>.png (or .jpg if already present).")]
-    public string outputFolder = "Assets/Screenshots";
+    public string screenshotsOutput = "Assets/Screenshots";
     public GameObject childPrefab;
-    [Tooltip("This root and its children are renamed to 'EditorOnly' so Unity strips them from Player builds.")]
     public Transform texturesRoot;
     public int visibleTextureIndex = -1;
 
@@ -357,8 +355,8 @@ public class TextureBaker : MonoBehaviour
             yield return new WaitForEndOfFrame();
 
             Texture2D savedAsset = null;
-            // Keep file naming based on the asset object's name.
-            yield return StartCoroutine(CaptureAndSaveCoroutine(mat.name, t => savedAsset = t));
+            // Capture using per-mat resolution and keep file naming based on the asset object's name.
+            yield return StartCoroutine(CaptureAndSaveCoroutine(mat, t => savedAsset = t));
 
 #if UNITY_EDITOR
             if (savedAsset)
@@ -378,6 +376,8 @@ public class TextureBaker : MonoBehaviour
         _suppressIndexWatcher = false;
 
         if (sunLight) sunLight.intensity = prevLightIntensity;
+
+        PM.Instance.doOnSettingsChanged = true;
     }
 
     Transform FindChildByName(string n)
@@ -391,13 +391,22 @@ public class TextureBaker : MonoBehaviour
         return null;
     }
 
-    IEnumerator CaptureAndSaveCoroutine(string baseName, Action<Texture2D> onSavedAsset = null)
+    IEnumerator CaptureAndSaveCoroutine(RenderMat mat, Action<Texture2D> onSavedAsset = null)
     {
         var cam = targetCamera ? targetCamera : GetComponent<Camera>();
         if (!cam) yield break;
 
-        int w = resolution.x > 0 ? resolution.x : (Application.isPlaying && cam.pixelWidth > 0 ? cam.pixelWidth : 1024);
-        int h = resolution.y > 0 ? resolution.y : (Application.isPlaying && cam.pixelHeight > 0 ? cam.pixelHeight : 1024);
+        // Pull resolution from the RenderMat; fall back to camera size / 1024.
+        int rw = 0, rh = 0;
+        if (mat != null)
+        {
+            // Using user's current field name
+            rw = mat.bakeResolution.x;
+            rh = mat.bakeResolution.y;
+        }
+
+        int w = rw > 0 ? rw : (Application.isPlaying && cam.pixelWidth > 0 ? cam.pixelWidth : 1024);
+        int h = rh > 0 ? rh : (Application.isPlaying && cam.pixelHeight > 0 ? cam.pixelHeight : 1024);
 
         var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32);
         var prevTarget = cam.targetTexture;
@@ -425,7 +434,7 @@ public class TextureBaker : MonoBehaviour
         RenderTexture.active = prevActive;
 
 #if UNITY_EDITOR
-        Texture2D asset = SaveTextureAsset(toSave, baseName);
+        Texture2D asset = SaveTextureAsset(toSave, mat ? mat.name : "Baked");
         onSavedAsset?.Invoke(asset);
 #else
         onSavedAsset?.Invoke(null);
@@ -499,8 +508,8 @@ public class TextureBaker : MonoBehaviour
 
     Texture2D SaveTextureAsset(Texture2D tex, string baseName)
     {
-        string folder = !string.IsNullOrEmpty(outputFolder) && outputFolder.StartsWith("Assets")
-            ? outputFolder : "Assets/Screenshots";
+        string folder = !string.IsNullOrEmpty(screenshotsOutput) && screenshotsOutput.StartsWith("Assets")
+            ? screenshotsOutput : "Assets/Screenshots";
         Directory.CreateDirectory(folder);
 
         string safe = Sanitize(string.IsNullOrEmpty(baseName) ? name : baseName);
@@ -524,21 +533,46 @@ public class TextureBaker : MonoBehaviour
             path = Path.Combine(folder, safe + chosenExt).Replace("\\", "/");
         }
 
+#if UNITY_EDITOR
+        // If the asset already exists and has Sprite slicing, clear it first
+        // so the following import (possibly with a cropped image) doesn't warn
+        // about out-of-bounds sprite rects.
+        if (File.Exists(path))
+        {
+            var preImporter = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (preImporter != null)
+            {
+                preImporter.textureType = TextureImporterType.Default;
+                preImporter.spriteImportMode = SpriteImportMode.Single;
+                preImporter.spritesheet = Array.Empty<SpriteMetaData>();
+                preImporter.SaveAndReimport();
+            }
+        }
+#endif
+
         byte[] bytes = (chosenExt.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
                         chosenExt.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
                         ? tex.EncodeToJPG(95)
                         : tex.EncodeToPNG();
 
         File.WriteAllBytes(path, bytes);
+
 #if UNITY_EDITOR
+        // Import the freshly written file
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+        // Apply final settings
         var importer = AssetImporter.GetAtPath(path) as TextureImporter;
         if (importer != null)
         {
+            importer.textureType = TextureImporterType.Default;      // Ensure not Sprite
+            importer.spriteImportMode = SpriteImportMode.Single;     // No multi-slicing
+            importer.spritesheet = Array.Empty<SpriteMetaData>();    // Clear leftover slices
             importer.isReadable = true;
             importer.mipmapEnabled = false;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.sRGBTexture = true;
+            importer.alphaIsTransparency = true;
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
         }

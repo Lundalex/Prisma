@@ -355,7 +355,9 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("Gamma", m.Gamma);
 
         renderShader.SetInt("BackgroundMatIndex", m.BackgroundMatIndex);
-        renderShader.SetVector("SunDir", new Vector2(m.SunDirection.x, m.SunDirection.y));
+        renderShader.SetVector("SunDir",
+            new(-Mathf.Cos(Mathf.Deg2Rad * m.ShadowDirection),
+                -Mathf.Sin(Mathf.Deg2Rad * m.ShadowDirection)));
         renderShader.SetFloat("RBRoundLightStrength", m.RBRoundLightStrength);
         renderShader.SetFloat("RBRoundShadowStrength", m.RBRoundShadowStrength);
         renderShader.SetFloat("RBRoundSamplePush", m.RBRoundSamplePush);
@@ -364,22 +366,41 @@ public class ShaderHelper : MonoBehaviour
 
     public void SetPostProcessorVariables(ComputeShader ppShader)
     {
+        // Base lighting params (dimensionless)
         ppShader.SetFloat("ShadowDarkness", m.ShadowDarkness);
-        ppShader.SetFloat("ShadowFalloff", m.ShadowFalloff);
+        ppShader.SetFloat("ShadowFalloff",  m.ShadowFalloff);
 
         // Full-resolution output (Result/PPResult) resolution
         ppShader.SetVector("Resolution", PM.Instance.Resolution);
-        ppShader.SetVector("ShadowDirection", new(-Mathf.Cos(Mathf.Deg2Rad * m.ShadowDirection), -Mathf.Sin(Mathf.Deg2Rad * m.ShadowDirection)));
+        ppShader.SetVector("ShadowDirection",
+            new(-Mathf.Cos(Mathf.Deg2Rad * m.ShadowDirection),
+                -Mathf.Sin(Mathf.Deg2Rad * m.ShadowDirection)));
 
-        ppShader.SetInt("ShadowBlurRadius", Mathf.Max(0, m.ShadowBlurRadius));
-        ppShader.SetFloat("ShadowDiffusion", Mathf.Max(0f, m.ShadowDiffusion));
+        // ------------------------------------------------------------
+        // ResolutionScale normalization (pixel-space → scale with s)
+        // If ResolutionScale = 0.25, a 4× larger pixel => shrink widths by *0.25
+        // to keep the same apparent size after upscaling.
+        // ------------------------------------------------------------
+        float s = Mathf.Max(0.01f, PM.GetScaleFactor(PM.Instance.main.ResolutionScaleSetting));
 
-        ppShader.SetFloat("RimShadingStrength", m.RimShadingStrength);
-        ppShader.SetFloat("RimShadingBleed", m.RimShadingBleed);
-        ppShader.SetFloat("RimShadingOpaqueBleed", m.RimShadingOpaqueBleed);
+        // Shadow blur is in pixels: scale radius & diffusion
+        int   blurRadius = Mathf.Max(0, Mathf.RoundToInt(m.ShadowBlurRadius * s));
+        float diffusion  = Mathf.Max(0f, m.ShadowDiffusion * s);
 
+        // Rim shading spreads in pixels: scale bleeds
+        float rimBleed       = m.RimShadingBleed * s;
+        float rimOpaqueBleed = m.RimShadingOpaqueBleed * s;
+
+        ppShader.SetInt("ShadowBlurRadius", blurRadius);
+        ppShader.SetFloat("ShadowDiffusion", diffusion);
+
+        ppShader.SetFloat("RimShadingStrength",      m.RimShadingStrength);
+        ppShader.SetFloat("RimShadingBleed",         rimBleed);
+        ppShader.SetFloat("RimShadingOpaqueBleed",   rimOpaqueBleed);
+
+        // TAA/AA parameters are unitless thresholds
         ppShader.SetFloat("AAThreshold", m.AAThreshold);
-        ppShader.SetFloat("AAMaxBlend", m.AAMaxBlend);
+        ppShader.SetFloat("AAMaxBlend",  m.AAMaxBlend);
 
         // Low-resolution shadow grid parameters
         int factor = 1 << Mathf.Clamp(m.ShadowDownSampling, 0, 30);

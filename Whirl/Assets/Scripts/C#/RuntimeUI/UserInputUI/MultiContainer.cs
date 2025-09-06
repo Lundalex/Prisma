@@ -139,7 +139,7 @@ public class MultiContainer : MonoBehaviour
         float dir = expandDir == ExpDir.FromLeft ? 1f : -1f;
 
         float maskedWidth = transform.localScale.x * (maskTransform.sizeDelta.x - 2f * maskSize);
-        float expViewLeft = -0.5f * main.Resolution.x + 0.5f * maskedWidth - 1f;
+        float expViewLeft = -0.5f * main.DefaultResolution.x + 0.5f * maskedWidth - 1f;
 
         float minViewLeft = expViewLeft
                         - transform.localScale.x * maskTransform.sizeDelta.x

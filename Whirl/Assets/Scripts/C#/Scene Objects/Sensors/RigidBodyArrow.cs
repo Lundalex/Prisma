@@ -102,7 +102,7 @@ public class RigidBodyArrow : SensorBase
         this.arrowManager = arrowManager;
         this.main = main;
         this.sensorManager = sensorManager;
-        this.canvasResolution = Func.Int2ToVector2(main.Resolution);
+        this.canvasResolution = Func.Int2ToVector2(main.DefaultResolution);
     }
 
     private void SetConstants()

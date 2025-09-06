@@ -20,6 +20,11 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public Transform languageSelectDropdown;
     [NonSerialized] public GameObject fullscreenView;
 
+    // Persisted between scene reloads: the last applied scale.
+    [Header("Render Scale (Persisted)")]
+    [Tooltip("Stored copy of the active ResolutionScale. Main sets it; this keeps it across scene reloads.")]
+    public Main.ResolutionScale StoredResolutionScale = Main.ResolutionScale.Scale_1_1;
+
     // UI elements
     [NonSerialized] public List<SensorData> sensorDatas = new();
     [NonSerialized] public List<RigidBodyArrow> rigidBodyArrows = new();
@@ -87,6 +92,10 @@ public class ProgramManager : ScriptableObject
 
     [NonSerialized] public static bool hasBeenReset = false;
 
+    // Track last applied scale and default resolution to detect changes
+    private Main.ResolutionScale _appliedResolutionScale = Main.ResolutionScale.Scale_1_1;
+    private int2 _appliedDefaultResolution = int2.zero;
+
     // Singleton
     private static ProgramManager _instance;
     public static ProgramManager Instance
@@ -104,7 +113,14 @@ public class ProgramManager : ScriptableObject
     public void Initialize()
     {
         SetReferences();
-        SetResolutionData();
+        if (!hasBeenReset) StoredResolutionScale = main.ResolutionScaleSetting;
+        Main.ResolutionScale desiredScale =
+            hasBeenReset
+                ? StoredResolutionScale
+                : main.ResolutionScaleSetting;
+        
+        ApplyResolutionScale(desiredScale, forceSceneReset: false);
+
         ScreenToViewFactorUI = GetScreenToViewFactor(Resolution.x / Resolution.y);
         ScreenToViewFactorScene = GetScreenToViewFactor(Screen.width / (float)Screen.height);
         main.SetScreenToViewFactor(ScreenToViewFactorScene);
@@ -125,6 +141,20 @@ public class ProgramManager : ScriptableObject
 
     public void Update()
     {
+        // If user edits Main.DefaultResolution or Main.ResolutionScaleSetting at runtime,
+        // store & apply, then reset scene.
+        if (Application.isPlaying && main != null)
+        {
+            bool scaleChanged = main.ResolutionScaleSetting != _appliedResolutionScale;
+            bool baseChanged = main.DefaultResolution.x != _appliedDefaultResolution.x ||
+                               main.DefaultResolution.y != _appliedDefaultResolution.y;
+
+            if (scaleChanged || baseChanged || !hasBeenReset)
+            {
+                ApplyResolutionScale(main.ResolutionScaleSetting, forceSceneReset: true);
+            }
+        }
+
         if (sceneIsResetting) return;
         CheckStartConfirmation();
 
@@ -153,8 +183,7 @@ public class ProgramManager : ScriptableObject
             doOnSettingsChanged = false;
         }
 
-        bool simulateThisFrame = false;
-        if (!programPaused || frameStep) simulateThisFrame = true;
+        bool simulateThisFrame = !programPaused || frameStep;
         if (programPaused && frameStep)
         {
             StringUtils.LogIfInEditor("Stepped forward 1 frame");
@@ -174,14 +203,14 @@ public class ProgramManager : ScriptableObject
             UpdateSensorScripts();
             UpdateArrowScripts();
 
-            // Update the total time elapsed
+            // Time accumulation
             totalTimeElapsed += clampedDeltaTime;
             totalScaledTimeElapsed += scaledDeltaTime;
 
-            // Update all non-mono behaviour objects subscribed to the ProgramUpdate life cycle (all Timer objects)
+            // Notify timers/subscribers
             TriggerProgramUpdate(true);
 
-            // Request an update of all sensors
+            // Request sensor refresh
             sensorManager.RequestUpdate();
         }
         else
@@ -195,13 +224,13 @@ public class ProgramManager : ScriptableObject
 
     public void ResetScene()
     {
-        // IMPORTANT: clear timer subscribers to prevent leaks across scene reloads
+        // Clear timer subscribers to prevent leaks
         OnProgramUpdate = null;
-        // Dispose ProgramManager-owned timers
+        // Dispose timers
         rapidFrameSteppingTimer?.Dispose();
         rapidFrameSteppingTimer = null;
 
-        startConfirmationStatus = StartConfirmationStatus.None;
+        startConfirmationStatus = StartConfirmationStatus.NotStarted;
         hasBeenReset = true;
         UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
     }
@@ -230,7 +259,6 @@ public class ProgramManager : ScriptableObject
 
     private bool CheckInputs()
     {
-        // Key inputs
         if (!TMPInputChecker.UserIsUsingInputField())
         {
             if (Input.GetKeyDown(KeyCode.R) && CheckAllowRestart())
@@ -284,12 +312,10 @@ public class ProgramManager : ScriptableObject
 
     private void CheckPerformance()
     {
-        // Calculate currentFPS and simSpeed
         float currentFPS = 1f / Time.deltaTime;
         float targetFrameTime = Time.deltaTime / main.GetTimeStepsPerFrame();
         float simSpeed = Mathf.Min(targetFrameTime, main.TimeStep) / targetFrameTime;
 
-        // Interpolate currentFPS and simSpeed
         InterpolatedFPS = Mathf.Lerp(InterpolatedFPS, currentFPS, FPSLerpsFactor * Time.deltaTime);
         InterpolatedSimSpeed = Mathf.Lerp(InterpolatedSimSpeed, simSpeed, SimSpeedLerpFactor * Time.deltaTime);
     }
@@ -335,7 +361,6 @@ public class ProgramManager : ScriptableObject
 
     public void ResetData(bool pauseOnStart)
     {
-        // Clear any lingering subscribers from a previous run (safety across domain reloads)
         OnProgramUpdate = null;
 
         programStarted = true;
@@ -366,7 +391,6 @@ public class ProgramManager : ScriptableObject
         fluidArrowFields = new();
         userUIElements = new();
 
-        // Dispose old timer (if any) before creating a new one
         rapidFrameSteppingTimer?.Dispose();
         rapidFrameSteppingTimer = new Timer(rapidFrameSteppingDelay, TimeType.NonClamped, true, rapidFrameSteppingDelay);
 
@@ -568,12 +592,10 @@ public class ProgramManager : ScriptableObject
 
     private void SetResolutionData()
     {
-        Resolution = Utils.Int2ToVector2(main.Resolution);
-        ResolutionInt2 = main.Resolution;
         isStandardResolution = Resolution == StandardResolution;
 
         Vector2 uiCanvasResolution = GameObject.FindGameObjectWithTag("UICanvas").GetComponent<Canvas>().GetComponent<CanvasScaler>().referenceResolution;
-        if (Resolution != uiCanvasResolution) Debug.LogWarning("UICanvas reference resolution and resolution setting in Main do not match. Rendering artifacts may appear.");
+        if (Utils.Int2ToVector2(main.DefaultResolution) != uiCanvasResolution) Debug.LogWarning("UICanvas reference resolution and resolution setting do not match. Rendering artifacts may appear.");
 
         float resolutionRatio = Resolution.x / Resolution.y;
         float boundaryDimsRatio = main.BoundaryDims.x / (float)main.BoundaryDims.y;
@@ -659,4 +681,59 @@ public class ProgramManager : ScriptableObject
     private void TriggerNewLanguageSelected() => OnNewLanguageSelected?.Invoke();
     public void TriggerSetPauseState(bool state) => OnSetNewPauseState?.Invoke(state);
     public void TriggerSetSlowMotionState(bool state) => OnSetNewSlowMotionState?.Invoke(state);
+
+    // ===== Resolution scale helpers =====
+
+    public static float GetScaleFactor(Main.ResolutionScale scale)
+    {
+        switch (scale)
+        {
+            case Main.ResolutionScale.Scale_2_1: return 2.0f;
+            case Main.ResolutionScale.Scale_1_1: return 1.0f;
+            case Main.ResolutionScale.Scale_3_4: return 0.75f;
+            case Main.ResolutionScale.Scale_2_3: return 2f / 3f;
+            case Main.ResolutionScale.Scale_1_2: return 0.5f;
+            case Main.ResolutionScale.Scale_1_3: return 1f / 3f;
+            case Main.ResolutionScale.Scale_1_4: return 0.25f;
+            default: return 1.0f;
+        }
+    }
+
+    private void ApplyResolutionScale(Main.ResolutionScale desiredScale, bool forceSceneReset)
+    {
+        // Compute new scaled resolution
+        float s = GetScaleFactor(desiredScale);
+        int2 baseRes = main.DefaultResolution;
+        int newW = Mathf.Max(1, Mathf.RoundToInt(baseRes.x * s));
+        int newH = Mathf.Max(1, Mathf.RoundToInt(baseRes.y * s));
+        int2 scaled = new int2(newW, newH);
+
+        // Detect if anything changed
+        bool changed =
+            (ResolutionInt2.x != scaled.x || ResolutionInt2.y != scaled.y) ||
+            (_appliedResolutionScale != desiredScale) ||
+            (_appliedDefaultResolution.x != baseRes.x || _appliedDefaultResolution.y != baseRes.y);
+
+        // Persist & mirror to Main so inspector/UI show the effective scale
+        StoredResolutionScale = desiredScale;
+        main.ResolutionScaleSetting = desiredScale;
+
+        // Apply dims
+        ResolutionInt2 = scaled;
+        Resolution = Utils.Int2ToVector2(scaled);
+
+        // Update dependent cached values
+        SetResolutionData();
+
+        // Record applied state
+        _appliedResolutionScale = desiredScale;
+        _appliedDefaultResolution = baseRes;
+
+        // Reset scene if needed
+        if (Application.isPlaying && changed && forceSceneReset && CheckAllowRestart())
+        {
+            sceneIsResetting = true;
+            ResetScene();
+        }
+    }
 }

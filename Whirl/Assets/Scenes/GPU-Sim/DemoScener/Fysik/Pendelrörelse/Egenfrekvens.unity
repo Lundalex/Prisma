@@ -308,11 +308,11 @@ MonoBehaviour:
   AAThreshold: 0.08
   AAMaxBlend: 0.75
   ShadowDownSampling: 0
-  Resolution:
+  DefaultResolution:
     x: 1920
     y: 1080
+  ResolutionScaleSetting: 1
   UIPadding: {x: 20, y: -30}
-  SunDirection: {x: -0.71, y: -0.71}
   LightingSettings: 0
   GlobalBrightness:
     x: 1
@@ -2084,7 +2084,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: approximatedVolume
-      value: 1,089 l
+      value: 1.089 l
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: rbInput.elasticity
@@ -2112,7 +2112,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: approximatedSpringForce
-      value: Automatic Spring Length Active
+      value: No Active Spring Link
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: doRecursiveSubdivisison
@@ -2128,7 +2128,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: approximatedSpringLength
-      value: Automatic Spring Length Active
+      value: No Active Spring Link
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: linkedSensors.Array.size
@@ -2137,6 +2137,10 @@ PrefabInstance:
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: rbInput.springRestLength
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
+      propertyPath: 'linkedSensors.Array.data[0]'
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 3844977559221810856, guid: 7977412a115a9404ba32fba55aed5f02, type: 3}
       propertyPath: rbInput.disableSpringRender
@@ -6685,12 +6689,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 41f2f7f0e10c43640938395e37ca144a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  doUpdateRenderMats: 0
+  doUpdateRenderMats: 1
   targetCamera: {fileID: 2012961847}
   sunLight: {fileID: 1446056928}
-  resolution: {x: 2048, y: 2048}
   cropAlphaThreshold: 0
-  outputFolder: Assets/CustomMats/Screenshots
+  screenshotsOutput: Assets/Screenshots
   childPrefab: {fileID: 849937554717908435, guid: e6560315157847949951d25d4c93afd3, type: 3}
   texturesRoot: {fileID: 2012961844}
   visibleTextureIndex: 2
@@ -7604,6 +7607,10 @@ PrefabInstance:
       propertyPath: rbInput.matIndex
       value: 6
       objectReference: {fileID: 0}
+    - target: {fileID: 1086233074675631358, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
+      propertyPath: approximatedVolume
+      value: 1.089 l
+      objectReference: {fileID: 0}
     - target: {fileID: 1842217059847815591, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
       propertyPath: m_Points.m_Paths.Array.data[0].Array.data[0].x
       value: 0.9950005
@@ -7679,6 +7686,10 @@ PrefabInstance:
     - target: {fileID: 3993904208264195790, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
       propertyPath: m_Name
       value: SpringVibrator
+      objectReference: {fileID: 0}
+    - target: {fileID: 4026777146569457958, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
+      propertyPath: approximatedVolume
+      value: 55.8899 l
       objectReference: {fileID: 0}
     - target: {fileID: 4026777146569457958, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
       propertyPath: rbInput.linkedRigidBody
@@ -7824,6 +7835,10 @@ PrefabInstance:
       propertyPath: addInBetweenPoints
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7411873777788113773, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
+      propertyPath: approximatedVolume
+      value: 1.089 l
+      objectReference: {fileID: 0}
     - target: {fileID: 7817770938592266472, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
       propertyPath: snapPointToGrid
       value: 0
@@ -7883,6 +7898,10 @@ PrefabInstance:
     - target: {fileID: 8779257968882295453, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
       propertyPath: rbInput.matIndex
       value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 8779257968882295453, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
+      propertyPath: approximatedVolume
+      value: 1.089 l
       objectReference: {fileID: 0}
     - target: {fileID: 9155491117554116675, guid: f986f2aa7d176ef448aab454aadfa130, type: 3}
       propertyPath: m_IsActive

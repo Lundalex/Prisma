@@ -89,7 +89,7 @@ public abstract class Sensor : SensorBase
         this.sensorOutlineContainer = sensorOutlineContainer;
         this.main = main;
         this.sensorManager = sensorManager;
-        this.canvasResolution = Func.Int2ToVector2(main.Resolution);
+        this.canvasResolution = Func.Int2ToVector2(main.DefaultResolution);
 
         graphController = gameObject.GetComponent<GraphController>();
     }

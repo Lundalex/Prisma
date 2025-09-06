@@ -98,7 +98,7 @@ public class FluidArrowField : SensorBase
         this.arrowManager = arrowManager;
         this.sensorManager = sensorManager;
         this.main = main;
-        this.canvasResolution = Func.Int2ToVector2(main.Resolution);
+        this.canvasResolution = Func.Int2ToVector2(main.DefaultResolution);
     }
 
     private void SetConstants()

@@ -37,8 +37,6 @@ public class ProgramLifeCycleManager : MonoBehaviour
         uiCanvas.SetActive(true);
         if (!showUserUI) userUI.SetActive(true);
 
-        // Show start confirmation (only when starting the program)
-
         // --- Important! --- Without editor script reloading - the star confirmation will NOT show up upon play mode cycles (still behaves corerctly in builds though!)
 
         if (!PM.hasShownStartConfirmation)

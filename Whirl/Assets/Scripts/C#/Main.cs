@@ -141,12 +141,20 @@ public class Main : MonoBehaviour
     #endregion
 
     #region Render Display
-    public int2 Resolution;
-    public Vector2 UIPadding;
+    public int2 DefaultResolution = new int2(1920, 1080);
+    public ResolutionScale ResolutionScaleSetting = ResolutionScale.Scale_1_1;
+    public enum ResolutionScale
+    {
+        Scale_2_1,
+        Scale_1_1,
+        Scale_3_4,
+        Scale_2_3,
+        Scale_1_2,
+        Scale_1_3,
+        Scale_1_4
+    }
 
-    [Header("Lighting / RB Mapping")]
-    public Vector2 SunDirection = new(-0.71f, -0.71f); // XY on screen
-    [Tooltip("World/simulation units per 1 albedo UV tile for rigid bodies.")]
+    public Vector2 UIPadding;
 
     public LightingSettings LightingSettings;
     public float3 GlobalBrightness;
@@ -267,9 +275,7 @@ public class Main : MonoBehaviour
     public ComputeBuffer MaterialBuffer;
 
     // Shadows
-    // Full-resolution source mask written by RenderShader; downsampled before shadow casting
     public ComputeBuffer ShadowSrcFullRes;
-    // Low-resolution shadow working buffers (size = ShadowResolution = Resolution / 2^ShadowDownSampling)
     public ComputeBuffer ShadowMask_dbA;
     public ComputeBuffer ShadowMask_dbB;
     public ComputeBuffer SharpShadowMask;
@@ -376,19 +382,18 @@ public class Main : MonoBehaviour
         renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
         ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
 
-        // --- Shadow buffers (full + downsampled) ---
         // Full-res source written by renderShader
         ComputeHelper.CreateStructuredBuffer<float>(ref ShadowSrcFullRes, renderTexture.width * renderTexture.height);
 
-        // Downsampled working buffers (size depends on ShadowDownSampling, and can change at runtime)
+        // Downsampled working buffers
         AllocateOrResizeShadowWorkingBuffers();
 
         // Shader buffers/textures
         shaderHelper.SetPSimShaderBuffers(pSimShader);
         shaderHelper.SetRBSimShaderBuffers(rbSimShader);
-        shaderHelper.SetRenderShaderBuffers(renderShader);      // will bind ShadowSrcFullRes to renderShader
+        shaderHelper.SetRenderShaderBuffers(renderShader);
         shaderHelper.SetRenderShaderTextures(renderShader);
-        shaderHelper.SetPostProcessorBuffers(ppShader);         // will bind ShadowSrcFullRes + low-res working buffers to ppShader
+        shaderHelper.SetPostProcessorBuffers(ppShader);
         shaderHelper.SetPostProcessorTextures(ppShader);
         shaderHelper.SetSortShaderBuffers(sortShader);
 
@@ -396,7 +401,7 @@ public class Main : MonoBehaviour
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
         shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
         shaderHelper.UpdateRenderShaderVariables(renderShader);
-        shaderHelper.SetPostProcessorVariables(ppShader);       // will also set ShadowResolution for PP
+        shaderHelper.SetPostProcessorVariables(ppShader);
         shaderHelper.UpdateSortShaderVariables(sortShader);
 
         SetShaderKeywords();
@@ -500,25 +505,25 @@ public class Main : MonoBehaviour
         SetLightingSettings();
         SetConstants();
 
-        // === Rebuild materials/atlas and gradients when inspector inputs change ===
+        // Rebuild materials/atlas and gradients when inspector inputs change
         BuildAtlasAndMats();
         TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
         TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 
-        // Ensure Material buffer fits current material count (BuildAtlasAndMats already did this, safe to call again)
+        // Ensure Material buffer fits current material count
         RecreateOrUpdateMaterialBuffer();
 
         // Rebind changed textures/buffers
         shaderHelper.SetRenderShaderTextures(renderShader);
         shaderHelper.SetRenderShaderBuffers(renderShader);
 
-        // Push all uniforms again (includes sunDir, BackgroundMatIndex)
+        // Push all uniforms again
         UpdateSettings();
 
         SetShaderKeywords();
         InitCausticsGen();
 
-        // Handle runtime changes to shadow working resolution (e.g., ShadowDownSampling modified by user)
+        // Handle runtime changes to shadow working resolution
         if (AllocateOrResizeShadowWorkingBuffers())
         {
             shaderHelper.SetRenderShaderBuffers(renderShader);
@@ -538,7 +543,6 @@ public class Main : MonoBehaviour
         // Set new pType and material data
         PTypeBuffer.SetData(pTypeInput.GetParticleTypes());
 
-        // Material buffer may have been resized in UpdateShaderData; if not, just SetData.
         if (MaterialBuffer != null && MaterialBuffer.count == MaterialsCount)
             MaterialBuffer.SetData(Mats);
 
@@ -608,9 +612,7 @@ public class Main : MonoBehaviour
         if (DoUseFastShaderCompilation)
         {
 #if !UNITY_EDITOR
-                Debug.LogWarning("Fast shader compilation enabled in build version. This may slightly decrease runtime performance");
-#else
-            // Debug.Log("Fast shader compilation enabled in build version. This may slightly decrease runtime performance");
+            Debug.LogWarning("Fast shader compilation enabled in build version. This may slightly decrease runtime performance");
 #endif
         }
 
@@ -654,8 +656,7 @@ public class Main : MonoBehaviour
 
     private void ValidateHardwareCompatibility()
     {
-        // This function will determine whether the current simulation device settings are compatible with the user's computer.
-        // Otherwise, the simulation device will be changed to prevent crashes.
+        // Determine whether the current simulation device settings are compatible with the user's computer.
     }
 
     private void RenderSetup()
@@ -666,7 +667,7 @@ public class Main : MonoBehaviour
         if (fragmentTransform != null)
         {
             fragmentTransform.position = new Vector3(BoundaryDims.x / 2, BoundaryDims.y / 2, -0.5f);
-            fragmentTransform.localScale = 0.5f * Func.Int2ToVector2(Resolution);
+            fragmentTransform.localScale = 0.5f * Func.Int2ToVector2(PM.Instance.ResolutionInt2);
             fragmentTransform.gameObject.SetActive(simDevice != SimulationDevice.GPU);
         }
     }
@@ -680,8 +681,6 @@ public class Main : MonoBehaviour
         Saturation = 1.0f;
         Gamma = 1.0f;
         SettingsViewDarkTintPercent = 1.0f;
-
-        // Old code omitted...
     }
 
     private float GetDeltaTime(float totalFrameTime, bool doClamp)
@@ -695,7 +694,7 @@ public class Main : MonoBehaviour
             deltaTime *= PM.Instance.timeScale * ProgramSpeed;
 
         }
-        else // TimeStepType == TimeStepType.Dynamic
+        else // Dynamic
         {
             deltaTime = totalFrameTime / stepsPerFrame;
             deltaTime *= PM.Instance.timeScale * ProgramSpeed;
@@ -783,7 +782,6 @@ public class Main : MonoBehaviour
                     bool BrownPinkSort = blockLen == basebBlockLen;
 
                     sortShader.SetInt("BlockLen_BrownPinkSort", blockLen * (BrownPinkSort ? 1 : -1));
-
                     sortShader.Dispatch(sortIterationKernelIndex, threadGroupsNumHalfCeil, 1, 1);
 
                     blockLen /= 2;
@@ -798,7 +796,6 @@ public class Main : MonoBehaviour
     {
         if (DoSimulateParticleSprings)
         {
-            // Spring buffer kernels
             int threadGroupsNum = Utils.GetThreadGroupsNums(ChunksNumAll, sortShaderThreadSize);
 
             ComputeHelper.DispatchKernel(sortShader, "PopulateChunkSizes", threadGroupsNum);
@@ -807,7 +804,6 @@ public class Main : MonoBehaviour
 
             int ppssKernelIndex = sortShader.FindKernel("ParallelPrefixSumScan");
 
-            // Calculate prefix sums (SpringStartIndices)
             bool StepBufferCycle = false;
             if (threadGroupsNum > 0)
                 for (int offset = 1; offset < ChunksNumAll; offset *= 2)
@@ -815,11 +811,10 @@ public class Main : MonoBehaviour
                     StepBufferCycle = !StepBufferCycle;
 
                     sortShader.SetInt("Offset2_StepBufferCycle", offset * (StepBufferCycle ? 1 : -1));
-
                     sortShader.Dispatch(ppssKernelIndex, threadGroupsNum, 1, 1);
                 }
 
-            if (StepBufferCycle == true) ComputeHelper.DispatchKernel(sortShader, "CopySpringStartIndicesBuffer", threadGroupsNum); // copy to result buffer
+            if (StepBufferCycle == true) ComputeHelper.DispatchKernel(sortShader, "CopySpringStartIndicesBuffer", threadGroupsNum);
         }
     }
 
@@ -906,7 +901,7 @@ public class Main : MonoBehaviour
 
     public void RunPPShader()
     {
-        // Make sure shadow buffers match current downsampling (in case user changed ShadowDownSampling at runtime)
+        // Ensure shadow buffers match current downsampling
         if (AllocateOrResizeShadowWorkingBuffers())
         {
             shaderHelper.SetRenderShaderBuffers(renderShader);
@@ -922,17 +917,14 @@ public class Main : MonoBehaviour
         {
             void GenerateShadows()
             {
-                // Downsample the full-res source mask into the working low-res ShadowMask_dbA
                 int kDown = ppShader.FindKernel("DownsampleShadowMask");
                 if (kDown >= 0)
                 {
                     ComputeHelper.DispatchKernel(ppShader, "DownsampleShadowMask", shadowThreads2D, ppShaderThreadSize2);
                 }
 
-                // Create shadows at LOW RES (ray march)
                 if (ShadowType == ShadowType.Vertical_Sharp || ShadowType == ShadowType.Vertical_Blurred)
                 {
-                    // vertical kernel uses X dimension only (one ray per column)
                     ComputeHelper.DispatchKernel(ppShader, "CreateShadowsVertical", shadowThreadsX, ppShaderThreadSize1);
                 }
                 else if (ShadowType == ShadowType.Diagonal_Sharp || ShadowType == ShadowType.Diagonal_Blurred)
@@ -954,7 +946,6 @@ public class Main : MonoBehaviour
 
                 if (isBlurred)
                 {
-                    // Work in low resolution for blur
                     ComputeHelper.DispatchKernel(ppShader, "CopySharpShadows", shadowThreads2D, ppShaderThreadSize2);
 
                     bool stepBufferCycle = true;
@@ -991,9 +982,7 @@ public class Main : MonoBehaviour
         if (ShadowType == ShadowType.None)
         {
             ComputeHelper.DispatchKernel(ppShader, "ApplyWithoutShadows", fullThreads2D, ppShaderThreadSize2);
-
             ApplyAA();
-            
             return;
         }
 
@@ -1034,7 +1023,6 @@ public class Main : MonoBehaviour
         {
             var newTex = _causticsHandle.Result;
 
-            // Always set the field as requested
             precomputedCausticsTexture = newTex;
             causticsLoaded = true;
 
