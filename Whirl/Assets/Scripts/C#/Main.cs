@@ -204,11 +204,11 @@ public class Main : MonoBehaviour
 
     // Rigid Bodies
     public float RBEdgeWidth = 0.1f;
-    public float RBEdgeRoundDst = 1.0f;
-    public float RBRoundLightStrength = 4.0f;
-    public float RBRoundShadowStrength = 1.5f;
-    public float RBRoundSamplePush = 2.0f;
-    public float RBFalloff = 1.0f;
+    public float RBEdgeRoundDst = 2.0f;
+    public float RBRoundLightStrength = 1.5f;
+    public float RBRoundShadowStrength = 1.0f;
+    public float RBRoundSamplePush = 1.0f;
+    public float RBFalloff = 0.6f;
 
     // Sensor Areas
     public float FluidSensorEdgeWidth = 3.0f;
@@ -630,7 +630,7 @@ public class Main : MonoBehaviour
         if (DoDrawUnoccupiedFluidSensorArea) renderShader.EnableKeyword("DRAW_UNOCCUPIED_FLUID_SENSOR_AREA");
         else renderShader.DisableKeyword("DRAW_UNOCCUPIED_FLUID_SENSOR_AREA");
         if (DoDrawRBOutlines) renderShader.EnableKeyword("DRAW_RB_OUTLINES");
-        else renderShader.DisableKeyword("DRAW_RB_OUTLINE");
+        else renderShader.DisableKeyword("DRAW_RB_OUTLINES");
         if (FluidRenderMethod == FluidRenderMethod.Metaballs) renderShader.EnableKeyword("USE_METABALLS");
         else renderShader.DisableKeyword("USE_METABALLS");
         if (SampleMethod == SampleMethod.Bilinear) renderShader.EnableKeyword("USE_BILINEAR_SAMPLER");

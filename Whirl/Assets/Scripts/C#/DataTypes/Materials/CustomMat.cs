@@ -14,7 +14,7 @@ public class CustomMat : ScriptableObject
     public string matName;
 
     // Shader params
-    public float3 baseColor = new(0.0f, 0.0f, 0.0f);
+    [ColorUsage(false, true), SerializeField] private Color baseColor = Color.black; // HDR color (no alpha in UI)
     [Range(0, 1)] public float opacity = 1.0f;
 
     // UV transform / tiling
@@ -23,12 +23,24 @@ public class CustomMat : ScriptableObject
     public bool disableMirrorRepeat = false;
 
     // Tinting / edge color
-    public float3 sampleColorMultiplier = new(1.0f, 1.0f, 1.0f);
+    [ColorUsage(false, true), SerializeField] private Color sampleColorMultiplier = Color.white; // HDR color (no alpha in UI)
     public bool transparentEdges = false;
     public float3 edgeColor = new(1.0f, 1.0f, 1.0f);
 
+    // Exposed float3 conversions (linear RGB)
+    public float3 BaseColor => ToFloat3(baseColor);
+    public float3 SampleColorMultiplier => ToFloat3(sampleColorMultiplier);
+
     // Persisted content hash to detect inspector changes
     [SerializeField, HideInInspector] private uint _lastHash;
+
+    // --- Helpers ---
+    static float3 ToFloat3(Color c)
+    {
+        // Use linear to keep things physically consistent across color spaces.
+        var lc = c.linear;
+        return new float3(lc.r, lc.g, lc.b);
+    }
 
 #if UNITY_EDITOR
     [System.NonSerialized] bool _renameQueued;
@@ -70,9 +82,13 @@ public class CustomMat : ScriptableObject
 
     private uint ComputeHash()
     {
-        float4 a = new(baseColor, opacity);
+        // Convert HDR Colors → float3 (linear) before hashing to keep stable with shader expectations.
+        float3 bc = BaseColor;
+        float3 sc = SampleColorMultiplier;
+
+        float4 a = new(bc, opacity);
         float4 b = new(sampleOffset, colorTextureUpScaleFactor, disableMirrorRepeat ? 1f : 0f);
-        float4 c = new(sampleColorMultiplier, transparentEdges ? 1f : 0f);
+        float4 c = new(sc, transparentEdges ? 1f : 0f);
         float4 d = new(edgeColor, 0f);
 
         uint h1 = math.hash(a);

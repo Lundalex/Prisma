@@ -83,8 +83,11 @@ RWStructuredBuffer<float> ShadowDstMask;
 RWStructuredBuffer<float> RimLightMask;
 
 // ---------------------------
-// Helpers: indexing & clamps
+// Helpers & small constants
 // ---------------------------
+
+static const float SQRT2    = 1.41421356;
+static const float EPS_DIR2 = 1e-12; // for dir^2 check
 
 uint GetPixelKeyFull(uint2 p) { return p.y * Resolution.x + p.x; }
 uint GetPixelKeyLow (uint2 p) { return p.y * ShadowResolution.x + p.x; }
@@ -110,7 +113,7 @@ float UpdateCarryScaled(inout float carry, float pixelShadowScaled, float stepFa
     return carryDelta;
 }
 
-#if APPLY_RIM_LIGHTING
+#ifdef APPLY_RIM_LIGHTING
 // Parallel rim-carry (optical thickness τ) with exponential falloff.
 // Outside RB (fluids/gases), scale by RimShadingBleed.
 // Opaque (rigid), cap per-pixel thickness by RimShadingOpaqueBleed.
@@ -146,8 +149,10 @@ float UpdateRimCarryScaled(inout float rimTau, float pixelShadow, bool outsideRB
 // Common step parameters for all marching kernels.
 void ComputeStepParams(float stepLenLow, out float stepScale, out float stepFalloff)
 {
-    stepScale   = max(1.0, (float)ShadowDownsampleFactor) * stepLenLow;
-    stepFalloff = 1.0 - pow(1.0 - saturate(ShadowFalloff), stepScale);
+    stepScale = max(1.0, (float)ShadowDownsampleFactor) * stepLenLow;
+    // micro-optimization: precompute the base of the exponent
+    float baseFalloff = 1.0 - saturate(ShadowFalloff);
+    stepFalloff = 1.0 - pow(baseFalloff, stepScale);
 }
 
 // Shared middle function: per-pixel shadow update on LOW-RES grid.
@@ -183,7 +188,7 @@ inline void ShadowStep(uint2 pLow,
 
     // Optional rim carry
     float rimOut = 0.0;
-    #if APPLY_RIM_LIGHTING
+    #ifdef APPLY_RIM_LIGHTING
     {
         float rimDeltaExp = UpdateRimCarryScaled(rimCarry, pixelShadow, outsideRB, /*insideSpring=*/false,
                                                  stepFalloff, stepScale);
@@ -208,6 +213,31 @@ void DownsampleShadowMask(uint3 id : SV_DispatchThreadID)
     uint2 pLow = id.xy;
     if (IsOutsideLowDims(pLow)) return;
 
+    // Fast path when no downsampling (factor == 1)
+    if (ShadowDownsampleFactor == 1)
+    {
+        uint idxLow = GetPixelKeyLow(pLow);
+        float v = ShadowSrcFullRes[GetPixelKeyFull(pLow)];
+
+        float outv = 0.0;
+        if (v < 0.0)
+        {
+            float mag = max(0.0, -v - 1.0);
+            outv = (mag >= 1.0 - 1e-6) ? 1.0 : ((mag > 0.0) ? mag : 0.0);
+        }
+        else
+        {
+            outv = (v >= 1.0 - 1e-6) ? 1.0 : ((v > 0.0) ? v : 0.0);
+        }
+
+        ShadowMask_dbA[idxLow]  = outv;
+        ShadowMask_dbB[idxLow]  = 0.0;
+        SharpShadowMask[idxLow] = 0.0;
+        ShadowDstMask[idxLow]   = 0.0;
+        RimLightMask[idxLow]    = 0.0;
+        return;
+    }
+
     uint2 start = pLow * (uint)ShadowDownsampleFactor;
     uint2 end   = min(start + (uint2)ShadowDownsampleFactor, Resolution);
 
@@ -229,7 +259,10 @@ void DownsampleShadowMask(uint3 id : SV_DispatchThreadID)
             }
             else if (v >= 1.0 - 1e-6) { hasOpaque = true; }
             else if (v > 0.0)         { acc += v; cnt++; }
+
+            if (hasOpaque) break; // early exit inner loop
         }
+        if (hasOpaque) break;     // early exit outer loop
     }
 
     float outv = hasOpaque ? 1.0 : ((cnt > 0u) ? (acc / cnt) : 0.0);
@@ -281,7 +314,7 @@ void CreateShadowsDiagonal(uint3 id : SV_DispatchThreadID)
     int y = H - 1;
 
     float stepScale, stepFalloff;
-    ComputeStepParams(/*stepLenLow≈√2*/1.41421356, stepScale, stepFalloff);
+    ComputeStepParams(/*stepLenLow≈√2*/SQRT2, stepScale, stepFalloff);
 
     float carry = 0.0, rimCarry = 0.0, dst = LARGE_FLOAT;
     uint  stepCount = 0u; bool suppressRim = false;
@@ -316,7 +349,7 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
     const int  H  = (int)Hu;
 
     float2 dir = ShadowDirection;
-    if (all(dir == 0.0)) return;
+    if (dot(dir, dir) < EPS_DIR2) return;
     dir = normalize(dir);
 
     float ax = abs(dir.x), ay = abs(dir.y);
@@ -335,7 +368,7 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
     float acc   = 0.0;
 
     float stepScale, stepFalloff;
-    ComputeStepParams(/*primary row step*/1.0, stepScale, stepFalloff);
+    ComputeStepParams(1.0, stepScale, stepFalloff);
 
     float carry = 0.0, rimCarry = 0.0, dst = LARGE_FLOAT;
     uint  stepCount = 0u; bool suppressRim = false;
@@ -363,8 +396,8 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
 
             // allow horizontal wrap; reset accumulators on wrap
             bool wrapped = false;
-            if (x < 0)       { x = (x % W + W) % W; wrapped = true; }
-            else if (x >= W) { x = x % W;          wrapped = true; }
+            while (x < 0)       { x += W; wrapped = true; }
+            while (x >= W)      { x -= W; wrapped = true; }
 
             if (wrapped)
             {
@@ -520,7 +553,7 @@ float bilinearSampleLow(float2 lowPos, uint kind)
     p2 = ClampToLowCoord(p2);
     p3 = ClampToLowCoord(p3);
 
-    float s00 = ReadLow((uint2)p0, BUF_A * 0u + kind);
+    float s00 = ReadLow((uint2)p0, kind);
     float s10 = ReadLow((uint2)p1, kind);
     float s01 = ReadLow((uint2)p2, kind);
     float s11 = ReadLow((uint2)p3, kind);
@@ -556,7 +589,7 @@ inline void ApplyCommon(uint2 px, float2 lowPos, float shadow)
     bool allowRimHere       = !insideSpringFull && (insideFluidGasFull || insideRBFull);
 
     float rim = 0.0;
-    #if APPLY_RIM_LIGHTING
+    #ifdef APPLY_RIM_LIGHTING
     if (allowRimHere)
     {
         rim = bilinearSampleLow(lowPos, BUF_RIM);
@@ -646,7 +679,16 @@ void ApplyAA(uint3 id : SV_DispatchThreadID)
     float gradV = abs(lN - lS);
     float edge  = max(gradH, gradV);
 
-    float blend = saturate((edge - AAThreshold) / (1.0 - AAThreshold)) * AAMaxBlend;
+    // Stable denominator + exact fast path when no blending is needed
+    float denom = max(1e-6, 1.0 - AAThreshold);
+    if (edge <= AAThreshold || AAMaxBlend <= 0.0)
+    {
+        float outA0 = ReadAA_a(p);
+        AAOutput[upx] = float4(c, outA0);
+        return;
+    }
+
+    float blend = saturate((edge - AAThreshold) / denom) * AAMaxBlend;
 
     // Directional 3-tap blur along minor gradient axis
     float3 blurH = (cW + c + cE) * (1.0/3.0);
@@ -665,7 +707,3 @@ void CopyResultToPP(uint3 id : SV_DispatchThreadID)
     if (id.x >= (uint)Resolution.x || id.y >= (uint)Resolution.y) return;
     PPResult[id.xy] = Result[id.xy];
 }
-
-// Instead of the current rim lighting, use the sunDir in_ renderer to apply an effect near the edges pacing the sun.
-// Also, make the edges of all rbs appear curved, like rounded edges on a cube. To achieve this_, add functionality for_ both altering the uv, and calculating a normal and comparing it to the sunDir. Make the sunDir a float3_ so it can shine ON the rigidbodies.
-// All added variables/settings should be defined with static_ const_ variables in_ the shader _(not set from c#).

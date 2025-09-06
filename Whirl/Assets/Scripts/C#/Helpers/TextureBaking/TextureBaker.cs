@@ -25,7 +25,6 @@ public class TextureBaker : MonoBehaviour
 
 #if UNITY_EDITOR
     [Range(0, 255)] public byte cropAlphaThreshold = 0;
-    public string screenshotsOutput = "Assets/Screenshots";
     public GameObject childPrefab;
     public Transform texturesRoot;
     public int visibleTextureIndex = -1;
@@ -42,6 +41,8 @@ public class TextureBaker : MonoBehaviour
 
     struct MatSnapshot { public float light; public int materialId; }
     readonly Dictionary<RenderMat, MatSnapshot> _matSnapshots = new();
+
+    const string texturesOutput = "Assets/CustomMats/Textures";
 
     void OnValidate()
     {
@@ -508,8 +509,8 @@ public class TextureBaker : MonoBehaviour
 
     Texture2D SaveTextureAsset(Texture2D tex, string baseName)
     {
-        string folder = !string.IsNullOrEmpty(screenshotsOutput) && screenshotsOutput.StartsWith("Assets")
-            ? screenshotsOutput : "Assets/Screenshots";
+        string folder = !string.IsNullOrEmpty(texturesOutput) && texturesOutput.StartsWith("Assets")
+            ? texturesOutput : "Assets/Screenshots";
         Directory.CreateDirectory(folder);
 
         string safe = Sanitize(string.IsNullOrEmpty(baseName) ? name : baseName);

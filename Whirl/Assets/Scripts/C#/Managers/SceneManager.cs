@@ -133,7 +133,7 @@ public class SceneManager : MonoBehaviour
 
             renderMats[i] = InitMat(
                 bm,
-                bm != null ? bm.baseColor : new float3(0,0,0),
+                bm != null ? bm.BaseColor : new float3(0,0,0),
                 colLoc, colDims,
                 bm != null ? bm.sampleOffset : new float2(0,0)
             );
@@ -182,7 +182,7 @@ public class SceneManager : MonoBehaviour
 
             baseCol = baseCol,
             opacity = Mathf.Clamp(CustomMat != null ? CustomMat.opacity : 1.0f, 0.0f, 1.0f),
-            sampleColMul = CustomMat != null ? CustomMat.sampleColorMultiplier : new float3(1,1,1),
+            sampleColMul = CustomMat != null ? CustomMat.SampleColorMultiplier : new float3(1,1,1),
             edgeCol = (CustomMat != null && CustomMat.transparentEdges) ? new float3(-1, -1, -1) : (CustomMat != null ? CustomMat.edgeColor : new float3(0,0,0))
         };
     }
