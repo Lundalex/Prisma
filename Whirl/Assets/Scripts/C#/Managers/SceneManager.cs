@@ -106,7 +106,7 @@ public class SceneManager : MonoBehaviour
             : Array.Empty<Rect>();
 
         float sizeMB = (atlas.width * atlas.height * 8f) / (1024f * 1024f);
-        StringUtils.LogIfInEditor($"Texture atlas (colTex) with {rects.Length} sub-textures, size {sizeMB:0.00} MB");
+        StringUtils.LogIfInEditor($"Texture atlas (colTex) with a size of {sizeMB:0.00} MB ({rects.Length} sub-textures)");
 
         // Helpers to convert rects to atlas-space int2 coords/dims
         int2 GetTexLoc(Rect rect)  => new((int)(rect.x * atlas.width), (int)(rect.y * atlas.height));

@@ -31,9 +31,11 @@ public class CustomMat : ScriptableObject
     public bool transparentEdges = false;
     public float3 edgeColor = new(1.0f, 1.0f, 1.0f);
 
+    public bool isBackground = false;
+
     // Exposed float3 conversions (linear RGB, multiplied)
-    public float3 BaseColor => ToFloat3(baseColor) * baseColorMultiplier;
-    public float3 SampleColor => ToFloat3(sampleColor) * sampleColorMultiplier;
+    public float3 BaseColor => ToFloat3(baseColor) * baseColorMultiplier * GetGlobalMatBrightness();
+    public float3 SampleColor => ToFloat3(sampleColor) * sampleColorMultiplier * GetGlobalMatBrightness();
 
     // Persisted content hash to detect inspector changes
     [SerializeField, HideInInspector] private uint _lastHash;
@@ -44,6 +46,17 @@ public class CustomMat : ScriptableObject
         // Use linear to keep things physically consistent across color spaces.
         var lc = c.linear;
         return new float3(lc.r, lc.g, lc.b);
+    }
+
+    private float GetGlobalMatBrightness()
+    {
+        return 1;
+        if (isBackground) return 1f;
+        var matInput = GameObject.FindGameObjectWithTag("MaterialInput");
+        if (!matInput) return 1f;
+        var matInputComp = matInput.GetComponent<MaterialInput>();
+        if (!matInputComp) return 1f;
+        else return matInputComp.globalMatBrightnessMultiplier;
     }
 
 #if UNITY_EDITOR
