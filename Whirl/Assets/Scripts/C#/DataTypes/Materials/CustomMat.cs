@@ -50,7 +50,6 @@ public class CustomMat : ScriptableObject
 
     private float GetGlobalMatBrightness()
     {
-        return 1;
         if (isBackground) return 1f;
         var matInput = GameObject.FindGameObjectWithTag("MaterialInput");
         if (!matInput) return 1f;
