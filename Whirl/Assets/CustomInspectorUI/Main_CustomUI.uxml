@@ -134,6 +134,18 @@
                 <uie:PropertyField binding-path="LiquidMetaballsEdgeDensityWidth" label="Metaballs Edge Width" tooltip="The range of metaballs density values resulting in rendering the detected fluid&apos;s edge color." />
                 <uie:PropertyField binding-path="VisualLiquidParticleRadius" label="Particle Radius" tooltip="The radius of liquid particles used for rendering." />
                 <uie:PropertyField binding-path="LiquidEdgeWidth" label="Edge Width" tooltip="The edge width of liquids." />
+                <ui:Foldout text="Realism" name="Realism">
+                    <uie:PropertyField binding-path="LiquidF0" label="LiquidF0" />
+                    <uie:PropertyField binding-path="LiquidReflectionStrength" label="LiquidReflectionStrength" />
+                    <uie:PropertyField binding-path="LiquidRefractionStrength" label="LiquidRefractionStrength" />
+                    <uie:PropertyField binding-path="LiquidSpecularStrength" label="LiquidSpecularStrength" />
+                    <uie:PropertyField binding-path="LiquidShininess" label="LiquidShininess" />
+                    <uie:PropertyField binding-path="LiquidDistortScales" label="LiquidDistortScales" />
+                    <uie:PropertyField binding-path="LiquidAbsorptionColor" label="LiquidAbsorptionColor" />
+                    <uie:PropertyField binding-path="LiquidAbsorptionStrength" label="LiquidAbsorptionStrength" />
+                    <uie:PropertyField binding-path="LiquidNormalZBias" label="LiquidNormalZBias" />
+                    <uie:PropertyField binding-path="LiquidSlopeThreshold" label="LiquidSlopeThreshold" />
+                </ui:Foldout>
                 <ui:Foldout text="VelocityGradient" name="VelocityGradient">
                     <uie:PropertyField binding-path="LiquidVelocityGradient" label="Gradient" tooltip="The gradient used for liquid particle velocity tinting." />
                     <uie:PropertyField binding-path="LiquidVelocityGradientResolution" label="Resolution" tooltip="The resolution (width) of the generated liquid velocity gradient texture." />

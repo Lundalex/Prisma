@@ -302,6 +302,17 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("LiquidEdgeWidth", m.LiquidEdgeWidth);
         renderShader.SetFloat("InvLiquidVelocityGradientMaxValue", 1 / m.LiquidVelocityGradientMaxValue);
 
+        renderShader.SetFloat("LiquidF0", m.LiquidF0);
+        renderShader.SetFloat("LiquidReflectionStrength", m.LiquidReflectionStrength);
+        renderShader.SetFloat("LiquidRefractionStrength", m.LiquidRefractionStrength);
+        renderShader.SetFloat("LiquidSpecularStrength", m.LiquidSpecularStrength);
+        renderShader.SetFloat("LiquidShininess", m.LiquidShininess);
+        renderShader.SetVector("LiquidDistortScales", Utils.Float2ToVector2(m.LiquidDistortScales));
+        renderShader.SetVector("LiquidAbsorptionColor", Utils.Float3ToVector3(m.LiquidAbsorptionColor));
+        renderShader.SetFloat("LiquidAbsorptionStrength", m.LiquidAbsorptionStrength);
+        renderShader.SetFloat("LiquidNormalZBias", m.LiquidNormalZBias);
+        renderShader.SetFloat("LiquidSlopeThreshold", m.LiquidSlopeThreshold);
+
         renderShader.SetFloat("GasMetaballsThreshold", m.GasMetaballsThreshold);
         renderShader.SetFloat("GasMetaballsEdgeDensityWidth", m.GasMetaballsEdgeDensityWidth);
         renderShader.SetFloat("VisualGasParticleRadius", m.VisualGasParticleRadius);
@@ -387,16 +398,18 @@ public class ShaderHelper : MonoBehaviour
         int   blurRadius = Mathf.Max(0, Mathf.RoundToInt(m.ShadowBlurRadius * s));
         float diffusion  = Mathf.Max(0f, m.ShadowDiffusion * s);
 
-        // Rim shading spreads in pixels: scale bleeds
-        float rimBleed       = m.RimShadingBleed * s;
-        float rimOpaqueBleed = m.RimShadingOpaqueBleed * s;
+        // Rim shading spreads in pixels: scale bleeds (thickness), and
+        // also scale strength by s to keep brightness roughly invariant at lower res.
+        float rimBleed         = m.RimShadingBleed * s;
+        float rimOpaqueBleed   = m.RimShadingOpaqueBleed * s;
+        float rimStrength      = m.RimShadingStrength * s; // <<< key change
 
         ppShader.SetInt("ShadowBlurRadius", blurRadius);
         ppShader.SetFloat("ShadowDiffusion", diffusion);
 
-        ppShader.SetFloat("RimShadingStrength",      m.RimShadingStrength);
-        ppShader.SetFloat("RimShadingBleed",         rimBleed);
-        ppShader.SetFloat("RimShadingOpaqueBleed",   rimOpaqueBleed);
+        ppShader.SetFloat("RimShadingStrength",    rimStrength);     // was m.RimShadingStrength
+        ppShader.SetFloat("RimShadingBleed",       rimBleed);
+        ppShader.SetFloat("RimShadingOpaqueBleed", rimOpaqueBleed);
 
         // TAA/AA parameters are unitless thresholds
         ppShader.SetFloat("AAThreshold", m.AAThreshold);

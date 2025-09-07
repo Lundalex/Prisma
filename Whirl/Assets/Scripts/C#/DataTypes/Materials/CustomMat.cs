@@ -1,6 +1,7 @@
 using Unity.Mathematics;
 using UnityEngine;
 using PM = ProgramManager;
+using UnityEngine.Serialization;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -14,7 +15,8 @@ public class CustomMat : ScriptableObject
     public string matName;
 
     // Shader params
-    [ColorUsage(false, true), SerializeField] private Color baseColor = Color.black; // HDR color (no alpha in UI)
+    [ColorUsage(false, true), SerializeField] private Color baseColor = Color.black; // HDR color
+    public float baseColorMultiplier = 1.0f;
     [Range(0, 1)] public float opacity = 1.0f;
 
     // UV transform / tiling
@@ -23,13 +25,15 @@ public class CustomMat : ScriptableObject
     public bool disableMirrorRepeat = false;
 
     // Tinting / edge color
-    [ColorUsage(false, true), SerializeField] private Color sampleColorMultiplier = Color.white; // HDR color (no alpha in UI)
+    [FormerlySerializedAs("sampleColorMultiplier")]
+    [ColorUsage(false, true), SerializeField] private Color sampleColor = Color.white; // HDR color (no alpha in UI)
+    public float sampleColorMultiplier = 1.0f;
     public bool transparentEdges = false;
     public float3 edgeColor = new(1.0f, 1.0f, 1.0f);
 
-    // Exposed float3 conversions (linear RGB)
-    public float3 BaseColor => ToFloat3(baseColor);
-    public float3 SampleColorMultiplier => ToFloat3(sampleColorMultiplier);
+    // Exposed float3 conversions (linear RGB, multiplied)
+    public float3 BaseColor => ToFloat3(baseColor) * baseColorMultiplier;
+    public float3 SampleColor => ToFloat3(sampleColor) * sampleColorMultiplier;
 
     // Persisted content hash to detect inspector changes
     [SerializeField, HideInInspector] private uint _lastHash;
@@ -82,9 +86,9 @@ public class CustomMat : ScriptableObject
 
     private uint ComputeHash()
     {
-        // Convert HDR Colors → float3 (linear) before hashing to keep stable with shader expectations.
+        // Use multiplied linear colors so hash reflects actual shader inputs.
         float3 bc = BaseColor;
-        float3 sc = SampleColorMultiplier;
+        float3 sc = SampleColor;
 
         float4 a = new(bc, opacity);
         float4 b = new(sampleOffset, colorTextureUpScaleFactor, disableMirrorRepeat ? 1f : 0f);

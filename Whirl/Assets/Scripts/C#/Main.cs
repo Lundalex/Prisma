@@ -13,6 +13,24 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 public class Main : MonoBehaviour
 {
+#if UNITY_EDITOR
+    [ContextMenu("Reset Defaults")]
+    private void SetDefaults()
+    {
+        // Realistic rendering settings
+        LiquidF0                   = 0.02f;
+        LiquidReflectionStrength   = 0.85f;
+        LiquidRefractionStrength   = 1.5f;
+        LiquidSpecularStrength     = 1.0f;
+        LiquidShininess            = 100.0f;
+        LiquidDistortScales        = new(0.03f, 0.015f);
+        LiquidAbsorptionColor      = new(0.0f, 0.25f, 0.35f);
+        LiquidAbsorptionStrength   = 1.2f;
+        LiquidNormalZBias          = 2f;
+        LiquidSlopeThreshold      = 1f;
+    }
+#endif
+
     public SimulationDevice simDevice = SimulationDevice.GPU;
 
     #region Safety
@@ -178,20 +196,32 @@ public class Main : MonoBehaviour
     // Fluids
     // Liquids
     public float LiquidMetaballsThreshold = 1.0f;
-    public float LiquidMetaballsEdgeDensityWidth = 0.3f;
+    public float LiquidMetaballsEdgeDensityWidth = 0.0f;
     public float VisualLiquidParticleRadius = 0.4f;
-    public float LiquidEdgeWidth = 1.0f;
+    public float LiquidEdgeWidth = 0.0f;
+
+    // Realistic rendering settings
+    public float  LiquidF0                   = 0.02f;                // Fresnel reflectance at normal incidence
+    public float  LiquidReflectionStrength   = 0.85f;                // 0..1
+    public float  LiquidRefractionStrength   = 1.5f;                // 0..1 (scales refractive tint)
+    public float  LiquidSpecularStrength     = 1.0f;                 // 0..1
+    public float  LiquidShininess            = 100.0f;                // e.g. 64..128
+    public float2 LiquidDistortScales        = new(0.03f, 0.015f); // refraction, reflection distortion
+    public float3 LiquidAbsorptionColor      = new(0.0f, 0.25f, 0.35f); // bluish tint
+    public float  LiquidAbsorptionStrength   = 1.2f;                 // 0..2
+    public float  LiquidNormalZBias          = 2f;                // >1 flattens normals (calmer surface)
+    public float  LiquidSlopeThreshold      = 1f;
 
     // Liquid Velocity Gradient
     public Gradient LiquidVelocityGradient;
-    public int LiquidVelocityGradientResolution;
-    public float LiquidVelocityGradientMaxValue;
+    public int LiquidVelocityGradientResolution = 256;
+    public float LiquidVelocityGradientMaxValue = 60;
 
     // Gasses
     public float GasMetaballsThreshold = 1.0f;
-    public float GasMetaballsEdgeDensityWidth = 0.3f;
+    public float GasMetaballsEdgeDensityWidth = 0.0f;
     public float VisualGasParticleRadius = 0.4f;
-    public float GasEdgeWidth = 1.0f;
+    public float GasEdgeWidth = 0.0f;
     public float GasNoiseStrength = 1.0f;
     public float GasNoiseDensityDarkeningFactor;
     public float GasNoiseDensityOpacityFactor;
@@ -203,7 +233,7 @@ public class Main : MonoBehaviour
     public float GasVelocityGradientMaxValue;
 
     // Rigid Bodies
-    public float RBEdgeWidth = 0.1f;
+    public float RBEdgeWidth = 0.0f;
     public float RBEdgeRoundDst = 2.0f;
     public float RBRoundLightStrength = 1.5f;
     public float RBRoundShadowStrength = 1.0f;

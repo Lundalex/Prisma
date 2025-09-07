@@ -163,7 +163,6 @@ public class SceneManager : MonoBehaviour
         return null;
     }
 
-    // UPDATED: now accepts CustomMat instead of SimpleMat
     private Mat InitMat(CustomMat CustomMat,
                         float3 baseCol,
                         int2 colTexLoc, int2 colTexDims,
@@ -182,7 +181,7 @@ public class SceneManager : MonoBehaviour
 
             baseCol = baseCol,
             opacity = Mathf.Clamp(CustomMat != null ? CustomMat.opacity : 1.0f, 0.0f, 1.0f),
-            sampleColMul = CustomMat != null ? CustomMat.SampleColorMultiplier : new float3(1,1,1),
+            sampleColMul = CustomMat != null ? CustomMat.SampleColor : new float3(1,1,1),
             edgeCol = (CustomMat != null && CustomMat.transparentEdges) ? new float3(-1, -1, -1) : (CustomMat != null ? CustomMat.edgeColor : new float3(0,0,0))
         };
     }

@@ -19,24 +19,18 @@
 #include "./Helpers/DataTypes.hlsl"
 #include "./Helpers/Constants.hlsl"
 
+// -----------------------------------------------
+// Minification control (virtual mip + LOD blend)
+// -----------------------------------------------
+#define MINIFY_SNAP_THRESHOLD  1.0   // start minification logic when T(texels/pixel) > this
+#define MINIFY_SNAP_HARDCAP    4096.0 // safety clamp for T
+
 // Liquid rendering settings
 const float LiquidMetaballsThreshold;
 const float LiquidMetaballsEdgeDensityWidth;
 const float VisualLiquidParticleRadius;
 const float LiquidEdgeWidth;
 const float InvLiquidVelocityGradientMaxValue;
-
-// Realistic rendering settings
-const float  LiquidF0;
-const float  LiquidReflectionStrength;
-const float  LiquidRefractionStrength;
-const float  LiquidSpecularStrength;
-const float  LiquidShininess;
-const float2 LiquidDistortScales;
-const float3 LiquidAbsorptionColor;
-const float  LiquidAbsorptionStrength;
-const float  LiquidNormalZBias;
-const float  LiquidSlopeThreshold;
 
 // Gas rendering settings
 const float GasMetaballsThreshold;
@@ -109,7 +103,7 @@ const int   PrecomputedCausticsZ;
 // -------------------------
 // Beveled RB edge settings
 // -------------------------
-const float2 SunDir; // note: 2D direction in world space (x,y). We'll make a 3D light using +z.
+const float2 SunDir;
 const float  RBRoundLightStrength;
 const float  RBRoundShadowStrength;
 const float  RBRoundSamplePush;
@@ -208,6 +202,8 @@ float3 SampleTexture(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm flo
 // Virtual-mip helpers
 // -------------------------
 
+// Quantize uv to the center of a virtual cell of size (stepTexels x stepTexels) inside the atlas tile.
+// uv/result are in tile space [0,1).
 float2 SnapUV_VirtualMip(float2 uv, uint2 texDims, int stepTexels)
 {
     stepTexels = max(1, stepTexels);
@@ -217,28 +213,33 @@ float2 SnapUV_VirtualMip(float2 uv, uint2 texDims, int stepTexels)
     return frac(center);
 }
 
+// 2-tap stable LOD blend between two snapped UVs (L0 and L1).
+// T = texels-per-pixel (isotropic estimate).
 float3 SampleTextureStableMinified_LODBlend(float2 uv, uint2 texLoc, uint2 texDims, Texture2D<unorm float4> tex, float T)
 {
-    if (T <= 1.0)
+    if (T <= MINIFY_SNAP_THRESHOLD)
     {
+        // Not minified: use existing sampler (bilinear or point based on keyword)
         return SampleTexture(uv, texLoc, texDims, tex);
     }
 
-    T = clamp(T, 1.0, 8192);
+    T = clamp(T, MINIFY_SNAP_THRESHOLD, MINIFY_SNAP_HARDCAP);
 
     float L  = log2(T);
     float L0 = floor(L);
-    float f  = saturate(L - L0);
+    float f  = saturate(L - L0);          // fraction to blend
 
-    int step0 = 1 << (int)L0;
-    int step1 = step0 << 1;
+    int step0 = 1 << (int)L0;             // 2^L0   texels
+    int step1 = step0 << 1;               // 2^(L0+1) texels
 
     float2 uv0 = SnapUV_VirtualMip(uv, texDims, step0);
     float2 uv1 = SnapUV_VirtualMip(uv, texDims, step1);
 
+    // Two point fetches, blended by fractional LOD
     float3 c0 = SampleTexturePoint(uv0, texLoc, texDims, tex);
     float3 c1 = SampleTexturePoint(uv1, texLoc, texDims, tex);
 
+    // Slightly smooth the blend to hide transitions
     float w = smoothstep(0.0, 1.0, f);
     return lerp(c0, c1, w);
 }
@@ -285,10 +286,12 @@ void ApplyGammaCorrection(inout float3 color)
 
 void SetResultColor(uint2 id, float3 color)
 {
+    // Apply rendering adjustments
     AdjustContrast(color);
     AdjustSaturation(color);
     ApplyGammaCorrection(color);
 
+    // Apply brightness factors
     color *= GlobalBrightness * GlobalBrightnessFactor;
 
     color = saturate(color);
@@ -436,6 +439,7 @@ float NoiseDensity(float dst, float invRadius, int pSeed)
 
 float3 SampleCaustics(uint2 threadID, float3 sampleColMul)
 {
+    // Normalized screen UV (0..1), independent of output resolution
     float2 uv = (float2)threadID / (float2)Resolution;
 
     float caustics;
@@ -491,9 +495,9 @@ float2 GetPixelPos(uint2 pixelID)
     return p * ViewScale + ViewOffset;
 }
 
-// ---- Background sampling helpers (refraction/reflection) ----
 float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos, Mat bg)
 {
+    // Convert world/view position back to screen pixel space (as before)
     float2 pixelID = (pixelPos - ViewOffset) / ViewScale - 0.5;
 
     float2 texDims = (float2)bg.colTexDims;
@@ -513,16 +517,18 @@ float2 ComputeBackgroundUVFromPixelPos(float2 pixelPos, Mat bg)
     return uv;
 }
 
-float3 SampleBackgroundColorAtPos(float2 pixelPos)
+float3 SampleBackgroundColor(uint2 threadID)
 {
     if (BackgroundMatIndex < 0 || BackgroundMatIndex >= NumMaterials)
         return 0;
 
     Mat bg = Materials[BackgroundMatIndex];
 
+    // If background has no texture, just base color.
     if (bg.colTexLoc.x == -1)
         return bg.baseCol * BackgroundBrightness;
 
+    float2 pixelPos = GetPixelPos(threadID);
     float2 uv = ComputeBackgroundUVFromPixelPos(pixelPos, bg);
 
     // Estimate texels-per-pixel (anisotropic -> take max axis)
@@ -534,17 +540,12 @@ float3 SampleBackgroundColorAtPos(float2 pixelPos)
     float2 scaledTexDims = texDims * scale;
 
     float up = abs(bg.colTexUpScaleFactor);
-    float2 dUV_per_pix = up / scaledTexDims;
+    float2 dUV_per_pix = up / scaledTexDims; // uv change per screen pixel
     float T = max(dUV_per_pix.x * texDims.x, dUV_per_pix.y * texDims.y);
 
     float3 sampled = SampleTextureStableMinified_LODBlend(uv, bg.colTexLoc, bg.colTexDims, Atlas, T) * bg.sampleColMul;
     float3 col = sampled + bg.baseCol;
     return col * BackgroundBrightness;
-}
-
-float3 SampleBackgroundColor(uint2 threadID)
-{
-    return SampleBackgroundColorAtPos(GetPixelPos(threadID));
 }
 
 // -------------------------
@@ -609,8 +610,6 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
     float minLiquidRadiusSqr = minLiquidRadius * minLiquidRadius;
     float minGasRadius = min(MaxInfluenceRadius, VisualGasParticleRadius);
     float minGasRadiusSqr = minGasRadius * minGasRadius;
-#else
-    float2 gradSum = 0.0;
 #endif
 #if DISPLAY_FLUID_VELOCITIES
     float totVelocitiesSummative = 0;
@@ -636,8 +635,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                 int pIndex = SpatialLookup[index].x;
                 PData pData = PDatas[pIndex];
 
-                float2 d = pixelPos - pData.pos;
-                float dstSqr = dot(d, d);
+                float dstSqr = dot2(pixelPos - pData.pos);
                 int lastChunkKey_PType_POrder = pData.lastChunkKey_PType_POrder;
                 int pTypeIndex = Extract_PType(lastChunkKey_PType_POrder);
                 bool isGas = ((uint)pTypeIndex % 3) == 2;
@@ -649,7 +647,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                     {
                         minDstSqr = dstSqr;
                         if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-                        else       nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
+                        else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
                     }
 
 #if DISPLAY_FLUID_VELOCITIES
@@ -658,18 +656,8 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
 #endif
 
                     float dst = sqrt(dstSqr);
-                    // metaball density & noisy gas density
-                    totDensity      += MetaballsDensity(dst, InvMaxInfluenceRadius);
+                    totDensity += MetaballsDensity(dst, InvMaxInfluenceRadius);
                     totNoiseDensity += NoiseDensity(dst, InvMaxInfluenceRadius, pIndex);
-
-                    // NEW: accumulate gradient for liquids -> surface normal
-                    if (!isGas)
-                    {
-                        float invDst = rsqrt(max(dstSqr, 1e-6));
-                        float2 dirN  = d * invDst; // (pos - p)/dst
-                        // ∇(1 - dst*invR) = -(invR) * (pos - p)/dst
-                        gradSum += (-InvMaxInfluenceRadius) * dirN;
-                    }
 
                     if (!isGas) nearestIsNotGas = true;
 
@@ -701,7 +689,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                     doDrawFluid = true;
                     minDstSqr = dstSqr;
                     if (isGas) nearestGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
-                    else       nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
+                    else nearestNonGasLastChunkKey_PType_POrder = lastChunkKey_PType_POrder;
 
                     if (!isGas) nearestIsNotGas = true;
 
@@ -756,66 +744,20 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
             float3 color;
             float opacity;
 #if DISPLAY_FLUID_VELOCITIES
-            float avgVel = totVelocitiesSummative / max(1, numParticles);
+            float avgVel = totVelocitiesSummative / numParticles;
             float4 gradientCol;
 #endif
             if (nearestIsNotGas)
             {
-                // --- LIQUID: physically nicer look (simple & fast) ---
-                // Base tint (with optional caustics)
 #if USE_CAUSTICS
                 color = SampleCaustics(id.xy, mat.sampleColMul) + mat.baseCol;
 #else
                 color = mat.baseCol;
 #endif
-                opacity = 1.0; // we'll compose with background ourselves (refraction/reflection)
-
-                // Build a pseudo-normal from metaball density gradient (fallback to flat)
-                float3 n = float3(0.0, 0.0, 1.0);
-#if USE_METABALLS
-                float2 slope = (totDensity > (LiquidMetaballsThreshold + LiquidSlopeThreshold))
-                ? 0 : -gradSum;
-                n = normalize(float3(slope.x, slope.y, max(LiquidNormalZBias, 1e-3)));
-#endif
-                // View & light
-                float3 V = float3(0.0, 0.0, 1.0);
-                float3 L = normalize(float3(-SunDir.x, -SunDir.y, 1.0));
-
-                // Fresnel (Schlick)
-                float cosTheta = saturate(dot(n, V));
-                float F = LiquidF0 + (1.0 - LiquidF0) * pow(1.0 - cosTheta, 5.0);
-
-                // Background refraction & reflection via world-space displacement
-                float2 refrOffset = n.xy * LiquidDistortScales.x;
-                float2 reflOffset = n.xy * LiquidDistortScales.y;
-
-                float3 refrBg = SampleBackgroundColorAtPos(pixelPos - refrOffset);
-                float3 reflBg = SampleBackgroundColorAtPos(pixelPos + reflOffset);
-
-                // Absorption using density as a cheap thickness proxy
-#if USE_METABALLS
-                float thickness = saturate(totDensity);
-                float3 absorbedTint = lerp(color, color * LiquidAbsorptionColor, saturate(LiquidAbsorptionStrength * thickness));
-#else
-                float3 absorbedTint = color;
-#endif
-
-                float3 refrCol = refrBg * absorbedTint * LiquidRefractionStrength;
-                float3 reflCol = reflBg;
-
-                // Specular (Blinn-Phong)
-                float3 H = normalize(L + V);
-                float spec = pow(saturate(dot(n, H)), LiquidShininess) * LiquidSpecularStrength;
-
-                float reflectMix = saturate(F * LiquidReflectionStrength);
-                float3 LiquidCol = lerp(refrCol, reflCol, reflectMix) + spec;
-
-                // Global brightness will be applied in SetResultColor
-                result = LiquidCol;
+                opacity = mat.opacity;
 
 #if DISPLAY_FLUID_VELOCITIES
                 gradientCol = SampleGradient(avgVel * InvLiquidVelocityGradientMaxValue, LiquidVelocityGradient);
-                result = lerp(result, gradientCol.rgb, gradientCol.a);
 #endif
             }
             else // isGas
@@ -827,13 +769,13 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                 float gradientFactor = avgVel * InvGasVelocityGradientMaxValue;
                 gradientCol = SampleGradient(gradientFactor, GasVelocityGradient);
 #endif
-                color *= GlobalBrightness;
-                result = BlendWithBackground(color, opacity, id.xy);
+            }
+            color *= GlobalBrightness;
+            result = BlendWithBackground(color, opacity, id.xy);
 
 #if DISPLAY_FLUID_VELOCITIES
-                result = lerp(result, gradientCol.rgb, gradientCol.a);
+            result = lerp(result, gradientCol.rgb, gradientCol.a);
 #endif
-            }
         }
 
 #if !DRAW_UNOCCUPIED_FLUID_SENSOR_AREA
@@ -854,7 +796,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
     else if (!doDrawFluid) result = BlendWithBackground(0, 0, id.xy);
 
     if (isInsideAnySensorArea) result = sensorAreaTint.rgb * sensorAreaTint.a + result * (1.0 - sensorAreaTint.a);
-    
+
     SetResultColor(id.xy, result);
 #endif
 }
@@ -895,6 +837,7 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
                 selRB = rb;
 
 #if DRAW_RB_OUTLINES
+                // Edge *outline* band uses RBEdgeWidth (unchanged)
                 float dst = DstToRB(pixelPos, rb);
                 float realRBEdgeWidth = RBEdgeWidth;
                 float aaRange = RBEdgeWidth;
@@ -919,21 +862,27 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
 
     Mat mat = Materials[matIndex];
 
+    // Local mapping
     float2 localPixelPos = rotate2D(pixelPos - transformData.xy, -transformData.z);
     bool   doMirrorRepeat = (mat.colTexUpScaleFactor > 0);
     float  scaleAbs       = abs(mat.colTexUpScaleFactor);
     float  minDim         = (float)min(BoundaryDims.x, BoundaryDims.y);
 
+    // Base (pre-wrap) UV
     float2 baseUV = scaleAbs * localPixelPos / minDim + mat.sampleOffset;
 
+    // World units per screen px (max axis)
     float2 a = (1.0 / ScreenToViewFactor) * ViewScale;
     float  dPos_per_pix = max(abs(a.x), abs(a.y));
 
+    // Isotropic texels-per-pixel estimate for RB map
     float avgTexDim = 0.5 * (float(mat.colTexDims.x) + float(mat.colTexDims.y));
     float T = (scaleAbs / max(minDim, 1e-4)) * dPos_per_pix * avgTexDim;
 
+    // -------- Rounded sampling (independent of outline) --------
     float2 uvForSample = baseUV;
 
+    // Distance to RB edge (inside pixel)
     float dEdge = DstToRB(pixelPos, selRB);
 
     float bevelAA   = 1.0;
@@ -944,6 +893,7 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
 
     if (inRound)
     {
+        // Finite-difference SDF gradient
         float  s0  = -dEdge;
         float  eps = 1.0;
         float  sdx = -DstToRB(pixelPos + float2(eps, 0.0), selRB);
@@ -953,22 +903,27 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
         float2 nWorld = grad / lenG;
         float2 nLocal = rotate2D(nWorld, -transformData.z);
 
-        float tEdge = saturate(1.0 - (dEdge / max(roundBand, 1e-4)));
+        // Bevel mask & AA, driven by RBEdgeRoundDst
+        float tEdge = saturate(1.0 - (dEdge / max(roundBand, 1e-4))); // 1 at edge -> 0 at inner bevel bound
         tEdge = pow(tEdge, RBFalloff);
         float aa = 1.0 - saturate((dEdge - roundBand) / max(bevelAA, 1e-4));
         float bevelMask = tEdge * aa;
 
+        // UV push to simulate wrapping
         float uvPush = (scaleAbs / minDim) * RBRoundSamplePush * bevelMask;
         uvForSample = baseUV - nLocal * uvPush;
 
+        // Wrap UV after offset
         uvForSample = doMirrorRepeat ? MirrorRepeatUV(uvForSample) : frac(uvForSample);
 
+        // **LOD-blended snapped sampling when minified (2 taps)**
         float3 texCol = (mat.colTexLoc.x != -1)
             ? SampleTextureStableMinified_LODBlend(uvForSample, mat.colTexLoc, mat.colTexDims, Atlas, T) * mat.sampleColMul + mat.baseCol
             : mat.baseCol;
 
+        // Simple bevel lighting blended only in the rounded band
         float2 L = -normalize(SunDir);
-        float  lambert = 0.5 + 0.5 * dot(nWorld, L);
+        float  lambert = 0.5 + 0.5 * dot(nWorld, L);   // [0..1]
         float  lightFactor = lerp(1.0 - RBRoundShadowStrength,
                                   1.0 + RBRoundLightStrength,
                                   lambert);
@@ -977,6 +932,7 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     }
     else
     {
+        // Interior sampling (no rounding)
         uvForSample = doMirrorRepeat ? MirrorRepeatUV(uvForSample) : frac(uvForSample);
 
         if (mat.colTexLoc.x != -1)
@@ -1001,8 +957,8 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     }
 #endif
 
-    float3 resultRB = BlendWithBackground(finalColor, mat.opacity, id.xy);
-    SetResultColor(id.xy, resultRB);
+    float3 result = BlendWithBackground(finalColor, mat.opacity, id.xy);
+    SetResultColor(id.xy, result);
 
     uint shadowIndexRB = id.y * Resolution.x + id.x;
     ShadowMask[shadowIndexRB] = RBShadowStrength;
@@ -1163,12 +1119,12 @@ void RenderRigidBodySprings(uint3 id : SV_DispatchThreadID)
         float2 uv = MirrorRepeatUV(abs(mat.colTexUpScaleFactor) * posNorm / (float2)BoundaryDims + mat.sampleOffset);
         uv *= SpringTextureUVFactor;
 
-        float3 resultS = GetMaterialColor(mat, uv, Atlas) + mat.baseCol;
+        float3 result = GetMaterialColor(mat, uv, Atlas) + mat.baseCol;
 
         float redTint = RED_TINT_FACTOR * springForce;
-        TintRed(resultS, redTint);
+        TintRed(result, redTint);
         
-        SetResultColor(id.xy, resultS);
+        SetResultColor(id.xy, result);
 
         uint  shadowIndexRB = id.y * Resolution.x + id.x;
         float prev          = ShadowMask[shadowIndexRB];
