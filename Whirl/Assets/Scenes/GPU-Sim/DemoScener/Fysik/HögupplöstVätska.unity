@@ -284,9 +284,28 @@ MonoBehaviour:
   DoDrawRBCentroids: 0
   DoUseFastShaderCompilation: 1
   RenderOrder: 0000000001000000020000000300000004000000
-  Resolution:
+  ShadowType: 0
+  ShadowDarkness: 0.45
+  ShadowFalloff: 0.01
+  RBShadowStrength: 1
+  LiquidShadowStrength: 0.0005
+  GasShadowStrength: 0.00003
+  ShadowDirection: 60
+  ShadowBlurRadius: 1
+  ShadowBlurIterations: 1
+  ShadowDiffusion: 20
+  DoUseRimLighting: 1
+  RimShadingStrength: 2
+  RimShadingBleed: 0.2
+  RimShadingOpaqueBleed: 3
+  DoUseAntiAliasing: 1
+  AAThreshold: 0.08
+  AAMaxBlend: 0.75
+  ShadowDownSampling: 1
+  DefaultResolution:
     x: 1920
     y: 1080
+  ResolutionScaleSetting: 1
   UIPadding: {x: 20, y: -30}
   LightingSettings: 0
   GlobalBrightness:
@@ -313,6 +332,21 @@ MonoBehaviour:
   LiquidMetaballsEdgeDensityWidth: 0.8
   VisualLiquidParticleRadius: 1.5
   LiquidEdgeWidth: 0.5
+  LiquidF0: 0.02
+  LiquidReflectionStrength: 0.85
+  LiquidRefractionStrength: 1.5
+  LiquidSpecularStrength: 1
+  LiquidShininess: 100
+  LiquidDistortScales:
+    x: 0.03
+    y: 0.015
+  LiquidAbsorptionColor:
+    x: 0
+    y: 0.25
+    z: 0.35
+  LiquidAbsorptionStrength: 1.2
+  LiquidNormalZBias: 2
+  LiquidSlopeThreshold: 1
   LiquidVelocityGradient:
     serializedVersion: 2
     key0: {r: 0, g: 0.24705884, b: 1, a: 0}
@@ -386,25 +420,29 @@ MonoBehaviour:
   GasVelocityGradientResolution: 256
   GasVelocityGradientMaxValue: 25
   RBEdgeWidth: 0.4
+  RBEdgeRoundDst: 2
+  RBRoundLightStrength: 1.5
+  RBRoundShadowStrength: 1
+  RBRoundSamplePush: 1
+  RBFalloff: 0.6
   FluidSensorEdgeWidth: 1
   SensorAreaAnimationSpeed: 10
   GlobalSettingsViewChangeSpeed: 10
-  backgroundTexture: {fileID: 2800000, guid: 1c21b07edd22649b487f8a12651b8af0, type: 3}
   BackgroundBrightness:
     x: 1
     y: 1
     z: 1
-  BackgroundUpScaleFactor: 1.97
-  MirrorRepeatBackgroundUV: 1
+  BackgroundCustomMat: {fileID: 11400000, guid: 66e423cc6454dbe4da363722f24b4cdc, type: 2}
   uiTexture: {fileID: 8400000, guid: 3f8f5277ec04f5048946bcec7a320ab1, type: 2}
   dynamicCausticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
-  precomputedCausticsTexture: {fileID: 18700000, guid: fd236c79f064f4d4c81170507d2e62d2, type: 2}
+  precomputedCausticsTexture: {fileID: 18700000, guid: 5154f244166343546bf2f18327183f14, type: 2}
   materialInput: {fileID: 1325691963}
   pTypeInput: {fileID: 1543420959}
   sceneManager: {fileID: 1751344381}
   shaderHelper: {fileID: 486544}
   fragmentTransform: {fileID: 0}
   renderShader: {fileID: 7200000, guid: ee5600fc85106194ea3f562bf40f8a95, type: 3}
+  ppShader: {fileID: 7200000, guid: c2becea54a99b18409c2b242b46f8d44, type: 3}
   pSimShader: {fileID: 7200000, guid: 1159aacbba0e56246a49c59505ceac6b, type: 3}
   rbSimShader: {fileID: 7200000, guid: 262942b13b71cb34685c0e9873f5a06c, type: 3}
   sortShader: {fileID: 7200000, guid: 3758f915db2f95643b063d688e601ef2, type: 3}
@@ -422,6 +460,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m: {fileID: 486541}
+  addressableCausticsTexture:
+    m_AssetGUID: fd236c79f064f4d4c81170507d2e62d2
+    m_SubObjectName: 
+    m_SubObjectGUID: 
+    m_SubObjectType: 
+    m_EditorAssetChanged: 0
 --- !u!1 &155133418
 GameObject:
   m_ObjectHideFlags: 0
@@ -1308,133 +1352,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6219053cb0e554d1fba2890751e08a65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  globalMatBrightnessMultiplier: 1
   materialInputs:
-  - name: 
-    colorTexture: {fileID: 0}
-    colorTextureUpScaleFactor: 1
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 0.6
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0.65
-    sampleColorMultiplier:
-      x: 0
-      y: 0
-      z: 2
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
-    colorTextureUpScaleFactor: 6
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 1
-      y: 1.7
-      z: 1.7
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: d7215cefa2dcd90439e40bf03644d96d, type: 3}
-    colorTextureUpScaleFactor: 25
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0.05
-      y: 0.05
-      z: 0.05
-    sampleColorMultiplier:
-      x: 1.6
-      y: 1.3
-      z: 1.6
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 2800000, guid: 74378026f0ba74aada3804247d938d0b, type: 3}
-    colorTextureUpScaleFactor: 4
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0
-      y: 0
-      z: 0
-    sampleColorMultiplier:
-      x: 2.3
-      y: 2.3
-      z: 2.3
-    edgeColor:
-      x: 0
-      y: 0
-      z: 0
-  - name: 
-    colorTexture: {fileID: 2800000, guid: f4152cef83f9c7345b9eebc631a06fbe, type: 3}
-    colorTextureUpScaleFactor: 10
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 1
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0.1
-      y: 0.1
-      z: 0.1
-    sampleColorMultiplier:
-      x: 1
-      y: 1.7
-      z: 1.7
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
-  - name: 
-    colorTexture: {fileID: 0}
-    colorTextureUpScaleFactor: 10
-    sampleOffset:
-      x: 0
-      y: 0
-    opacity: 0
-    disableMirrorRepeat: 0
-    transparentEdges: 0
-    baseColor:
-      x: 0.1
-      y: 0.1
-      z: 0.1
-    sampleColorMultiplier:
-      x: 1
-      y: 1.7
-      z: 1.7
-    edgeColor:
-      x: 1
-      y: 1
-      z: 1
+  - {fileID: 11400000, guid: c2b8bfb2b42b949eeb83d407f0066ecb, type: 2}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
 --- !u!4 &1325691964
 Transform:
   m_ObjectHideFlags: 0
@@ -2188,7 +2113,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 921125549720686673, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2328,7 +2253,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 1794482756819396491, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2440,7 +2365,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 2959941247308643137, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2572,7 +2497,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 4412653111344123035, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y
@@ -2840,7 +2765,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 65
       objectReference: {fileID: 0}
     - target: {fileID: 6520455285656269561, guid: 11c5f435613f06c4188ff31649444102, type: 3}
       propertyPath: m_SizeDelta.y

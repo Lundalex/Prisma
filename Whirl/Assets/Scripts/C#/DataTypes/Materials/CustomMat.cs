@@ -34,8 +34,8 @@ public class CustomMat : ScriptableObject
     public bool isBackground = false;
 
     // Exposed float3 conversions (linear RGB, multiplied)
-    public float3 BaseColor => ToFloat3(baseColor) * baseColorMultiplier * GetGlobalMatBrightness();
-    public float3 SampleColor => ToFloat3(sampleColor) * sampleColorMultiplier * GetGlobalMatBrightness();
+    public float3 BaseColor => baseColorMultiplier * GetGlobalMatBrightness() * ToFloat3(baseColor);
+    public float3 SampleColor => sampleColorMultiplier * GetGlobalMatBrightness() * ToFloat3(sampleColor);
 
     // Persisted content hash to detect inspector changes
     [SerializeField, HideInInspector] private uint _lastHash;
@@ -50,6 +50,9 @@ public class CustomMat : ScriptableObject
 
     private float GetGlobalMatBrightness()
     {
+#if UNITY_EDITOR
+        if (!Application.isPlaying) return 1f;
+#endif
         if (isBackground) return 1f;
         var matInput = GameObject.FindGameObjectWithTag("MaterialInput");
         if (!matInput) return 1f;

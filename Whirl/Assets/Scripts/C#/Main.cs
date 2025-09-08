@@ -536,7 +536,7 @@ public class Main : MonoBehaviour
         SetConstants();
 
         // Rebuild materials/atlas and gradients when inspector inputs change
-        BuildAtlasAndMats();
+        if (Application.isPlaying && PM.Instance.programStarted) BuildAtlasAndMats();
         TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
         TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 

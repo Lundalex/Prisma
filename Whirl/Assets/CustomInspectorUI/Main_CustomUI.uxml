@@ -135,16 +135,16 @@
                 <uie:PropertyField binding-path="VisualLiquidParticleRadius" label="Particle Radius" tooltip="The radius of liquid particles used for rendering." />
                 <uie:PropertyField binding-path="LiquidEdgeWidth" label="Edge Width" tooltip="The edge width of liquids." />
                 <ui:Foldout text="Realism" name="Realism">
-                    <uie:PropertyField binding-path="LiquidF0" label="LiquidF0" />
-                    <uie:PropertyField binding-path="LiquidReflectionStrength" label="LiquidReflectionStrength" />
-                    <uie:PropertyField binding-path="LiquidRefractionStrength" label="LiquidRefractionStrength" />
-                    <uie:PropertyField binding-path="LiquidSpecularStrength" label="LiquidSpecularStrength" />
-                    <uie:PropertyField binding-path="LiquidShininess" label="LiquidShininess" />
-                    <uie:PropertyField binding-path="LiquidDistortScales" label="LiquidDistortScales" />
-                    <uie:PropertyField binding-path="LiquidAbsorptionColor" label="LiquidAbsorptionColor" />
-                    <uie:PropertyField binding-path="LiquidAbsorptionStrength" label="LiquidAbsorptionStrength" />
-                    <uie:PropertyField binding-path="LiquidNormalZBias" label="LiquidNormalZBias" />
-                    <uie:PropertyField binding-path="LiquidSlopeThreshold" label="LiquidSlopeThreshold" />
+                    <uie:PropertyField binding-path="LiquidF0" label="F0" />
+                    <uie:PropertyField binding-path="LiquidReflectionStrength" label="Reflection Strength" />
+                    <uie:PropertyField binding-path="LiquidRefractionStrength" label="Refraction Strength" />
+                    <uie:PropertyField binding-path="LiquidSpecularStrength" label="Specular Strength" />
+                    <uie:PropertyField binding-path="LiquidShininess" label="Shininess" />
+                    <uie:PropertyField binding-path="LiquidDistortScales" label="Distort Scales" />
+                    <uie:PropertyField binding-path="LiquidAbsorptionColor" label="Absorption Color" />
+                    <uie:PropertyField binding-path="LiquidAbsorptionStrength" label="Absorption Strength" />
+                    <uie:PropertyField binding-path="LiquidNormalZBias" label="Normal Smoothness" />
+                    <uie:PropertyField binding-path="LiquidSlopeThreshold" label="Slope Threshold" />
                 </ui:Foldout>
                 <ui:Foldout text="VelocityGradient" name="VelocityGradient">
                     <uie:PropertyField binding-path="LiquidVelocityGradient" label="Gradient" tooltip="The gradient used for liquid particle velocity tinting." />
@@ -171,7 +171,7 @@
         <ui:Foldout text="Rigid Bodies" name="RigidBodies" value="false" style="-unity-font-style: bold;">
             <ui:Slider label="Edge Width" value="0.1" high-value="1" binding-path="RBEdgeWidth" show-input-field="true" fill="true" name="Slider" />
             <ui:Label text="Edge Rounding" style="left: -10px;" />
-            <ui:Slider label="Edge Round" value="2" high-value="3" binding-path="RBEdgeRoundDst" show-input-field="true" fill="true" name="Slider" />
+            <ui:Slider label="Edge Round" value="2" high-value="5" binding-path="RBEdgeRoundDst" show-input-field="true" fill="true" name="Slider" />
             <ui:Slider label="Light Strength" value="4" high-value="10" binding-path="RBRoundLightStrength" show-input-field="true" fill="true" name="Slider" />
             <ui:Slider label="Shadow Strength" value="4" high-value="10" binding-path="RBRoundShadowStrength" show-input-field="true" fill="true" name="Slider" />
             <ui:Slider label="Sample Push" value="2" high-value="5" binding-path="RBRoundSamplePush" show-input-field="true" fill="true" name="Slider" />
