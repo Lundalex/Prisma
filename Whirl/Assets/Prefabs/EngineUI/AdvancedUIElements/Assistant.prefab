@@ -3946,7 +3946,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 152.1664, y: -20.21515}
-  m_SizeDelta: {x: 144.01, y: 30.430302}
+  m_SizeDelta: {x: 0, y: 30.430302}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6231816248167906798
 CanvasRenderer:
@@ -9460,6 +9460,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   messagePrefab: {fileID: 1401955592630017723, guid: 6eb9c02bdc4cec446b68b78d7c086abc, type: 3}
   specialMessagePrefab: {fileID: 0}
+  initialMessagePrefab: {fileID: 0}
   messageList: {fileID: 935910135663609811}
   userStretchOrigin: 1
   assistantStretchOrigin: 0
@@ -9490,6 +9491,7 @@ MonoBehaviour:
         m_CallState: 2
   scrollBar: {fileID: 8359164348176066314}
   expandMinimizeController: {fileID: 5321376508544600093}
+  expandOnInitialAssistantMessage: 0
   specialMessagePresets: []
 --- !u!1 &8717507082461647697
 GameObject:
@@ -10397,7 +10399,7 @@ PrefabInstance:
       insertIndex: 0
       addedObject: {fileID: 2375210125687513792}
     - targetCorrespondingSourceObject: {fileID: 8541951077375059673, guid: b11aabeb2f084244382a67be129a67d3, type: 3}
-      insertIndex: -1
+      insertIndex: 2
       addedObject: {fileID: 8998367869598104548}
     - targetCorrespondingSourceObject: {fileID: 8541951077375059673, guid: b11aabeb2f084244382a67be129a67d3, type: 3}
       insertIndex: -1
