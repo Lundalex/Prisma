@@ -14,8 +14,9 @@ using UnityEditor;
 public class UIManager : ScriptableObject
 {
     /* ─────────────────────────────────────────────────────────────────────────────
-       COLOR PALETTES  (renamed)
+       COLOR PALETTES
     ───────────────────────────────────────────────────────────────────────────── */
+    public UserSettings userSettings;
     [FormerlySerializedAs("palettes")]
     public List<ColorPalette> colorPalettes = new();
 
@@ -88,6 +89,11 @@ public class UIManager : ScriptableObject
     }
 #endif
 
+    public void UpdateAll(TextSize textSize, LineSpacing lineSpacing, Theme theme, bool dyslexiaMode)
+    {
+
+    }
+    
     /* ─────────────────────────────────────────────────────────────────────────────
        HASHING (poll-based; call this to detect changes)
     ───────────────────────────────────────────────────────────────────────────── */
@@ -123,9 +129,9 @@ public class UIManager : ScriptableObject
             h = h * 31 + activeFontSpacingSubPaletteIndex;
 
             // Lists of sub-palettes
-            h = HashList(h, fontAssetPalettes,   HashAllTextTypes);
-            h = HashList(h, fontStylePalettes,   HashAllTextTypes);
-            h = HashList(h, fontSizePalettes,    HashAllTextTypes);
+            h = HashList(h, fontAssetPalettes, HashAllTextTypes);
+            h = HashList(h, fontStylePalettes, HashAllTextTypes);
+            h = HashList(h, fontSizePalettes, HashAllTextTypes);
             h = HashList(h, fontSpacingPalettes, HashAllTextTypes);
 
             // Also fold in the composed palette to capture cross-sub interactions

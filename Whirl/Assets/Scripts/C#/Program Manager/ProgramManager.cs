@@ -11,6 +11,7 @@ using Debug = UnityEngine.Debug;
 public class ProgramManager : ScriptableObject
 {
     // References
+    public UserSettings userSettings;
     public Material lineMaterial;
     [NonSerialized] public ProgramLifeCycleManager lifeCycleManager;
     [NonSerialized] public Main main;
@@ -631,13 +632,15 @@ public class ProgramManager : ScriptableObject
     public void OnDestroy()
     {
         UnsubscribeFromActions();
-        // Also clear program update subscribers when the asset gets destroyed (editor/domain reload safety)
         OnProgramUpdate = null;
         // Dispose ProgramManager-owned timers
         rapidFrameSteppingTimer?.Dispose();
         rapidFrameSteppingTimer = null;
 
         SetLastOpenedScene();
+#if UNITY_EDITOR
+        userSettings.Reset();
+#endif
     }
 
     public void UnsubscribeFromActions()
