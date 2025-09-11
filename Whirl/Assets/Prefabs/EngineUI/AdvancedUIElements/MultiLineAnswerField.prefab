@@ -468,7 +468,7 @@ MonoBehaviour:
   caseSensitive: 0
   checkMode: 2
   gradingCommunicationSettings: {fileID: 0}
-  allowAiReasoning: 0
+  allowAIThinking: 0
   isCorrectInstructions: Return true if the user_answer should be marked correct
     according to the rules. Else false.
   isAlmostInstructions: Return true if the answer is 'almost' (on the right track
@@ -689,6 +689,7 @@ MonoBehaviour:
   body2s: []
   notificationHeaders: []
   notificationBodies: []
+  tooltips: []
   interactHeaders: []
   interactSliders: []
   interactFields:
@@ -790,14 +791,57 @@ PrefabInstance:
     - {fileID: 2643852613806616876, guid: 555bb8b30867e4b01a7079393a14fcaf, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5988300724087707782, guid: 555bb8b30867e4b01a7079393a14fcaf, type: 3}
+      insertIndex: 3
+      addedObject: {fileID: 3128743934162803691}
   m_SourcePrefab: {fileID: 100100000, guid: 555bb8b30867e4b01a7079393a14fcaf, type: 3}
+--- !u!1 &858082737217711996 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5988300724087707782, guid: 555bb8b30867e4b01a7079393a14fcaf, type: 3}
+  m_PrefabInstance: {fileID: 6409240693377071098}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3128743934162803691
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 858082737217711996}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d51281f56fbcc2459793857deaa5b02, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  outlines: []
+  backgrounds: []
+  lightBackgrounds: []
+  contrasts: []
+  interactColors: []
+  interactGradients: []
+  interactGradientTexts: []
+  texts: []
+  notifications: []
+  header1s: []
+  header2s: []
+  body1s: []
+  body2s: []
+  notificationHeaders: []
+  notificationBodies: []
+  tooltips: []
+  interactHeaders: []
+  interactSliders: []
+  interactFields:
+  - {fileID: 3952638299870190752}
+  - {fileID: 2428751359230186722}
+  - {fileID: 2110517965226448550}
+  uiManager: {fileID: 11400000, guid: 09694218b3d8a5246b4e7c413bb47eb0, type: 2}
 --- !u!114 &2428751359230186722 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8738841510908158744, guid: 555bb8b30867e4b01a7079393a14fcaf, type: 3}
   m_PrefabInstance: {fileID: 6409240693377071098}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 858082737217711996}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
@@ -808,3 +852,14 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 7748738898672747073, guid: 555bb8b30867e4b01a7079393a14fcaf, type: 3}
   m_PrefabInstance: {fileID: 6409240693377071098}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &3952638299870190752 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7937776744158341978, guid: 555bb8b30867e4b01a7079393a14fcaf, type: 3}
+  m_PrefabInstance: {fileID: 6409240693377071098}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
