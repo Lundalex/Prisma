@@ -1,10 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// UserAnswerField.cs
-// - AI controls 'almost' header; may translate based on answer language
-// - Auto-resolves AssistantChatManager by tag "ChatManager" (no Inspector ref)
-// - Prevents re-submission while an evaluation is in progress
-// - NEW CheckMode: StringCompareThenAI — try StringCompare first, then fall back to AI
-// ─────────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -35,8 +28,8 @@ public class UserAnswerField : MonoBehaviour
     [Tooltip("CommunicationSettings passed as the System profile to the AI when grading answers.")]
     [SerializeField] private CommunicationSettings gradingCommunicationSettings;
 
-    [Tooltip("If true, enables extra reasoning effort on models that support it.")]
-    [SerializeField] private bool allowAiReasoning = false;
+    [Tooltip("If true, enables 'thinking' mode on models that support it.")]
+    [SerializeField] private bool allowAIThinking = false;
 
     [Header("AI Condition Instructions")]
     [SerializeField] private string isCorrectInstructions =
@@ -109,6 +102,9 @@ public class UserAnswerField : MonoBehaviour
 
     // Prevents re-submission while evaluation is running
     bool _isEvaluating = false;
+
+    // NEW: expose whether fail/almost animations are active
+    public bool IsAnimating => _shakeCo != null || _flashCo != null;
 
     void Awake()
     {
@@ -325,7 +321,6 @@ public class UserAnswerField : MonoBehaviour
         }
     }
 
-    // AI-COM: Brought back for StringCompare mode only.
     protected virtual bool CompareWithAnswerKey(string answer, string key)
     {
         if (answer == null || key == null) return false;
@@ -333,9 +328,6 @@ public class UserAnswerField : MonoBehaviour
         return string.Equals(answer, key, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helper: AI evaluation (shared by AI and StringCompareThenAI paths)
-    // ─────────────────────────────────────────────────────────────────────────
     private async Task<(bool isCorrect, bool isAlmost, string almostFeedback, string almostHeader)> EvaluateWithAI(string answer)
     {
         bool isCorrect = false;
@@ -409,7 +401,7 @@ Output policy (CRITICAL):
                 specs,
                 gradingCommunicationSettings,
                 model: null,
-                allowThinking: allowAiReasoning
+                allowThinking: allowAIThinking
             );
 
             if (conds != null && conds.TryGetValue("is_correct", out var v) && v is bool b1)

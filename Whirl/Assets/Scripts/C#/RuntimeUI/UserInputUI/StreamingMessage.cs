@@ -1,14 +1,7 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// StreamingMessage.cs
-// - Modified so height growth is top-anchored (expands only DOWN).
-//   We force targetRT and the inner text rect to be top-anchored with a top pivot,
-//   so when the text wraps to a new line the bubble grows downward only.
-// - All other functionality (streaming, fitting, layout flick) preserved.
-// ─────────────────────────────────────────────────────────────────────────────
 using System.Collections;
 using System.Text;
 using UnityEngine;
-using UnityEngine.UI; // for VerticalLayoutGroup
+using UnityEngine.UI;
 using TMPro;
 
 [ExecuteAlways]
@@ -35,7 +28,7 @@ public class StreamingMessage : MonoBehaviour
     [Min(0f)] [SerializeField] private float minDstToParentEdge = 24f;
 
     [Tooltip("Padding around the text inside this rect (x = left+right / 2, y = top+bottom / 2).")]
-    [SerializeField] private Vector2 padding = new Vector2(8f, 8f);
+    [SerializeField] private Vector2 padding = new(8f, 8f);
 
     [Header("Stretch Origin")]
     [Tooltip("Which parent edge stays fixed as the width changes.")]
@@ -57,12 +50,39 @@ public class StreamingMessage : MonoBehaviour
     private const float kTopTextOffsetY = -15f;
     Coroutine _streamCo;            
 
+    // NEW: subscription guard
+    bool _subscribedToTMPEvent;
+
     void Awake()
     {
         CacheRefs();
         ApplySettings();
+        SubscribeTMPTextChanged();
         RequestFit(); 
     }
+
+    void OnEnable()
+    {
+        CacheRefs();
+        SubscribeTMPTextChanged();
+        RequestFit();
+    }
+
+    void OnDisable()
+    {
+        UnsubscribeTMPTextChanged();
+    }
+
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        CacheRefs();
+        UnsubscribeTMPTextChanged();
+        SubscribeTMPTextChanged();
+        if (isActiveAndEnabled)
+            RequestFit();
+    }
+#endif
 
     void Start()
     {
@@ -230,10 +250,6 @@ public class StreamingMessage : MonoBehaviour
             targetRT.anchoredPosition = new Vector2(0f, targetRT.anchoredPosition.y);
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // NEW: Top-anchored vertical behavior so height growth pushes DOWN.
-        // Keep the top edge fixed by using top anchors and top pivot.
-        // ─────────────────────────────────────────────────────────────────
         targetRT.anchorMin = new Vector2(targetRT.anchorMin.x, 1f);
         targetRT.anchorMax = new Vector2(targetRT.anchorMax.x, 1f);
         targetRT.pivot     = new Vector2(targetRT.pivot.x, 1f);
@@ -330,5 +346,32 @@ public class StreamingMessage : MonoBehaviour
         }
 
         _streamCo = null;
+    }
+
+    void SubscribeTMPTextChanged()
+    {
+        if (_subscribedToTMPEvent) return;
+        TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTMPTextChanged);
+        _subscribedToTMPEvent = true;
+    }
+
+    void UnsubscribeTMPTextChanged()
+    {
+        if (!_subscribedToTMPEvent) return;
+        TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTMPTextChanged);
+        _subscribedToTMPEvent = false;
+    }
+
+    void OnDestroy()
+    {
+        UnsubscribeTMPTextChanged();
+    }
+
+    void OnTMPTextChanged(Object obj)
+    {
+        if (this == null || text == null) return;
+
+        if (obj == (Object)text)
+            RequestFit();
     }
 }

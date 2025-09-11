@@ -9459,15 +9459,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   messagePrefab: {fileID: 1401955592630017723, guid: 6eb9c02bdc4cec446b68b78d7c086abc, type: 3}
-  specialMessagePrefab: {fileID: 0}
-  initialMessagePrefab: {fileID: 0}
+  specialMessagePrefab: {fileID: 728545835642320016, guid: bb74357f553aeca439ace5930d78968d, type: 3}
+  initialMessagePrefab: {fileID: 659258893734857487, guid: fe38788a4712d654c9e6ac3d2ea302f3, type: 3}
   messageList: {fileID: 935910135663609811}
   userStretchOrigin: 1
   assistantStretchOrigin: 0
   userAssistantField: {fileID: 2935612868690437725}
   responseStreaming: 1
   openAIModel: gpt-4o
-  streamAlmostAssistantMessage: 0
+  streamAlmostAssistantMessage: 1
   communicationSettings: {fileID: 11400000, guid: f5561c2d6db35ec419ef20bb475f2a92, type: 2}
   assistantThinkingText: "\u2026"
   overrideSpecialMarking: 1
@@ -10404,14 +10404,17 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8541951077375059673, guid: b11aabeb2f084244382a67be129a67d3, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7620053230638999592}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5968593649192793784, guid: b11aabeb2f084244382a67be129a67d3, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3460420631039813433}
   m_SourcePrefab: {fileID: 100100000, guid: b11aabeb2f084244382a67be129a67d3, type: 3}
 --- !u!114 &5321376508544600093 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8234886595042432719, guid: b11aabeb2f084244382a67be129a67d3, type: 3}
   m_PrefabInstance: {fileID: 4292319705500851922}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 7585704763912644714}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1d94e2418879fe64eafadd66b828d790, type: 3}
@@ -10422,3 +10425,40 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8541951077375059673, guid: b11aabeb2f084244382a67be129a67d3, type: 3}
   m_PrefabInstance: {fileID: 4292319705500851922}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &7585704763912644714 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5968593649192793784, guid: b11aabeb2f084244382a67be129a67d3, type: 3}
+  m_PrefabInstance: {fileID: 4292319705500851922}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3460420631039813433
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7585704763912644714}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d51281f56fbcc2459793857deaa5b02, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  outlines: []
+  backgrounds: []
+  lightBackgrounds: []
+  contrasts: []
+  interactColors: []
+  interactGradients: []
+  interactGradientTexts: []
+  texts: []
+  notifications: []
+  header1s:
+  - {fileID: 3265966326435143040}
+  header2s: []
+  body1s: []
+  body2s: []
+  notificationHeaders: []
+  notificationBodies: []
+  interactHeaders: []
+  interactSliders: []
+  interactFields: []
+  uiManager: {fileID: 11400000, guid: 09694218b3d8a5246b4e7c413bb47eb0, type: 2}

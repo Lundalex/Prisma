@@ -13,10 +13,11 @@ using UnityEditor;
     order    = 100)]
 public class UIManager : ScriptableObject
 {
+    public UserSettings userSettings;
+    public Michsky.MUIP.UIManager muipUIManager;
     /* ─────────────────────────────────────────────────────────────────────────────
        COLOR PALETTES
     ───────────────────────────────────────────────────────────────────────────── */
-    public UserSettings userSettings;
     [FormerlySerializedAs("palettes")]
     public List<ColorPalette> colorPalettes = new();
 
@@ -82,17 +83,91 @@ public class UIManager : ScriptableObject
         {
             _cachedHash = h;
             composedFontPreview = ComposeActiveFont();
+
+            // NEW: also push tooltip font + size into MUIP UIManager
+            ApplyTooltipToMUIP(composedFontPreview);
+
             if (this) EditorUtility.SetDirty(this);
         }
     }
 #endif
 
+    public void UpdateAll(int textSizeIdx, int lineSpacingIdx, int themeIdx, bool dyslexiaMode)
+    {
+        activeFontSizeSubPaletteIndex    = ClampIndex(textSizeIdx,    fontSizePalettes);
+        activeFontSpacingSubPaletteIndex = ClampIndex(lineSpacingIdx, fontSpacingPalettes);
+        activeColorPaletteIndex          = ClampIndex(themeIdx,       colorPalettes);
+        activeFontAssetSubPaletteIndex   = ResolveFontAssetIndex(dyslexiaMode);
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            composedFontPreview = ComposeActiveFont();
+            ApplyTooltipToMUIP(composedFontPreview);
+            EditorUtility.SetDirty(this);
+        }
+#endif
+        if (Application.isPlaying)
+        {
+            ApplyActiveFontToMUIP();
+        }
+    }
+
     public void UpdateAll(TextSize textSize, LineSpacing lineSpacing, Theme theme, bool dyslexiaMode)
     {
-        // textSize -> fontSizePalettes
-        // lineSpacing -> fontSpacingPalettes
-        // theme -> colorPalettes
-        // dyslexiaMode -> fontAssetPalettes
+        UpdateAll((int)textSize, (int)lineSpacing, (int)theme, dyslexiaMode);
+    }
+
+    // Helpers for UpdateAll
+    int ClampIndex<T>(int idx, List<T> list)
+    {
+        int count = list == null ? 0 : list.Count;
+        return Mathf.Clamp(idx, 0, Mathf.Max(0, count - 1));
+    }
+
+    int ResolveFontAssetIndex(bool dyslexiaMode)
+    {
+        var list = fontAssetPalettes;
+        int count = list == null ? 0 : list.Count;
+
+        if (count == 0) return 0;
+
+        if (!dyslexiaMode)
+            return 0; // default palette 
+
+        // Try to find a palette whose name hints at dyslexia (e.g., "Dyslexic", "Dyslexia")
+        for (int i = 0; i < count; i++)
+        {
+            var n = list[i].name;
+            if (!string.IsNullOrEmpty(n) && n.Contains("DyslexiaFont_DontChangeName"))
+                return i;
+        }
+
+        // Otherwise prefer index 1 if it exists, else 0
+        return count > 1 ? 1 : 0;
+    }
+
+    public void ApplyActiveFontToMUIP()
+    {
+        var fp = ComposeActiveFont();
+        ApplyTooltipToMUIP(fp);
+    }
+
+    void ApplyTooltipToMUIP(in FontPalette fp)
+    {
+        if (muipUIManager == null) return;
+
+        // Assign safely/simple: only apply when values are meaningful.
+        if (fp.tooltip.fontAsset != null)
+            muipUIManager.tooltipFont = fp.tooltip.fontAsset;
+
+        if (fp.tooltip.fontSize > 0f)
+            muipUIManager.tooltipFontSize = fp.tooltip.fontSize;
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+            EditorUtility.SetDirty(muipUIManager);
+#endif
     }
 
     /* ─────────────────────────────────────────────────────────────────────────────
@@ -144,6 +219,7 @@ public class UIManager : ScriptableObject
             h = h * 31 + HashFontSettings(fp.body2);
             h = h * 31 + HashFontSettings(fp.notificationHeader);
             h = h * 31 + HashFontSettings(fp.notificationBody);
+            h = h * 31 + HashFontSettings(fp.tooltip);
             h = h * 31 + HashFontSettings(fp.interactHeader);
             h = h * 31 + HashFontSettings(fp.interactSlider);
             h = h * 31 + HashFontSettings(fp.interactField);
@@ -173,6 +249,7 @@ public class UIManager : ScriptableObject
 
             notificationHeader = Compose(a.notificationHeader, st.notificationHeader, sz.notificationHeader, sp.notificationHeader),
             notificationBody   = Compose(a.notificationBody,   st.notificationBody,   sz.notificationBody,   sp.notificationBody),
+            tooltip            = Compose(a.tooltip,            st.tooltip,            sz.tooltip,            sp.tooltip),
 
             interactHeader = Compose(a.interactHeader, st.interactHeader, sz.interactHeader, sp.interactHeader),
             interactSlider = Compose(a.interactSlider, st.interactSlider, sz.interactSlider, sp.interactSlider),
@@ -265,6 +342,7 @@ public class UIManager : ScriptableObject
             h = h * 31 + Hash(sp.body2);
             h = h * 31 + Hash(sp.notificationHeader);
             h = h * 31 + Hash(sp.notificationBody);
+            h = h * 31 + Hash(sp.tooltip);
             h = h * 31 + Hash(sp.interactHeader);
             h = h * 31 + Hash(sp.interactSlider);
             h = h * 31 + Hash(sp.interactField);
@@ -294,6 +372,7 @@ public class UIManager : ScriptableObject
             h = h * 31 + Hash(sp.body2);
             h = h * 31 + Hash(sp.notificationHeader);
             h = h * 31 + Hash(sp.notificationBody);
+            h = h * 31 + Hash(sp.tooltip);
             h = h * 31 + Hash(sp.interactHeader);
             h = h * 31 + Hash(sp.interactSlider);
             h = h * 31 + Hash(sp.interactField);
@@ -323,6 +402,7 @@ public class UIManager : ScriptableObject
             h = h * 31 + Hash(sp.body2);
             h = h * 31 + Hash(sp.notificationHeader);
             h = h * 31 + Hash(sp.notificationBody);
+            h = h * 31 + Hash(sp.tooltip);
             h = h * 31 + Hash(sp.interactHeader);
             h = h * 31 + Hash(sp.interactSlider);
             h = h * 31 + Hash(sp.interactField);
@@ -352,6 +432,7 @@ public class UIManager : ScriptableObject
             h = h * 31 + Hash(sp.body2);
             h = h * 31 + Hash(sp.notificationHeader);
             h = h * 31 + Hash(sp.notificationBody);
+            h = h * 31 + Hash(sp.tooltip);
             h = h * 31 + Hash(sp.interactHeader);
             h = h * 31 + Hash(sp.interactSlider);
             h = h * 31 + Hash(sp.interactField);
@@ -421,6 +502,7 @@ public struct FontPalette
     public FontSettings body2;
     public FontSettings notificationHeader;
     public FontSettings notificationBody;
+    public FontSettings tooltip;
     public FontSettings interactHeader;
     public FontSettings interactSlider;
     public FontSettings interactField;
@@ -469,6 +551,7 @@ public struct FontAssetSubPalette
     public FontAssetSetting body2;
     public FontAssetSetting notificationHeader;
     public FontAssetSetting notificationBody;
+    public FontAssetSetting tooltip;
     public FontAssetSetting interactHeader;
     public FontAssetSetting interactSlider;
     public FontAssetSetting interactField;
@@ -484,6 +567,7 @@ public struct FontStyleSubPalette
     public FontStyleSetting body2;
     public FontStyleSetting notificationHeader;
     public FontStyleSetting notificationBody;
+    public FontStyleSetting tooltip;
     public FontStyleSetting interactHeader;
     public FontStyleSetting interactSlider;
     public FontStyleSetting interactField;
@@ -499,6 +583,7 @@ public struct FontSizeSubPalette
     public FontSizeSetting body2;
     public FontSizeSetting notificationHeader;
     public FontSizeSetting notificationBody;
+    public FontSizeSetting tooltip;
     public FontSizeSetting interactHeader;
     public FontSizeSetting interactSlider;
     public FontSizeSetting interactField;
@@ -514,6 +599,7 @@ public struct FontSpacingSubPalette
     public FontSpacingSetting body2;
     public FontSpacingSetting notificationHeader;
     public FontSpacingSetting notificationBody;
+    public FontSpacingSetting tooltip;
     public FontSpacingSetting interactHeader;
     public FontSpacingSetting interactSlider;
     public FontSpacingSetting interactField;

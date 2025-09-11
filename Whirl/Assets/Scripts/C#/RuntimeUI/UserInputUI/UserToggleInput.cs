@@ -23,18 +23,11 @@ public class UserToggleInput : UserUIElement
     // Private
     private bool lastValue;
 
-    /// <summary>
-    /// Programmatically set the toggle state and animate the change (Play Mode).
-    /// Safe in Edit Mode: no coroutines or UpdateUI calls are made there.
-    /// </summary>
     public void SetIsOn(bool on)
     {
         ApplyToggle(on, animate: true);
     }
 
-    /// <summary>
-    /// Instantly set the toggle state without animation (useful for initial sync).
-    /// </summary>
     public void SetIsOnInstant(bool on)
     {
         ApplyToggle(on, animate: false);

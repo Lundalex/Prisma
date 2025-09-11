@@ -1,10 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// UserSettingsRelayHelper.cs
-// Integrated with MultiThemeButtonController instead of a UserSelectorInput
-// for Theme. Syncs both directions:
-//   - Field -> UI: when _theme changes (Inspector/other), set controller index.
-//   - UI -> Field: when controller index changes, update _theme & UserSettings.
-// ─────────────────────────────────────────────────────────────────────────────
 using System;
 using UnityEngine;
 
@@ -15,7 +8,7 @@ public class UserSettingsRelayHelper : MonoBehaviour
     [Tooltip("The UserSettings asset/instance to write to when values change.")]
     public UserSettings userSettings;
 
-    [Header("Selector Inputs (optional)")]
+    [Header("Selector Inputs")]
     [Tooltip("Selector for TextSize. On Start, its index is set from current settings.")]
     [SerializeField] private UserSelectorInput textSizeSelector;
     [Tooltip("Selector for LineSpacing. On Start, its index is set from current settings.")]
@@ -23,11 +16,11 @@ public class UserSettingsRelayHelper : MonoBehaviour
     [Tooltip("Theme controller. On Start, its index is set from current settings.")]
     [SerializeField] private MultiThemeButtonController themeButtonController;
 
-    [Header("Toggle Input (optional)")]
+    [Header("Toggle Input")]
     [Tooltip("Toggle for DyslexiaMode. On Start (Play Mode), its state is set from current settings.")]
     [SerializeField] private UserToggleInput dyslexiaModeToggle;
 
-    [Header("Values (edited in Inspector)")]
+    [Header("Values")]
     public TextSize    _textSize;
     public LineSpacing _lineSpacing;
     public Theme       _theme;

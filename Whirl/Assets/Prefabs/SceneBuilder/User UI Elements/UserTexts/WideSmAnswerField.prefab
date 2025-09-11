@@ -4109,6 +4109,7 @@ MonoBehaviour:
   body2s: []
   notificationHeaders: []
   notificationBodies: []
+  tooltips: []
   interactHeaders: []
   interactSliders: []
   interactFields: []
@@ -4382,16 +4383,19 @@ MonoBehaviour:
   leftTarget: {fileID: 3818163722358176985}
   rightTarget: {fileID: 3924443859627439349}
   parentContainer: {fileID: 109359527778115582}
-  leftSpacing: 8
-  rightSpacing: 8
+  leftSpacing: 10
+  rightSpacing: 10
   padding: 32
-  minWidth: 105
+  minWidth: 110
   maxWidth: 500
   fitToParentContainer: 1
   parentPadding: 260
-  leftStr: k =
+  leftStr: 'k =
+
+'
   placeholderStr: 'Svar:'
   rightStr: N/m
+  userAnswerField: {fileID: 2753617738173237829}
 --- !u!114 &4437895367865518514
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4423,6 +4427,7 @@ MonoBehaviour:
   body2s: []
   notificationHeaders: []
   notificationBodies: []
+  tooltips: []
   interactHeaders: []
   interactSliders: []
   interactFields:
@@ -7304,7 +7309,6 @@ GameObject:
   - component: {fileID: 5354084627403047773}
   - component: {fileID: 3111673400523588656}
   - component: {fileID: 678547115267125914}
-  - component: {fileID: 4953395384008507000}
   m_Layer: 5
   m_Name: LeftText
   m_TagString: Untagged
@@ -7359,7 +7363,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: k =
+  m_text: 'k =
+
+'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: af0115def58ecf945bff46dd4b97593c, type: 2}
   m_sharedMaterial: {fileID: -2745670882577188275, guid: af0115def58ecf945bff46dd4b97593c, type: 2}
@@ -7450,46 +7456,6 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
---- !u!114 &4953395384008507000
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5959028869518448195}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 56eb0353ae6e5124bb35b17aff880f16, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_StringReference:
-    m_TableReference:
-      m_TableCollectionName: GUID:a4cce90e33063bb4db29cb5ebadcf9e7
-    m_TableEntryReference:
-      m_KeyId: 0
-      m_Key: 
-    m_FallbackState: 0
-    m_WaitForCompletion: 0
-    m_LocalVariables: []
-  m_FormatArguments: []
-  m_UpdateString:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 3111673400523588656}
-        m_TargetAssemblyTypeName: TMPro.TMP_Text, Unity.TextMeshPro
-        m_MethodName: set_text
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  references:
-    version: 2
-    RefIds: []
 --- !u!1 &6102513015372081699
 GameObject:
   m_ObjectHideFlags: 0
@@ -7845,6 +7811,7 @@ MonoBehaviour:
   body2s: []
   notificationHeaders: []
   notificationBodies: []
+  tooltips: []
   interactHeaders: []
   interactSliders: []
   interactFields: []
@@ -8269,7 +8236,7 @@ MonoBehaviour:
   caseSensitive: 1
   checkMode: 2
   gradingCommunicationSettings: {fileID: 11400000, guid: d5ab30a85c3fe994eaeff565c7df3f78, type: 2}
-  allowAiReasoning: 0
+  allowAIThinking: 0
   isCorrectInstructions: Return true if the user_answer should be marked correct
     according to the rules. Else false.
   isAlmostInstructions: Return true if the answer is 'almost' (on the right track
@@ -8280,7 +8247,6 @@ MonoBehaviour:
     provided baseline header but translate it into the language of user_answer if
     that language differs from Swedish; otherwise return it unchanged. Keep it concise
     (max ~5 words).
-  almostHeader: "<color=#FFFF00><size=160%><b>N\xE4stan!</b></size></color>"
   postAlmostChatMessage: 1
   defaultColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   editColor: {r: 0.078431375, g: 0.49019608, b: 0.78431374, a: 1}
@@ -8846,6 +8812,7 @@ MonoBehaviour:
   body2s: []
   notificationHeaders: []
   notificationBodies: []
+  tooltips: []
   interactHeaders: []
   interactSliders: []
   interactFields: []
@@ -11434,8 +11401,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 27.5, y: -27.5}
-  m_SizeDelta: {x: 55, y: 55}
+  m_AnchoredPosition: {x: 0, y: -27.5}
+  m_SizeDelta: {x: 0, y: 55}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!225 &2276122587206727893
 CanvasGroup:
@@ -11762,6 +11729,7 @@ MonoBehaviour:
   body2s: []
   notificationHeaders: []
   notificationBodies: []
+  tooltips: []
   interactHeaders: []
   interactSliders: []
   interactFields:

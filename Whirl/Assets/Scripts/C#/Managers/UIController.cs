@@ -34,6 +34,7 @@ public class UIController : MonoBehaviour
     public List<TMP_Text> body2s = new();
     public List<TMP_Text> notificationHeaders = new();
     public List<TMP_Text> notificationBodies   = new();
+    public List<TMP_Text> tooltips = new();
     public List<TMP_Text> interactHeaders = new();
     public List<TMP_Text> interactSliders = new();
     public List<TMP_Text> interactFields = new();
@@ -134,6 +135,7 @@ public class UIController : MonoBehaviour
             h = h * 31 + HashFontSettings(fp.body2);
             h = h * 31 + HashFontSettings(fp.notificationHeader);
             h = h * 31 + HashFontSettings(fp.notificationBody);
+            h = h * 31 + HashFontSettings(fp.tooltip);
             h = h * 31 + HashFontSettings(fp.interactHeader);
             h = h * 31 + HashFontSettings(fp.interactSlider);
             h = h * 31 + HashFontSettings(fp.interactField);
@@ -196,6 +198,7 @@ public class UIController : MonoBehaviour
         ApplyColour(body2s, cp.text);
         ApplyColour(notificationHeaders, cp.text);
         ApplyColour(notificationBodies, cp.text);
+        ApplyColour(tooltips, cp.text);
         ApplyColour(interactHeaders, cp.text);
         ApplyColour(interactSliders, cp.text);
         ApplyColour(interactFields, cp.text);
@@ -205,10 +208,11 @@ public class UIController : MonoBehaviour
         ApplyFont(body1s,     fp.body1);
         ApplyFont(body2s,     fp.body2);
         ApplyFont(notificationHeaders, fp.notificationHeader);
-        ApplyFont(notificationBodies,   fp.notificationBody);
-        ApplyFont(interactHeaders, fp.interactHeader);
-        ApplyFont(interactSliders, fp.interactSlider);
-        ApplyFont(interactFields,  fp.interactField);
+        ApplyFont(notificationBodies,  fp.notificationBody);
+        ApplyFont(tooltips,            fp.tooltip);
+        ApplyFont(interactHeaders,     fp.interactHeader);
+        ApplyFont(interactSliders,     fp.interactSlider);
+        ApplyFont(interactFields,      fp.interactField);
     }
 
     void ApplyColour(List<Image> imgs, Color c)
@@ -401,11 +405,13 @@ public class UIController : MonoBehaviour
         texts.Contains(g)     || header1s.Contains(g as TMP_Text) || header2s.Contains(g as TMP_Text) ||
         body1s.Contains(g as TMP_Text)     || body2s.Contains(g as TMP_Text)   ||
         notificationHeaders.Contains(g as TMP_Text) || notificationBodies.Contains(g as TMP_Text) ||
+        tooltips.Contains(g as TMP_Text) ||
         interactHeaders.Contains(g as TMP_Text) || interactSliders.Contains(g as TMP_Text) || interactFields.Contains(g as TMP_Text);
 
     bool IsInAnyTextList(TMP_Text t) =>
         texts.Contains(t)     || header1s.Contains(t) || header2s.Contains(t) ||
         body1s.Contains(t)     || body2s.Contains(t)   ||
         notificationHeaders.Contains(t) || notificationBodies.Contains(t) ||
+        tooltips.Contains(t) ||
         interactHeaders.Contains(t) || interactSliders.Contains(t) || interactFields.Contains(t);
 }
