@@ -40,9 +40,9 @@ public class UserAnswerField : MonoBehaviour
 
     [Header("AI Condition Instructions")]
     [SerializeField] private string isCorrectInstructions =
-        "Return true iff the user_answer should be marked correct according to the rules. Else false.";
+        "Return true if the user_answer should be marked correct according to the rules. Else false.";
     [SerializeField] private string isAlmostInstructions =
-        "Return true iff the answer is 'almost' (on the right track but missing something important) per the CommunicationSettings. Else false.";
+        "Return true if the answer is 'almost' (on the right track but missing something important) per the CommunicationSettings. Else false.";
     [SerializeField] private string almostFeedbackInstructions =
         "If is_almost is true, return a SHORT, actionable hint guiding the user to the correct answer. Otherwise return an empty string.";
     [SerializeField] private string almostHeaderInstructions =

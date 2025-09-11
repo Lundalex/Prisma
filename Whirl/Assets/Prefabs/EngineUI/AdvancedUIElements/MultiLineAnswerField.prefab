@@ -466,13 +466,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   answerKey: Hej
   caseSensitive: 0
+  checkMode: 2
+  gradingCommunicationSettings: {fileID: 0}
+  allowAiReasoning: 0
+  isCorrectInstructions: Return true if the user_answer should be marked correct
+    according to the rules. Else false.
+  isAlmostInstructions: Return true if the answer is 'almost' (on the right track
+    but missing something important) per the CommunicationSettings. Else false.
+  almostFeedbackInstructions: If is_almost is true, return a SHORT, actionable hint
+    guiding the user to the correct answer. Otherwise return an empty string.
+  almostHeaderInstructions: If is_almost is true, return the HEADER text. Use the
+    provided baseline header but translate it into the language of user_answer if
+    that language differs from Swedish; otherwise return it unchanged. Keep it concise
+    (max ~5 words).
+  postAlmostChatMessage: 1
   defaultColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   editColor: {r: 0.078431375, g: 0.49019608, b: 0.78431374, a: 1}
   successColor: {r: 0.05882353, g: 0.8627451, b: 0.09803922, a: 1}
   failColor: {r: 0.8627451, g: 0.078431375, b: 0.11764706, a: 1}
+  almostColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   outlineImage: {fileID: 6837009658041759632}
   outlineObject: {fileID: 3939223964372923546}
-  correctMark: {fileID: 0}
   inputField: {fileID: 966719385144906054}
   submitNextWindowManager: {fileID: 0}
   submitWindowName: Submit
@@ -482,60 +496,9 @@ MonoBehaviour:
   shakeCycles: 3
   outlineLerp: 0.06
   _rt: {fileID: 4881686389812112296}
-  correctMarkDuration: 0.6
-  correctMarkSpins: 1
-  correctMarkScaleStart: 0.9
-  correctMarkScaleEnd: 1.2
-  correctScaleCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  correctRotationCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  previewCorrectMark: 0
-  t: 0
+  onCorrect:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &966719385144906054
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -823,7 +786,8 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 2643852613806616876, guid: 555bb8b30867e4b01a7079393a14fcaf, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
