@@ -108,7 +108,7 @@ public class UIController : MonoBehaviour
             h = h * 31 + uiManager.activePaletteIndex;
 
             // Hash color palettes (unchanged)
-            foreach (var p in uiManager.palettes)
+            foreach (var p in uiManager.colorPalettes)
             {
                 h = h * 31 + p.outline.GetHashCode();
                 h = h * 31 + p.background.GetHashCode();

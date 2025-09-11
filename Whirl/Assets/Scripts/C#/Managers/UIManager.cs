@@ -28,15 +28,13 @@ public class UIManager : ScriptableObject
             ? default
             : colorPalettes[Mathf.Clamp(activeColorPaletteIndex, 0, colorPalettes.Count - 1)];
 
-    // Back-compat read-only aliases (so UIController can stay unchanged if desired)
-    public List<ColorPalette> palettes => colorPalettes;
     public int activePaletteIndex => activeColorPaletteIndex;
     public ColorPalette ActivePalette => ActiveColorPalette;
 
     /* ─────────────────────────────────────────────────────────────────────────────
        FONT: MULTIPLE SUB-PALETTES + ACTIVE INDEX FOR EACH TYPE
     ───────────────────────────────────────────────────────────────────────────── */
-    [Header("Font: Sub Palettes (multiple of each)")]
+    [Header("Font: Sub Palettes")]
     public List<FontAssetSubPalette>   fontAssetPalettes   = new();
     public List<FontStyleSubPalette>   fontStylePalettes   = new();
     public List<FontSizeSubPalette>    fontSizePalettes    = new();
@@ -91,9 +89,12 @@ public class UIManager : ScriptableObject
 
     public void UpdateAll(TextSize textSize, LineSpacing lineSpacing, Theme theme, bool dyslexiaMode)
     {
-
+        // textSize -> fontSizePalettes
+        // lineSpacing -> fontSpacingPalettes
+        // theme -> colorPalettes
+        // dyslexiaMode -> fontAssetPalettes
     }
-    
+
     /* ─────────────────────────────────────────────────────────────────────────────
        HASHING (poll-based; call this to detect changes)
     ───────────────────────────────────────────────────────────────────────────── */
