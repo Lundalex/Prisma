@@ -2,19 +2,6 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 
-/// <summary>
-/// Animates a RectTransform by driving its left/right/top/bottom offsets.
-/// Expanded = offsets -> (0,0) so it fits the parent fully (requires target anchors to stretch).
-/// Minimized = target matches the world/global rect outline of another RectTransform ("minimizeTo").
-///
-/// Notes:
-/// - Uses screen-space conversions so it works across Overlay, Camera, and World Space canvases.
-/// - X and Y have separate durations/curves; left/right and bottom/top animate together per axis.
-/// - Minimize plays the same animation as expand, but reversed (time-reversed curve).
-/// - OnExpand/OnMinimize are invoked after a per-action delay counted from when Expand()/Minimize() is called.
-///   Tip: set the delay to Mathf.Max(expandDurationX, expandDurationY) to fire when the animation finishes.
-/// - NEW: OnEnable snaps instantly to Minimized without firing events.
-/// </summary>
 public class RectExpandMinimizeController : MonoBehaviour
 {
     [Header("Target")]
