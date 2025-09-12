@@ -768,7 +768,7 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
 #else
                 color = mat.baseCol;
 #endif
-                opacity = 1.0; // we'll compose with background ourselves (refraction/reflection)
+                opacity = 1.0;
 
                 // Build a pseudo-normal from metaball density gradient (fallback to flat)
                 float3 n = float3(0.0, 0.0, 1.0);
