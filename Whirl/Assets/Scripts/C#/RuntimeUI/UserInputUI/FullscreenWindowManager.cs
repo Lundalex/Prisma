@@ -6,8 +6,13 @@ public class FullscreenWindowManager : MonoBehaviour
 {
     [Header("Children of D")]
     public RectTransform A; // left
-    public RectTransform B; // middle
     public RectTransform C; // right
+
+    [Header("Middle Variants (B)")]
+    public RectTransform B_Tasks;    // middle (tasks)
+    public RectTransform B_NoTasks;  // middle (no tasks)
+    public bool ShowTasks = true;    // switches between B_Tasks and B_NoTasks
+    public GameObject TaskSelector;  // only active when ShowTasks is true
 
     [Header("Widths")]
     [Min(0f)] public float middleWidth = 200f;     // Inspector-editable current width (used as default)
@@ -35,31 +40,40 @@ public class FullscreenWindowManager : MonoBehaviour
     // Animation state
     Coroutine widthRoutine;
 
+    RectTransform ActiveB => ShowTasks ? B_Tasks : B_NoTasks;
+
     void Reset()
     {
         parentRT = transform as RectTransform;
 
-        // auto-assign first three children, if present
-        if (!A || !B || !C)
-        {
-            if (transform.childCount >= 3)
-            {
-                A = transform.GetChild(0) as RectTransform;
-                B = transform.GetChild(1) as RectTransform;
-                C = transform.GetChild(2) as RectTransform;
-            }
-        }
+        // Try auto-assign by common names
+        if (!A) A = FindChildRTByName("A");
+        if (!C) C = FindChildRTByName("C");
+        if (!B_Tasks)   B_Tasks   = FindChildRTByName("B_Tasks");
+        if (!B_NoTasks) B_NoTasks = FindChildRTByName("B_NoTasks");
+
+        // Fallbacks
+        if (!A && transform.childCount >= 1) A = transform.GetChild(0) as RectTransform;
+        if (!C && transform.childCount >= 3) C = transform.GetChild(2) as RectTransform;
 
         if (normalizeAnchorsOnEnable) NormalizeAnchorsOnce();
+        ApplyVariantActiveState();
+
         currentWidth = Mathf.Max(0f, middleWidth);
         DoLayout();
     }
 
     void OnEnable()
     {
-        if (!Application.isPlaying) return;
         parentRT = transform as RectTransform;
         if (normalizeAnchorsOnEnable) NormalizeAnchorsOnce();
+        ApplyVariantActiveState();
+
+        if (!Application.isPlaying)
+        {
+            DoLayout();
+            return;
+        }
 
         float target = (AMinimized && CMinimized) ? expandedWidth : minimizedWidth;
         currentWidth = target;
@@ -75,13 +89,13 @@ public class FullscreenWindowManager : MonoBehaviour
         if (minimizedWidth < 0f) minimizedWidth = 0f;
         if (expandedWidth  < 0f) expandedWidth  = 0f;
 
-        // Keep currentWidth matching what you set in the Inspector (no animation here)
         currentWidth = middleWidth;
 
-        // Defer layout to avoid SendMessage restriction during Validate
+        // Defer BOTH the active-state toggles and layout to avoid SendMessage during OnValidate
         UnityEditor.EditorApplication.delayCall += () =>
         {
             if (this == null) return;
+            ApplyVariantActiveState();
             DoLayout();
         };
     }
@@ -89,11 +103,10 @@ public class FullscreenWindowManager : MonoBehaviour
 
     void OnRectTransformDimensionsChange()
     {
-        // Only resize/reposition here; never touch anchors/pivots.
         DoLayout();
     }
 
-    // ---------- Expand / Minimize ----------
+    // ---------- Public API ----------
 
     public void Expand()
     {
@@ -104,8 +117,6 @@ public class FullscreenWindowManager : MonoBehaviour
     {
         AnimateWidthTo(minimizedWidth);
     }
-
-    // ---------- setters for A/C minimized state ----------
 
     public void SetAMinimized(bool minimized)
     {
@@ -119,6 +130,15 @@ public class FullscreenWindowManager : MonoBehaviour
         EvaluateSidesState();
     }
 
+    public void SetShowTasks(bool show)
+    {
+        ShowTasks = show;
+        ApplyVariantActiveState();
+        DoLayout();
+    }
+
+    // ---------- Helpers ----------
+
     void EvaluateSidesState()
     {
         // If both minimized -> expand B; otherwise minimize B
@@ -126,12 +146,12 @@ public class FullscreenWindowManager : MonoBehaviour
         else Minimize();
     }
 
-    // ---------- Core layout (positions A/B/C based on currentWidth) ----------
-
     void DoLayout()
     {
         if (parentRT == null) parentRT = transform as RectTransform;
-        if (!parentRT || !A || !B || !C) return;
+        var B = ActiveB;
+
+        if (!parentRT || !A || !C || B == null) return;
 
         float W  = parentRT.rect.width;
         float WB = Mathf.Clamp(currentWidth, 0f, Mathf.Max(0f, W));
@@ -147,8 +167,6 @@ public class FullscreenWindowManager : MonoBehaviour
         A.anchoredPosition = new Vector2(-regionCenterOffset, A.anchoredPosition.y);
         C.anchoredPosition = new Vector2(+regionCenterOffset, C.anchoredPosition.y);
     }
-
-    // ---------- Animation helpers ----------
 
     void AnimateWidthTo(float targetWidth)
     {
@@ -196,13 +214,28 @@ public class FullscreenWindowManager : MonoBehaviour
 
     float DeltaTime() => useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
 
+    // ---------- Variant visibility ----------
+
+    void ApplyVariantActiveState()
+    {
+        if (B_Tasks && B_Tasks.gameObject.activeSelf != ShowTasks)
+            B_Tasks.gameObject.SetActive(ShowTasks);
+
+        if (B_NoTasks && B_NoTasks.gameObject.activeSelf != !ShowTasks)
+            B_NoTasks.gameObject.SetActive(!ShowTasks);
+
+        if (TaskSelector && TaskSelector.activeSelf != ShowTasks)
+            TaskSelector.SetActive(ShowTasks);
+    }
+
     // ---------- One-time anchor normalization (safe outside Validate/DimChange) ----------
 
     [ContextMenu("Normalize Anchors Now")]
     void NormalizeAnchorsOnce()
     {
         if (A) CenterHorizontally(A);
-        if (B) CenterHorizontally(B);
+        if (B_Tasks) CenterHorizontally(B_Tasks);
+        if (B_NoTasks) CenterHorizontally(B_NoTasks);
         if (C) CenterHorizontally(C);
     }
 
@@ -213,5 +246,15 @@ public class FullscreenWindowManager : MonoBehaviour
         rt.anchorMin = new Vector2(0.5f, min.y);
         rt.anchorMax = new Vector2(0.5f, max.y);
         rt.pivot     = new Vector2(0.5f, rt.pivot.y);
+    }
+
+    RectTransform FindChildRTByName(string name)
+    {
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            var rt = transform.GetChild(i) as RectTransform;
+            if (rt != null && rt.name == name) return rt;
+        }
+        return null;
     }
 }
