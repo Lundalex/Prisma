@@ -164,6 +164,13 @@ public class UIManager : ScriptableObject
         if (fp.tooltip.fontSize > 0f)
             muipUIManager.tooltipFontSize = fp.tooltip.fontSize;
 
+        if (fp.tooltip.fontAsset != null)
+        {
+            muipUIManager.selectorFont = fp.tooltip.fontAsset;
+            muipUIManager.selectorFont = fp.interactField.fontAsset;
+            muipUIManager.inputFieldFont = fp.interactField.fontAsset;
+        }
+            
 #if UNITY_EDITOR
         if (!Application.isPlaying)
             EditorUtility.SetDirty(muipUIManager);
