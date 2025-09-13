@@ -5,6 +5,7 @@ using ChartAndGraph;
 using PM = ProgramManager;
 using Michsky.MUIP;
 using Resources2;
+using Utilities.Extensions;
 
 public abstract class Sensor : SensorBase
 {
@@ -17,6 +18,7 @@ public abstract class Sensor : SensorBase
     [Range(0.1f, 5.0f)] public float newLowerPrefixThreshold = 0.5f;
     public float minDisplayValue = 0.1f;
     [SerializeField] public Color primaryColor;
+    [SerializeField] public bool doUseGradient = true;
     [Range(0.5f, 2.0f)] public float sensorScale = 1;
     public Vector2 localTargetPos;
     public PositionType positionType;
@@ -126,7 +128,7 @@ public abstract class Sensor : SensorBase
         sensorUI.positionTypeSelector.SetActive(isRigidBodySensor);
         sensorUI.positionTitle.SetActive((!isRigidBodySensor && isStandardResolution) || isRigidBodySensor);
         sensorUI.positionInputFields.SetActive(!isRigidBodySensor && isStandardResolution);
-        sensorUI.SetPrimaryColor(primaryColor);
+        sensorUI.SetPrimaryColor(primaryColor, doUseGradient);
         sensorUI.sensor = this;
         sensorUI.scaleSlider.value = sensorScale;
         sensorUI.sliderScale = sensorScale;

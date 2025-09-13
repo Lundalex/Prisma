@@ -37,6 +37,9 @@ public class SensorUI : MonoBehaviour
     [SerializeField] public GameObject positionTitle;
     [SerializeField] public GameObject positionInputFields;
     [SerializeField] public GameObject positionTypeSelector;
+    [SerializeField] public UIGradient outerGradient;
+    [SerializeField] public UIGradient trimGradient;
+    [SerializeField] public UIGradient innerGradient;
 
     // Events
     public event Action<bool> OnSettingsViewStatusChanged;
@@ -316,11 +319,16 @@ public class SensorUI : MonoBehaviour
 
     public void SetTitle(string title) => titleText.text = title;
 
-    public void SetPrimaryColor(Color color)
+    public void SetPrimaryColor(Color color, bool doUseGradient)
     {
         decimalText.color = color;
         integerText.color = color;
-        containerTrimImage.color = color;
+
+        containerTrimImage.color = doUseGradient ? Color.white : color;
+
+        outerGradient.enabled = doUseGradient;
+        trimGradient.enabled = doUseGradient;
+        innerGradient.enabled = true; // always true.
     }
 
     public void SetPosition(Vector2 uiPos)
