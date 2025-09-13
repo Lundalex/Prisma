@@ -710,7 +710,7 @@ public class Main : MonoBehaviour
         Contrast = 1.0f;
         Saturation = 1.0f;
         Gamma = 1.0f;
-        SettingsViewDarkTintPercent = 1.0f;
+        SettingsViewDarkTintPercent = 0.90f;
     }
 
     private float GetDeltaTime(float totalFrameTime, bool doClamp)
@@ -916,7 +916,7 @@ public class Main : MonoBehaviour
         renderShader.SetInt("PrecomputedCausticsZ", Mathf.FloorToInt(PM.Instance.totalScaledTimeElapsed * PrecomputedCausticsFPS));
 
         // Global brightness
-        renderShader.SetFloat("GlobalBrightnessFactor", PM.Instance.globalBrightnessFactor);
+        ppShader.SetFloat("GlobalBrightnessFactor", PM.Instance.globalBrightnessFactor);
 
         // Dispatch render steps
         int2 threadsNum = new(renderTexture.width, renderTexture.height);

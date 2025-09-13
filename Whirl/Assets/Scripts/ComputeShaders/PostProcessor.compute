@@ -55,6 +55,12 @@ const float RimShadingOpaqueBleed;
 const float AAThreshold;
 const float AAMaxBlend;
 
+// Global brightness factor
+const float GlobalBrightnessFactor;
+
+// static seetings
+static const bool DO_APPLY_SHADOWS_TO_SPRINGS = true;
+
 // ---------------------------
 // Textures
 // ---------------------------
@@ -667,7 +673,7 @@ inline void ApplyCommon(uint2 px, float2 lowPos, float shadow)
 
     float4 src  = Result[px];
     float3 base = src.rgb;
-    if (!insideSpringFull) base *= light;
+    if (!insideSpringFull || DO_APPLY_SHADOWS_TO_SPRINGS) base *= light;
 
     float3 combinedCol = saturate(base + rim);
     PPResult[px] = float4(combinedCol, src.a);
@@ -772,5 +778,5 @@ void ApplyAA(uint3 id : SV_DispatchThreadID)
 void CopyResultToPP(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= (uint)Resolution.x || id.y >= (uint)Resolution.y) return;
-    PPResult[id.xy] = Result[id.xy];
+    PPResult[id.xy] = Result[id.xy] * GlobalBrightnessFactor; // Also apply global brightness factor
 }

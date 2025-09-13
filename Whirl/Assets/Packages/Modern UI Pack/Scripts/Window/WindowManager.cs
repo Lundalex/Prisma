@@ -173,7 +173,7 @@ namespace Michsky.MUIP
 
             if (newWindowIndex != currentWindowIndex)
             {
-                if (cullWindows == true)
+                if (cullWindows == true && this)
                     StopCoroutine("DisablePreviousWindow");
 
                 currentWindow = windows[currentWindowIndex].windowObject;

@@ -102,7 +102,7 @@ public class UIController : MonoBehaviour
         if (!uiManager) return;
         ApplyActivePalettes();
         RestoreIfDetached();
-        EditorUtility.SetDirty(this);
+        if (this) EditorUtility.SetDirty(this);
     }
 
     int ComputeManagerHash()

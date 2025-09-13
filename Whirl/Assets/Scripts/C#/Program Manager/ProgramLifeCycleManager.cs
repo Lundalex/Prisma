@@ -7,13 +7,14 @@ public class ProgramLifeCycleManager : MonoBehaviour
 {
     [Header("Startup Settings")]
     public bool pauseOnStart;
+    public bool doShowControlsTip;
 
     [Header("Editor Settings")]
     public bool darkMode;
     public bool doHideUIInSceneView = true;
     public bool showUserUI;
 
-    [Header("Serialized Fields")]
+    [Header("Serialized Fields")] 
     [SerializeField] private Main main;
     [SerializeField] private NotificationManager2 notificationManager;
     [SerializeField] private GameObject darkBackground;
@@ -99,7 +100,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
         if (!pauseOnStart)
         {
             yield return new WaitForSeconds(Func.MsToSeconds(PM.msControlsTipDelay));
-            notificationManager.OpenNotification("ControlsTip");
+            if (doShowControlsTip) notificationManager.OpenNotification("ControlsTip");
         }
     }
 

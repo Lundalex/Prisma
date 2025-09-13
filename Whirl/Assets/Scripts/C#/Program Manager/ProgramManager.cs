@@ -179,7 +179,9 @@ public class ProgramManager : ScriptableObject
 
         if (doOnSettingsChanged && programStarted)
         {
-            main.OnSettingsChanged();
+            #if UNITY_EDITOR
+                main.OnSettingsChanged();
+            #endif
             lifeCycleManager.SetTargetFrameRate();
             doOnSettingsChanged = false;
         }

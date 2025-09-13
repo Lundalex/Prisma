@@ -94,7 +94,6 @@ const float  PrecomputedCausticsZBlurFactor;
 
 // Global rendering settings
 const float3 GlobalBrightness;
-const float  GlobalBrightnessFactor;
 const float  Contrast;
 const float  Saturation;
 const float  Gamma;
@@ -289,7 +288,7 @@ void SetResultColor(uint2 id, float3 color)
     AdjustSaturation(color);
     ApplyGammaCorrection(color);
 
-    color *= GlobalBrightness * GlobalBrightnessFactor;
+    color *= GlobalBrightness;
 
     color = saturate(color);
     Result[id] = float4(color, 1.0);
