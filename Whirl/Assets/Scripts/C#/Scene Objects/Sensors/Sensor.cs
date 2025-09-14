@@ -5,7 +5,6 @@ using ChartAndGraph;
 using PM = ProgramManager;
 using Michsky.MUIP;
 using Resources2;
-using Utilities.Extensions;
 
 public abstract class Sensor : SensorBase
 {
