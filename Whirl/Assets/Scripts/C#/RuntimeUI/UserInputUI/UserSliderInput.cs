@@ -14,6 +14,9 @@ using System.Collections;
 [ExecuteInEditMode]
 public class UserSliderInput : UserUIElement
 {
+    [Header("Helper Texts")]
+    [SerializeField] private string leftText;
+    [SerializeField] private string unitText;
     [Header("Settings")]
     [Range(0.0f, 1000.0f), SerializeField] private float msMaxUpdateFrequency = 10.0f;
     [Range(0, 2), SerializeField] private int numDecimals;
@@ -38,6 +41,8 @@ public class UserSliderInput : UserUIElement
     [SerializeField] private SliderInput sliderInput;
     [SerializeField] private TMP_InputField sliderInputField;
     [SerializeField] private FieldModifier fieldModifier;
+    [SerializeField] private TMP_Text leftTextComp;
+    [SerializeField] private TMP_Text unitTextComp;
 
     // Private
     private float lastValue;
@@ -54,6 +59,8 @@ public class UserSliderInput : UserUIElement
         if (containerTrimImage != null) containerTrimImage.color = primaryColor;
         updateTimer = new Timer(Func.MsToSeconds(msMaxUpdateFrequency), TimeType.NonClamped);
         title.text = titleText;
+        if (leftTextComp) leftTextComp.text = leftText;
+        if (unitTextComp) unitTextComp.text = unitText;
     }
 
     public void SetValue(float value)
