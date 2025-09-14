@@ -2,7 +2,6 @@ using UnityEngine;
 using TMPro;
 
 [ExecuteAlways]
-[DisallowMultipleComponent]
 [RequireComponent(typeof(RectTransform))]
 public class AutoGrowTextDownwards : MonoBehaviour
 {

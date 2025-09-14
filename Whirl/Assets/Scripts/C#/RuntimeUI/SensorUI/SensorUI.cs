@@ -1,5 +1,5 @@
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
 using Michsky.MUIP;
 using System;
@@ -64,8 +64,13 @@ public class SensorUI : MonoBehaviour
     // Private - Pointer Hover & Dragging
     private Timer pointerHoverTimer;
     private const float PointerHoverCooldown = 0.25f;
+
     private Timer pointerMoveTimer;
-    private const float PointerMoveDelay = 0.25f;
+    private const float PointerMoveDelay = 0.15f; // delay from press/arm -> drag starts
+
+    // NEW: track if this LMB press is “owned/armed” by this sensor
+    private bool dragArmed = false;
+
     private bool settingsPanelIsClosing = false;
 
     // Private - Transform fields
@@ -78,6 +83,7 @@ public class SensorUI : MonoBehaviour
     private const float SettingsViewActiveFixedScale = 2.0f;
     private const float GraphViewActiveFixedScale = 1.5f;
     private const float MouseDraggingFixedScale = 1.2f;
+    private const float HoverFixedScale = 1.10f;
 
     // Private - Display value interpolation
     private float currentValue = 0f;
@@ -96,10 +102,44 @@ public class SensorUI : MonoBehaviour
         if (PM.Instance.isAnySensorSettingsViewActive) return;
         if (PM.Instance.fullscreenView != null && PM.Instance.fullscreenView.activeSelf) return;
 
-        bool isTryingToMove = Input.GetMouseButton(0) && !Main.MousePressed.x && !PM.Instance.CheckAnySensorBeingMoved(this);
-        if (isTryingToMove)
+        // Arm drag when the press STARTS on this sensor
+        if (Main.MousePressed.x)
         {
-            if (!pointerMoveTimer.Check(false) || (!pointerHoverArea.CheckIfHovering() && !isBeingMoved)) return;
+            if (pointerHoverArea.CheckIfHovering() && !PM.Instance.CheckAnySensorBeingMoved(this))
+            {
+                dragArmed = true;
+                isBeingMoved = false;
+                pointerMoveTimer.Reset(); // start delay from press
+            }
+            else
+            {
+                dragArmed = false;
+            }
+        }
+
+        // Also allow arming mid-hold when moving onto the sensor
+        if (!dragArmed && Input.GetMouseButton(0) && pointerHoverArea.CheckIfHovering() && !PM.Instance.CheckAnySensorBeingMoved(this))
+        {
+            dragArmed = true;
+            isBeingMoved = false;
+            pointerMoveTimer.Reset(); // start delay from the moment we armed
+        }
+
+        // Release -> clear state
+        if (Input.GetMouseButtonUp(0))
+        {
+            dragArmed = false;
+            isBeingMoved = false;
+            pointerMoveTimer.Reset();
+            if (dashedRectangle != null) dashedRectangle.SetActive(false);
+            return;
+        }
+
+        // Dragging (after delay) even if no longer hovering
+        bool canMove = Input.GetMouseButton(0) && dragArmed && pointerMoveTimer.Check(false);
+
+        if (canMove)
+        {
             isBeingMoved = true;
             OnIsBeingDragged?.Invoke();
 
@@ -110,22 +150,16 @@ public class SensorUI : MonoBehaviour
             // Set sensor UI position
             rectTransform.localPosition = ClampToScreenBounds(newPosition);
 
-            // Set sensor position
+            // Update sensor's logical position
             if (sensor.positionType == PositionType.Relative)
-            {
                 sensor.localTargetPos = mouseSimPos - sensor.lastJointPos;
-            }
             else
-            {
                 sensor.localTargetPos = mouseSimPos;
-            }
-            
+
+            // Dashed rectangle feedback
             if (dashedRectangle != null)
             {
-                // Activate dashed rectangle object
                 dashedRectangle.SetActive(true);
-
-                // Set dashed rectangle position
                 dashedRectangle.SetPosition(TransformUtils.SimSpaceToWorldSpace(mouseSimPos));
                 dashedRectangle.SetScale(GetTotalScale() / SettingsViewActiveFixedScale);
             }
@@ -133,9 +167,7 @@ public class SensorUI : MonoBehaviour
         else
         {
             isBeingMoved = false;
-            pointerMoveTimer.Reset();
-
-            // Activate dashed rectangle object
+            // Do NOT reset pointerMoveTimer here; we reset it on press/arm/release.
             if (dashedRectangle != null) dashedRectangle.SetActive(false);
         }
     }
@@ -163,7 +195,6 @@ public class SensorUI : MonoBehaviour
 
     public void OnPositionChanged()
     {
-        // Check that the sensor is not a rigid body sensor since that sensor type shouldn't have the option to alter the sensor type
         if (sensor is RigidBodySensor)
         {
             Debug.LogWarning("Trying to change the sensor UI position type of a rigid body sensor. This is not allowed. RigidBodySensor: " + sensor.name);
@@ -177,20 +208,15 @@ public class SensorUI : MonoBehaviour
         }
 
         if (lastPositionFieldValues.x == Vector2.positiveInfinity.x) lastPositionFieldValues = positionFieldsPosition;
-        else if (positionFieldsPosition != lastPositionFieldValues)
-        {
-            positionFieldsHaveBeenModified = true;
-        }
+        else if (positionFieldsPosition != lastPositionFieldValues) positionFieldsHaveBeenModified = true;
     }
 
     public void OnScaleChanged() => userScale = scaleSlider.value;
 
     public void OnApplyTransformSettings()
     {
-        // Set the sliderScale (a factor of the overall sensor UI scale)
         sliderScale = userScale;
 
-        // Set position from field inputs (only for fluid sensors)
         if (sensor is FluidSensor && positionFieldsHaveBeenModified)
         {
             Vector2 simPos = GetPositionFromInputFields();
@@ -198,10 +224,8 @@ public class SensorUI : MonoBehaviour
             sensor.localTargetPos = simPos - sensor.lastJointPos;
         }
 
-        // Reset the sensor graph
         sensor.graphController.ResetGraph();
 
-        // Configure the sensor UI for the newly selected sensor type (if the type has been changed by the user)
         if (rigidBodySensorTypeDropdownUsed || fluidSensorTypeDropdownUsed)
         {
             sensor.doUseCustomTitle = false;
@@ -214,41 +238,29 @@ public class SensorUI : MonoBehaviour
             sensor.minDisplayValue = 0.0f;
             sensor.graphController.SetNumGraphDecimals(sensor.numGraphDecimals, sensor.numGraphTimeDecimals);
             if (rigidBodySensorTypeDropdownUsed && sensor is RigidBodySensor rigidBodySensor)
-            {
                 rigidBodySensor.SetRigidBodySensorType(selectedRigidBodySensorType);
-            }
             else if (fluidSensorTypeDropdownUsed && sensor is FluidSensor fluidSensor)
-            {
                 fluidSensor.SetFluidSensorType(selectedFluidSensorType);
-            }
         }
     }
 
     public void SetPositionType(int newPositionTypeInt)
     {
-        // Check that the sensor is not a fluid sensor since that sensor type shouldn't have the option to alter the sensor type
         if (sensor is FluidSensor)
         {
             Debug.LogWarning("Trying to change the sensor UI position type of a fluid sensor. This is not allowed. FluidSensor: " + sensor.name);
             return;
         }
 
-        // Get the new position type
         PositionType newPositionType = (PositionType)newPositionTypeInt;
         if (newPositionType == sensor.positionType) return;
 
-        // Set the new position type
         sensor.positionType = newPositionType;
 
-        // Update the localTargetPos to avoid the sensor UI "teleporting" on screen when the position type is changed
         if (newPositionType == PositionType.Fixed)
-        {
             sensor.localTargetPos += sensor.lastJointPos;
-        }
-        else // newPositionType == PositionType.Relative
-        {
+        else
             sensor.localTargetPos -= sensor.lastJointPos;
-        }
     }
 #endregion
 
@@ -258,14 +270,11 @@ public class SensorUI : MonoBehaviour
         if (Mathf.Abs(currentValue - val) <= sensor.displayValueLerpThreshold) return;
 
         numDecimals = Mathf.Clamp(numDecimals, 1, 2);
-        targetValue = Mathf.Clamp(val, -999, 999); // Clamp to max 3 characters
+        targetValue = Mathf.Clamp(val, -999, 999); // Clamp to 3 chars
 
         if (sensor.doDisplayValueLerp && !newPrefix)
         {
-            if (!isInterpolating)
-            {
-                StartCoroutine(LerpMeasurementCoroutine(numDecimals));
-            }
+            if (!isInterpolating) StartCoroutine(LerpMeasurementCoroutine(numDecimals));
         }
         else
         {
@@ -278,7 +287,6 @@ public class SensorUI : MonoBehaviour
     {
         isInterpolating = true;
 
-        // Interpolate towards targetValue
         while (Mathf.Abs(currentValue - targetValue) > sensor.displayValueLerpThreshold)
         {
             float difference = Mathf.Abs(targetValue - currentValue);
@@ -288,14 +296,11 @@ public class SensorUI : MonoBehaviour
             currentValue = Mathf.Clamp(currentValue, -999, 999);
 
             SetDisplayValue(currentValue, numDecimals);
-
             yield return null;
         }
 
-        // Set the final value precisely
         currentValue = targetValue;
         SetDisplayValue(currentValue, numDecimals);
-
         isInterpolating = false;
     }
 
@@ -303,10 +308,9 @@ public class SensorUI : MonoBehaviour
     {
         val *= 1.00001f;
 
-        int integerPart = Mathf.Clamp((int)val, -999, 999); // Clamp to max 3 characters
+        int integerPart = Mathf.Clamp((int)val, -999, 999);
         int decimalPart = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(val - integerPart) * Mathf.Pow(10, numDecimals)), 0, (int)Mathf.Pow(10, numDecimals) - 1);
 
-        // Update the UI text fields
         integerText.text = integerPart.ToString();
         decimalText.text = decimalPart.ToString($"D{numDecimals}");
     }
@@ -328,12 +332,18 @@ public class SensorUI : MonoBehaviour
 
         outerGradient.enabled = doUseGradient;
         trimGradient.enabled = doUseGradient;
-        innerGradient.enabled = true; // always true.
+        innerGradient.enabled = true;
     }
 
     public void SetPosition(Vector2 uiPos)
     {
-        if (((pointerHoverArea.CheckIfHovering() && pointerHoverTimer.Check(false)) || PM.Instance.isAnySensorSettingsViewActive) && !settingsPanelIsClosing)
+        // IMPORTANT: while drag is armed/active, don't let programmatic SetPosition override the manual drag.
+        bool freezeDueToDrag = isBeingMoved || (dragArmed && Input.GetMouseButton(0));
+        if (freezeDueToDrag)
+        {
+            uiPos = rectTransform.localPosition;
+        }
+        else if (((pointerHoverArea.CheckIfHovering() && pointerHoverTimer.Check(false)) || PM.Instance.isAnySensorSettingsViewActive) && !settingsPanelIsClosing)
         {
             uiPos = rectTransform.localPosition;
             isPointerHovering = true;
@@ -343,17 +353,15 @@ public class SensorUI : MonoBehaviour
             isPointerHovering = false;
             pointerHoverTimer.Reset();
         }
-        sensor.graphController.isPointerHovering = isPointerHovering;
 
+        sensor.graphController.isPointerHovering = isPointerHovering;
         rectTransform.localPosition = ClampToScreenBounds(uiPos);
     }
 
     public void SetSettingsViewAsEnabled()
     {
-        // Invoke the settingsViewStatus program manager event
         OnSettingsViewStatusChanged?.Invoke(true);
 
-        // Make sure the dashed rectangle outline is hidden / showing depending on the sensor type
         if (dashedRectangle != null) dashedRectangle.SetActive(sensor is FluidSensor);
 
         if (sensor is FluidSensor)
@@ -369,11 +377,9 @@ public class SensorUI : MonoBehaviour
         Vector2 lastSimPos = Vector2.zero;
         while (!timer.Check())
         {
-            // Get the sensor UI position
             Vector2 simPos = sensor.CanvasSpaceToSimSpace(rectTransform.localPosition);
             Vector2 worldSpacePos = TransformUtils.SimSpaceToWorldSpace(ClampToScreenBounds(simPos));
 
-            // Compare the current simPos with the last simPos
             if (simPos != lastSimPos)
             {
                 timer.Reset();
@@ -385,7 +391,6 @@ public class SensorUI : MonoBehaviour
                 continue;
             }
 
-            // Set the dashed rectangle transform
             if (dashedRectangle != null)
             {
                 dashedRectangle.SetPosition(worldSpacePos);
@@ -395,7 +400,6 @@ public class SensorUI : MonoBehaviour
             yield return new WaitForSeconds(1 / 30.0f);
         }
 
-        // Set the input field contents
         positionXInput.text = ((int)lastSimPos.x).ToString();
         positionYInput.text = ((int)lastSimPos.y).ToString();
         lastPositionFieldValues = Vector2.positiveInfinity;
@@ -404,10 +408,7 @@ public class SensorUI : MonoBehaviour
 
     public void SetSettingsViewAsDisabled()
     {
-        // Invoke the settingsViewStatus program manager event
         OnSettingsViewStatusChanged?.Invoke(false);
-
-        // Make sure the dashed rectangle outline is hidden
         if (dashedRectangle != null) dashedRectangle.SetActive(false);
     }
 
@@ -427,8 +428,9 @@ public class SensorUI : MonoBehaviour
         float settingsViewFactor = settingsViewActive ? SettingsViewActiveFixedScale : sliderScale;
         float graphViewFactor = CheckIfGraphViewIsActive() ? GraphViewActiveFixedScale : 1;
         float mouseDraggingFactor = isBeingMoved ? MouseDraggingFixedScale * (1 + Mathf.Sin(PM.Instance.totalTimeElapsed * 7.0f) * 0.03f) : 1;
+        float hoverFactor = (!PM.Instance.isAnySensorSettingsViewActive && isPointerHovering) ? HoverFixedScale : 1;
 
-        Vector3 totalScale = settingsViewFactor * graphViewFactor * mouseDraggingFactor * BaseScale;
+        Vector3 totalScale = settingsViewFactor * graphViewFactor * mouseDraggingFactor * hoverFactor * BaseScale;
         return totalScale;
     }
 
