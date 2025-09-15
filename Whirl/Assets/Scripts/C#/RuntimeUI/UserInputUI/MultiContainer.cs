@@ -14,7 +14,7 @@ public class MultiContainer : MonoBehaviour
     [SerializeField] private LerpCurve lerpCurve = LerpCurve.SmoothStep;
     [SerializeField] private ViewMode viewMode = ViewMode.Expanded;
     [SerializeField] private ExpDir expandDir = ExpDir.FromLeft;
-    
+
     [Header("Handle")]
     public float handleBaseScale;
     public float hoverScaleMultiplier = 1.5f;
@@ -29,9 +29,15 @@ public class MultiContainer : MonoBehaviour
     [SerializeField] private Image containerTrimImage;
     [SerializeField] private RectTransform maskTransform;
     [SerializeField] private RectTransform outerContainerTransform;
+    [SerializeField] private RectTransform innerContainerTransform;
+    [SerializeField] private RectTransform stretchContent;
     [SerializeField] private Transform mainContainerTransform;
     [SerializeField] private Transform handleTransform;
     [SerializeField] private Transform handleIconTransform;
+
+    [Header("Stretch Content")]
+    [SerializeField] private float stretchTop = 0f;
+    [SerializeField] private float stretchBottom = 0f;
 
     private Main main;
     private Coroutine _switchRoutine;
@@ -66,12 +72,34 @@ public class MultiContainer : MonoBehaviour
             handleTransform.localScale = new Vector3(handleBaseScale, handleBaseScale, 1f);
             handleTransform.rotation = expandDir == ExpDir.FromRight ? Quaternion.Euler(0f, 0f, 180f) : Quaternion.Euler(0f, 0f, 0f);
 
+            ApplyStretchContent();
             UpdatePositionInstant();
         }
         else
         {
             Debug.LogWarning("Missing references. Object: MultiContainer");
         }
+    }
+
+    private void ApplyStretchContent()
+    {
+        // Requires stretchContent to be a child of innerContainerTransform.
+        if (stretchContent == null || innerContainerTransform == null) return;
+        if (stretchContent.parent != innerContainerTransform) return;
+
+        Vector2 aMin = stretchContent.anchorMin;
+        Vector2 aMax = stretchContent.anchorMax;
+        aMin.y = 0f;
+        aMax.y = 1f;
+        stretchContent.anchorMin = aMin;
+        stretchContent.anchorMax = aMax;
+
+        Vector2 offMin = stretchContent.offsetMin;
+        Vector2 offMax = stretchContent.offsetMax;
+        offMin.y = stretchBottom;   // bottom padding
+        offMax.y = -stretchTop;     // top padding (negative)
+        stretchContent.offsetMin = offMin;
+        stretchContent.offsetMax = offMax;
     }
 
     public void SwitchViewMode()
@@ -158,7 +186,7 @@ public class MultiContainer : MonoBehaviour
         float angle = Mathf.LerpAngle(0, 180f, progress);
         handleIconTransform.localRotation = Quaternion.Euler(0f, 0f, angle);
     }
-    
+
     public void BeginDrag()
     {
         if (_switchRoutine != null) StopCoroutine(_switchRoutine);
