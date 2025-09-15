@@ -14,6 +14,10 @@ public class FullscreenWindowManager : MonoBehaviour
     public bool ShowTasks = true;    // switches between B_Tasks and B_NoTasks
     public GameObject TaskSelector;  // only active when ShowTasks is true
 
+    [Header("Task Side Panel (simulation view)")]
+    public bool PreventHideTaskSidePanel = true;
+    public GameObject taskSidePanel;
+
     [Header("Widths")]
     [Min(0f)] public float middleWidth = 200f;     // Inspector-editable current width (used as default)
     [Min(0f)] public float minimizedWidth = 120f;  // Target when Minimize() is called
@@ -226,6 +230,9 @@ public class FullscreenWindowManager : MonoBehaviour
 
         if (TaskSelector && TaskSelector.activeSelf != ShowTasks)
             TaskSelector.SetActive(ShowTasks);
+
+        if (taskSidePanel && taskSidePanel.activeSelf != (ShowTasks || PreventHideTaskSidePanel))
+            taskSidePanel.SetActive(ShowTasks || PreventHideTaskSidePanel);
     }
 
     // ---------- One-time anchor normalization (safe outside Validate/DimChange) ----------
