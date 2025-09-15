@@ -2,6 +2,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 using Resources2;
+using Michsky.MUIP;
+using Unity.VisualScripting;
+using Utilities.Extensions;
 
 [ExecuteInEditMode]
 public class MultiContainer : MonoBehaviour
@@ -14,12 +17,24 @@ public class MultiContainer : MonoBehaviour
     [SerializeField] private LerpCurve lerpCurve = LerpCurve.SmoothStep;
     [SerializeField] private ViewMode viewMode = ViewMode.Expanded;
     [SerializeField] private ExpDir expandDir = ExpDir.FromLeft;
-    
+
     [Header("Handle")]
-    public float handleBaseScale;
-    public float hoverScaleMultiplier = 1.5f;
+    public float handleBaseScale = 1f;
+    public float hoverScaleMultiplier = 1.6f;
     public float hoverDuration = .12f;
     public LerpCurve hoverCurve = LerpCurve.SmoothStep;
+
+    [Header("Handle (Minimized Display)")]
+    [SerializeField] private Transform minimizedHandleTransform;
+    [SerializeField] private float minimizedHandleScaleMultiplier = 1.4f;
+
+    [Header("Icon Tuning")]
+    [Tooltip("Multiplier applied to the REGULAR handle icon’s scale (used to fine-tune visual size).")]
+    public float regularIconScaleFactor = 0.8f;
+
+    [Header("Tooltips")]
+    [SerializeField] private TooltipContent minimizedTooltip;
+    [SerializeField] private TooltipContent expandedTooltip;
 
     [Header("Persist")]
     [SerializeField] DataStorage dataStorage;
@@ -33,18 +48,20 @@ public class MultiContainer : MonoBehaviour
     [SerializeField] private Transform handleTransform;
     [SerializeField] private Transform handleIconTransform;
 
-    // Target whose anchors will match the outer container (in world space), accounting for target scale.
-    [SerializeField] private RectTransform anchorsTargetTransform;
+    [Header("Stretch Target")]
+    [SerializeField] protected RectTransform stretchTarget;
 
-    [Header("Anchor Offsets (pixels in parent space)")]
-    [SerializeField] private float leftOffset = 0f;
-    [SerializeField] private float rightOffset = 0f;
-    [SerializeField] private float topOffset = 0f;
-    [SerializeField] private float bottomOffset = 0f;
+    [Header("Stretch Target Offsets")]
+    [SerializeField] protected float leftOffset = 0f;
+    [SerializeField] protected float rightOffset = 0f;
+    [SerializeField] protected float topOffset = 0f;
+    [SerializeField] protected float bottomOffset = 0f;
 
     private Main main;
     private Coroutine _switchRoutine;
+    private Coroutine _transitionRoutine;
     private bool _isDragging;
+    private bool _isHovering;
     private float _minX, _expX;
 
     void Awake()
@@ -72,12 +89,11 @@ public class MultiContainer : MonoBehaviour
             mainContainerTransform.localPosition = new Vector3(-dir * maskSize, 0f, 0f);
 
             handleTransform.localPosition = new Vector3(dir * 0.5f * maskTransform.sizeDelta.x, 0f, 0f);
-            handleTransform.localScale = new Vector3(handleBaseScale, handleBaseScale, 1f);
             handleTransform.rotation = expandDir == ExpDir.FromRight ? Quaternion.Euler(0f, 0f, 180f) : Quaternion.Euler(0f, 0f, 0f);
 
             UpdatePositionInstant();
-
-            // Keep target anchors matched in the editor (compensates for target scale + applies offsets).
+            ApplyIconsImmediate();
+            UpdateTooltips();
             MatchAnchorsToOuterGlobal();
         }
         else
@@ -88,13 +104,13 @@ public class MultiContainer : MonoBehaviour
 
     public void SwitchViewMode()
     {
-        viewMode = viewMode == ViewMode.Minimized
-                ? ViewMode.Expanded
-                : ViewMode.Minimized;
+        viewMode = viewMode == ViewMode.Minimized ? ViewMode.Expanded : ViewMode.Minimized;
 
         if (!Application.isPlaying)
         {
             UpdatePositionInstant();
+            ApplyIconsImmediate();
+            UpdateTooltips();
             return;
         }
 
@@ -102,9 +118,12 @@ public class MultiContainer : MonoBehaviour
         _switchRoutine = StartCoroutine(SwitchRoutine());
     }
 
-    private float EvaluateCurve(float t)
+    private float EvalMoveCurve(float t)  => Lerp.Evaluate((Lerp.Curve)lerpCurve, t);
+    private float EvalHoverCurve(float t) => Lerp.Evaluate((Lerp.Curve)hoverCurve, t);
+    private static float EaseInOut01(float t)
     {
-        return Lerp.Evaluate((Lerp.Curve)lerpCurve, t);
+        t = Mathf.Clamp01(t);
+        return t * t * (3f - 2f * t); // smoothstep
     }
 
     private IEnumerator SwitchRoutine()
@@ -116,31 +135,29 @@ public class MultiContainer : MonoBehaviour
         float t = 0f;
         while (t < 1f)
         {
-            t += Time.deltaTime / lerpDuration;
-            float easedT = EvaluateCurve(Mathf.Clamp01(t));
-            float x = Mathf.Lerp(startX, targetX, easedT);
+            t += Time.deltaTime / Mathf.Max(0.0001f, lerpDuration);
+            float e = EvalMoveCurve(t);
+            float x = Mathf.Lerp(startX, targetX, e);
 
             transform.localPosition = new Vector3(x, transform.localPosition.y);
-
-            UpdateHandleIcon(x, expX, minX);
-
+            UpdateHandleIconRotation(x, expX, minX);
             yield return null;
         }
 
         transform.localPosition = new Vector3(targetX, transform.localPosition.y, transform.localPosition.z);
-        UpdateHandleIcon(targetX, expX, minX);
-
+        UpdateHandleIconRotation(targetX, expX, minX);
         _switchRoutine = null;
+
+        UpdateTooltips();
+        ApplyStateAnimated();
     }
 
     private void UpdatePositionInstant()
     {
         (float expView, float minView) = GetMinExpView();
         float x = viewMode == ViewMode.Expanded ? expView : minView;
-
         transform.localPosition = new Vector3(x, transform.localPosition.y);
-
-        UpdateHandleIcon(x, expView, minView);
+        UpdateHandleIconRotation(x, expView, minView);
     }
 
     public (float expView, float minView) GetMinExpView()
@@ -161,33 +178,29 @@ public class MultiContainer : MonoBehaviour
         return (dir * expViewLeft, dir * minViewLeft);
     }
 
-    private void UpdateHandleIcon(float currentX, float expX, float minX)
+    private void UpdateHandleIconRotation(float currentX, float expX, float minX)
     {
         if (handleIconTransform == null) return;
-
         float progress = Mathf.Abs(currentX - expX) / Mathf.Abs(minX - expX);
-
         float angle = Mathf.LerpAngle(0, 180f, progress);
         handleIconTransform.localRotation = Quaternion.Euler(0f, 0f, angle);
     }
-    
+
+    // ===== Drag / Snap =====
     public void BeginDrag()
     {
         if (_switchRoutine != null) StopCoroutine(_switchRoutine);
-
         (_expX, _minX) = GetMinExpView();
         _isDragging = true;
+        OnHandlePointerEnter(); // treat drag as hover
     }
 
     public void SetDraggedPosition(float newX)
     {
         if (!_isDragging) return;
-
         float clamped = Mathf.Clamp(newX, Mathf.Min(_minX, _expX), Mathf.Max(_minX, _expX));
-
         transform.localPosition = new Vector3(clamped, transform.localPosition.y, transform.localPosition.z);
-
-        UpdateHandleIcon(clamped, _expX, _minX);
+        UpdateHandleIconRotation(clamped, _expX, _minX);
     }
 
     public void EndDragSnap()
@@ -197,13 +210,132 @@ public class MultiContainer : MonoBehaviour
 
         float distToExp = Mathf.Abs(transform.localPosition.x - _expX);
         float distToMin = Mathf.Abs(transform.localPosition.x - _minX);
-
         viewMode = distToExp < distToMin ? ViewMode.Expanded : ViewMode.Minimized;
 
+        OnHandlePointerExit();
         if (_switchRoutine != null) StopCoroutine(_switchRoutine);
         _switchRoutine = StartCoroutine(SwitchRoutine());
     }
 
+    // ===== Hover (called by DragHandle) =====
+    public void OnHandlePointerEnter()
+    {
+        _isHovering = true;
+        ApplyStateAnimated();
+    }
+
+    public void OnHandlePointerExit()
+    {
+        _isHovering = false;
+        ApplyStateAnimated();
+    }
+
+    // ===== Icon/Handle transitions =====
+
+    // Regular icon when not hovering.
+    // Min icon only when Minimized && not hovering.
+    // Handle scale = base * (hover ? hoverMult : 1) * (minIconActive ? minimizedMult : 1)
+    private (float mainIcon, float minIcon, float handle) ComputeTargets()
+    {
+        bool hasMinIcon = minimizedHandleTransform != null;
+        bool minIconActive = hasMinIcon && !_isHovering && viewMode == ViewMode.Minimized;
+
+        float mainIconTarget = minIconActive ? 0f : 1f;
+        float minIconTarget  = minIconActive ? 1f : 0f;
+
+        float handleTarget = handleBaseScale * (_isHovering ? hoverScaleMultiplier : 1f);
+        if (minIconActive) handleTarget *= Mathf.Max(0f, minimizedHandleScaleMultiplier);
+
+        return (mainIconTarget, minIconTarget, handleTarget);
+    }
+
+    private void ApplyIconsImmediate()
+    {
+        var t = ComputeTargets();
+        SetIconScales(t.mainIcon, t.minIcon);
+        SetHandleScale(t.handle);
+    }
+
+    private void ApplyStateAnimated()
+    {
+        if (!Application.isPlaying) { ApplyIconsImmediate(); return; }
+        var t = ComputeTargets();
+        StartIconAndHandleTransition(t.mainIcon, t.minIcon, t.handle);
+    }
+
+    private void StartIconAndHandleTransition(float targetMain, float targetMin, float targetHandleScale)
+    {
+        if (_transitionRoutine != null) StopCoroutine(_transitionRoutine);
+        _transitionRoutine = StartCoroutine(IconAndHandleTransitionRoutine(targetMain, targetMin, targetHandleScale));
+    }
+
+    private IEnumerator IconAndHandleTransitionRoutine(float targetMain, float targetMin, float targetHandleScale)
+    {
+        if (handleTransform == null) yield break;
+
+        // Work in VISIBLE space to avoid jiggle
+        float main0Vis = handleIconTransform != null ? handleIconTransform.localScale.x : 1f * regularIconScaleFactor;
+        float min0Vis  = minimizedHandleTransform != null ? minimizedHandleTransform.localScale.x : 0f;
+        float hs0      = handleTransform.localScale.x;
+
+        float targetMainVis = targetMain * regularIconScaleFactor; // apply factor to regular icon only
+        float targetMinVis  = targetMin;                            // minimized icon has no extra factor
+
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += Time.deltaTime / Mathf.Max(0.0001f, hoverDuration);
+            float th = EvalHoverCurve(Mathf.Clamp01(t));
+            float ti = EaseInOut01(th);
+
+            float mainSVis = Mathf.Lerp(main0Vis, targetMainVis, ti);
+            float minSVis  = Mathf.Lerp(min0Vis,  targetMinVis,  ti);
+
+            if (handleIconTransform != null)
+                handleIconTransform.localScale = new Vector3(mainSVis, mainSVis, 1f);
+            if (minimizedHandleTransform != null)
+                minimizedHandleTransform.localScale = new Vector3(minSVis, minSVis, 1f);
+
+            float hS = Mathf.Lerp(hs0, targetHandleScale, th);
+            handleTransform.localScale = new Vector3(hS, hS, 1f);
+
+            yield return null;
+        }
+
+        SetIconScales(targetMain, targetMin);
+        SetHandleScale(targetHandleScale);
+        _transitionRoutine = null;
+    }
+
+    private void SetIconScales(float mainIconScale, float minimizedIconScale)
+    {
+        if (handleIconTransform != null)
+        {
+            float vis = mainIconScale * regularIconScaleFactor;
+            handleIconTransform.localScale = new Vector3(vis, vis, 1f);
+        }
+        if (minimizedHandleTransform != null)
+        {
+            minimizedHandleTransform.localScale = new Vector3(minimizedIconScale, minimizedIconScale, 1f);
+        }
+    }
+
+    private void SetHandleScale(float s)
+    {
+        if (handleTransform != null)
+            handleTransform.localScale = new Vector3(s, s, 1f);
+    }
+
+    // ===== Tooltips =====
+    private void UpdateTooltips()
+    {
+        if (expandedTooltip != null)
+            expandedTooltip.enabled = viewMode == ViewMode.Expanded;
+        if (minimizedTooltip != null)
+            minimizedTooltip.enabled = viewMode == ViewMode.Minimized;
+    }
+
+    // ===== Persist =====
     void SaveState()
     {
         if (!Application.isPlaying || dataStorage == null) return;
@@ -221,76 +353,63 @@ public class MultiContainer : MonoBehaviour
             transform.localPosition = new Vector3(payload.x, transform.localPosition.y, transform.localPosition.z);
 
             (float expX, float minX) = GetMinExpView();
-            UpdateHandleIcon(payload.x, expX, minX);
+            UpdateHandleIconRotation(payload.x, expX, minX);
 
-            if (_switchRoutine != null) StopCoroutine(_switchRoutine);
-            _switchRoutine = StartCoroutine(SwitchRoutine());
+            ApplyIconsImmediate();
+            UpdateTooltips();
         }
     }
 
-    // === Anchors match, compensating for the target's scale, with edge offsets ===
-    private void MatchAnchorsToOuterGlobal()
+    // ===== Stretching =====
+    protected virtual void MatchAnchorsToOuterGlobal()
     {
-        if (anchorsTargetTransform == null || outerContainerTransform == null) return;
+        if (stretchTarget == null || outerContainerTransform == null) return;
 
-        RectTransform parent = anchorsTargetTransform.parent as RectTransform;
+        RectTransform parent = stretchTarget.parent as RectTransform;
         if (parent == null) return;
 
-        // Get outer rect corners in parent local space
         Vector3[] worldCorners = new Vector3[4];
         outerContainerTransform.GetWorldCorners(worldCorners); // 0 = BL, 2 = TR
 
         Vector3 blLocal = parent.worldToLocalMatrix.MultiplyPoint3x4(worldCorners[0]);
         Vector3 trLocal = parent.worldToLocalMatrix.MultiplyPoint3x4(worldCorners[2]);
 
-        // Apply pixel offsets in parent space
-        blLocal.x -= leftOffset;
-        blLocal.y -= bottomOffset;
-        trLocal.x += rightOffset;
-        trLocal.y += topOffset;
+        blLocal.x -= leftOffset;   blLocal.y -= bottomOffset;
+        trLocal.x += rightOffset;  trLocal.y += topOffset;
 
         Rect pr = parent.rect;
-        Vector2 parentBL = new Vector2(-pr.width * parent.pivot.x, -pr.height * parent.pivot.y);
+        Vector2 parentBL = new(-pr.width * parent.pivot.x, -pr.height * parent.pivot.y);
         Vector2 parentSize = pr.size;
 
-        // Initial anchors that frame the (offset) outer rect (ignoring target scale)
-        Vector2 anchorMin = new Vector2(
+        Vector2 anchorMin = new(
             (blLocal.x - parentBL.x) / parentSize.x,
             (blLocal.y - parentBL.y) / parentSize.y
         );
-        Vector2 anchorMax = new Vector2(
+        Vector2 anchorMax = new(
             (trLocal.x - parentBL.x) / parentSize.x,
             (trLocal.y - parentBL.y) / parentSize.y
         );
 
-        // Compensate for the target's scale relative to the parent so final world size matches.
         Vector3 parentLossy = parent.lossyScale;
-        Vector3 targetLossy = anchorsTargetTransform.lossyScale;
+        Vector3 targetLossy = stretchTarget.lossyScale;
 
         float sx = Mathf.Abs(parentLossy.x) > 1e-6f ? Mathf.Abs(targetLossy.x / parentLossy.x) : 1f;
         float sy = Mathf.Abs(parentLossy.y) > 1e-6f ? Mathf.Abs(targetLossy.y / parentLossy.y) : 1f;
 
-        // Shrink/grow the anchor rectangle around its center by 1/scale.
         Vector2 center = (anchorMin + anchorMax) * 0.5f;
         Vector2 half   = (anchorMax - anchorMin) * 0.5f;
-        Vector2 newHalf = new Vector2(
-            half.x / (sx <= 0f ? 1f : sx),
-            half.y / (sy <= 0f ? 1f : sy)
-        );
+        Vector2 newHalf = new(half.x / (sx <= 0f ? 1f : sx), half.y / (sy <= 0f ? 1f : sy));
 
         anchorMin = center - newHalf;
         anchorMax = center + newHalf;
 
-        // Clamp to [0,1] to avoid runaway values when offsets push beyond parent.
         anchorMin = new Vector2(Mathf.Clamp01(anchorMin.x), Mathf.Clamp01(anchorMin.y));
         anchorMax = new Vector2(Mathf.Clamp01(anchorMax.x), Mathf.Clamp01(anchorMax.y));
 
-        anchorsTargetTransform.anchorMin = anchorMin;
-        anchorsTargetTransform.anchorMax = anchorMax;
-
-        // Zero offsets so the rect fills the (scale-compensated + offset) anchor area.
-        anchorsTargetTransform.offsetMin = Vector2.zero;
-        anchorsTargetTransform.offsetMax = Vector2.zero;
+        stretchTarget.anchorMin = anchorMin;
+        stretchTarget.anchorMax = anchorMax;
+        stretchTarget.offsetMin = Vector2.zero;
+        stretchTarget.offsetMax = Vector2.zero;
     }
 }
 

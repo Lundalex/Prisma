@@ -1,7 +1,5 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
-using Resources2;
-using System.Collections;
 
 [RequireComponent(typeof(RectTransform))]
 public class MultiContainerDragHandle :
@@ -14,8 +12,6 @@ public class MultiContainerDragHandle :
     Vector2 _pointerStart;
     float   _containerStart;
     float   _worldPerPixel;
-
-    Coroutine _hoverRoutine;
 
     public void OnPointerClick(PointerEventData eventData)
     {
@@ -45,6 +41,9 @@ public class MultiContainerDragHandle :
         float worldRange  = Mathf.Abs(expX - minX);
 
         _worldPerPixel = worldRange / screenRange;
+
+        // Treat drag as hover (regular icon + hover scale)
+        multiContainer.OnHandlePointerEnter();
     }
 
     public void OnDrag(PointerEventData eventData)
@@ -59,39 +58,17 @@ public class MultiContainerDragHandle :
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (multiContainer) multiContainer.EndDragSnap();
+        if (multiContainer == null) return;
+        multiContainer.EndDragSnap();
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        StartHoverScale(true);
+        if (multiContainer) multiContainer.OnHandlePointerEnter();
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        StartHoverScale(false);
-    }
-
-    void StartHoverScale(bool enlarge)
-    {
-        if (_hoverRoutine != null) StopCoroutine(_hoverRoutine);
-        _hoverRoutine = StartCoroutine(HoverScaleRoutine(enlarge ? multiContainer.hoverScaleMultiplier : 1f));
-    }
-
-    IEnumerator HoverScaleRoutine(float targetMult)
-    {
-        float start = transform.localScale.x;
-        float end   = multiContainer.handleBaseScale * targetMult;
-
-        float t = 0f;
-        while (t < 1f)
-        {
-            t += Time.deltaTime / multiContainer.hoverDuration;
-            float e = Lerp.Evaluate((Lerp.Curve)multiContainer.hoverCurve, t);
-            float scale1D = Mathf.Lerp(start, end, e);
-            transform.localScale = Utils.FloatToVector3(scale1D);
-            yield return null;
-        }
-        transform.localScale = Utils.FloatToVector3(end);
+        if (multiContainer) multiContainer.OnHandlePointerExit();
     }
 }

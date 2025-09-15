@@ -11,11 +11,6 @@ using UnityEditor;
 [ExecuteAlways]
 public class UIController : MonoBehaviour
 {
-    private void Update()
-    {
-        ApplyActivePalettes();
-    }
-
     [Header("Color Palette Connections")]
     public List<Image> outlines = new();
     public List<Image> backgrounds = new();
@@ -168,11 +163,6 @@ public class UIController : MonoBehaviour
     void Start()
     {
         ApplyActivePalettes();
-
-        if (Random.Range(0, 100) == 0)
-        {
-            Debug.Log("Remember to remove the code in the Update function at the top of this file - UIController");
-        }
     }
 
     void ApplyActivePalettes()

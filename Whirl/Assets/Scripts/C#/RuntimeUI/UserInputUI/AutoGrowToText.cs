@@ -21,7 +21,7 @@ public class AutoGrowToText : MonoBehaviour
     [SerializeField] float minWidth = 105f;
     [SerializeField] float maxWidth = 280f;
 
-    [Header("Fit To Parent (optional)")]
+    [Header("Fit To Parent")]
     [SerializeField] bool fitToParentContainer = false;
     [SerializeField] float parentPadding = 0f;
 
