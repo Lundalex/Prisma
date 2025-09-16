@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using Unity.VisualScripting;
 
 namespace Michsky.MUIP
 {
@@ -187,6 +188,8 @@ namespace Michsky.MUIP
 
                 currentWindowAnimator = currentWindow.GetComponent<Animator>();
                 nextWindowAnimator = nextWindow.GetComponent<Animator>();
+
+                if (!gameObject.activeInHierarchy) return;
 
                 currentWindowAnimator.Play(windowFadeOut);
                 nextWindowAnimator.Play(windowFadeIn);

@@ -48,8 +48,8 @@ public class MultiContainer : MonoBehaviour
     [SerializeField] private Transform handleTransform;
     [SerializeField] private Transform handleIconTransform;
 
-    [Header("Stretch Target")]
-    [SerializeField] protected RectTransform stretchTarget;
+    [Header("Stretch Targets (Default)")]
+    [SerializeField] public RectTransform[] stretchTargets;   // <— now an array
 
     [Header("Stretch Target Offsets")]
     [SerializeField] protected float leftOffset = 0f;
@@ -94,7 +94,7 @@ public class MultiContainer : MonoBehaviour
             UpdatePositionInstant();
             ApplyIconsImmediate();
             UpdateTooltips();
-            MatchAnchorsToOuterGlobal();
+            MatchAnchorsToOuterGlobal(); // <- updates all targets
         }
         else
         {
@@ -232,9 +232,6 @@ public class MultiContainer : MonoBehaviour
 
     // ===== Icon/Handle transitions =====
 
-    // Regular icon when not hovering.
-    // Min icon only when Minimized && not hovering.
-    // Handle scale = base * (hover ? hoverMult : 1) * (minIconActive ? minimizedMult : 1)
     private (float mainIcon, float minIcon, float handle) ComputeTargets()
     {
         bool hasMinIcon = minimizedHandleTransform != null;
@@ -273,13 +270,12 @@ public class MultiContainer : MonoBehaviour
     {
         if (handleTransform == null) yield break;
 
-        // Work in VISIBLE space to avoid jiggle
         float main0Vis = handleIconTransform != null ? handleIconTransform.localScale.x : 1f * regularIconScaleFactor;
         float min0Vis  = minimizedHandleTransform != null ? minimizedHandleTransform.localScale.x : 0f;
         float hs0      = handleTransform.localScale.x;
 
-        float targetMainVis = targetMain * regularIconScaleFactor; // apply factor to regular icon only
-        float targetMinVis  = targetMin;                            // minimized icon has no extra factor
+        float targetMainVis = targetMain * regularIconScaleFactor;
+        float targetMinVis  = targetMin;
 
         float t = 0f;
         while (t < 1f)
@@ -363,9 +359,21 @@ public class MultiContainer : MonoBehaviour
     // ===== Stretching =====
     protected virtual void MatchAnchorsToOuterGlobal()
     {
-        if (stretchTarget == null || outerContainerTransform == null) return;
+        if (outerContainerTransform == null || stretchTargets == null) return;
+        for (int i = 0; i < stretchTargets.Length; i++)
+        {
+            var t = stretchTargets[i];
+            if (t == null) continue;
+            UpdateAnchorForTarget(t, leftOffset, rightOffset, topOffset, bottomOffset);
+        }
+    }
 
-        RectTransform parent = stretchTarget.parent as RectTransform;
+    // Shared anchor-update routine so subclasses can reuse with alt offsets/targets
+    protected void UpdateAnchorForTarget(RectTransform target, float left, float right, float top, float bottom)
+    {
+        if (target == null || outerContainerTransform == null) return;
+
+        RectTransform parent = target.parent as RectTransform;
         if (parent == null) return;
 
         Vector3[] worldCorners = new Vector3[4];
@@ -374,8 +382,8 @@ public class MultiContainer : MonoBehaviour
         Vector3 blLocal = parent.worldToLocalMatrix.MultiplyPoint3x4(worldCorners[0]);
         Vector3 trLocal = parent.worldToLocalMatrix.MultiplyPoint3x4(worldCorners[2]);
 
-        blLocal.x -= leftOffset;   blLocal.y -= bottomOffset;
-        trLocal.x += rightOffset;  trLocal.y += topOffset;
+        blLocal.x -= left;    blLocal.y -= bottom;
+        trLocal.x += right;   trLocal.y += top;
 
         Rect pr = parent.rect;
         Vector2 parentBL = new(-pr.width * parent.pivot.x, -pr.height * parent.pivot.y);
@@ -391,7 +399,7 @@ public class MultiContainer : MonoBehaviour
         );
 
         Vector3 parentLossy = parent.lossyScale;
-        Vector3 targetLossy = stretchTarget.lossyScale;
+        Vector3 targetLossy = target.lossyScale;
 
         float sx = Mathf.Abs(parentLossy.x) > 1e-6f ? Mathf.Abs(targetLossy.x / parentLossy.x) : 1f;
         float sy = Mathf.Abs(parentLossy.y) > 1e-6f ? Mathf.Abs(targetLossy.y / parentLossy.y) : 1f;
@@ -406,10 +414,10 @@ public class MultiContainer : MonoBehaviour
         anchorMin = new Vector2(Mathf.Clamp01(anchorMin.x), Mathf.Clamp01(anchorMin.y));
         anchorMax = new Vector2(Mathf.Clamp01(anchorMax.x), Mathf.Clamp01(anchorMax.y));
 
-        stretchTarget.anchorMin = anchorMin;
-        stretchTarget.anchorMax = anchorMax;
-        stretchTarget.offsetMin = Vector2.zero;
-        stretchTarget.offsetMax = Vector2.zero;
+        target.anchorMin = anchorMin;
+        target.anchorMax = anchorMax;
+        target.offsetMin = Vector2.zero;
+        target.offsetMax = Vector2.zero;
     }
 }
 

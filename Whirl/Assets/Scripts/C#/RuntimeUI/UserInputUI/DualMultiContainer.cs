@@ -6,6 +6,9 @@ using UnityEditor;
 [ExecuteInEditMode]
 public class DualMultiContainer : MultiContainer
 {
+    [Header("Alt Stretch Targets")]
+    [SerializeField] public RectTransform[] altStretchTargets; // <— alt array
+
     [Header("Alt Stretch Target Offsets")]
     [SerializeField] private float altLeftOffset = 0f;
     [SerializeField] private float altRightOffset = 0f;
@@ -27,16 +30,21 @@ public class DualMultiContainer : MultiContainer
 
     protected override void MatchAnchorsToOuterGlobal()
     {
-        if (!useAltStretchTarget)
+        // Choose which list to update
+        if (useAltStretchTarget)
+        {
+            if (altStretchTargets == null) return;
+            for (int i = 0; i < altStretchTargets.Length; i++)
+            {
+                var t = altStretchTargets[i];
+                if (t == null) continue;
+                UpdateAnchorForTarget(t, altLeftOffset, altRightOffset, altTopOffset, altBottomOffset);
+            }
+        }
+        else
         {
             base.MatchAnchorsToOuterGlobal();
-            return;
         }
-
-        float prevL = leftOffset, prevR = rightOffset, prevT = topOffset, prevB = bottomOffset;
-        leftOffset = altLeftOffset; rightOffset = altRightOffset; topOffset = altTopOffset; bottomOffset = altBottomOffset;
-        base.MatchAnchorsToOuterGlobal();
-        leftOffset = prevL; rightOffset = prevR; topOffset = prevT; bottomOffset = prevB;
     }
 
     private void OnEnable()
@@ -66,7 +74,6 @@ public class DualMultiContainer : MultiContainer
         _deferred = false;
 
         if (this == null) return;
-
         if (PrefabUtility.IsPartOfPrefabAsset(gameObject)) return;
 
         EditorUpdateNow();
@@ -85,21 +92,13 @@ public class DualMultiContainer : MultiContainer
         if (defaultObjects != null)
         {
             foreach (var go in defaultObjects)
-            {
-                if (!go) continue;
-                bool desired = !useAltStretchTarget;
-                if (go.activeSelf != desired) go.SetActive(desired);
-            }
+                if (go) go.SetActive(!useAltStretchTarget);
         }
 
         if (altObjects != null)
         {
             foreach (var go in altObjects)
-            {
-                if (!go) continue;
-                bool desired = useAltStretchTarget;
-                if (go.activeSelf != desired) go.SetActive(desired);
-            }
+                if (go) go.SetActive(useAltStretchTarget);
         }
 #endif
     }

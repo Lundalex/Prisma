@@ -1,9 +1,12 @@
 using TMPro;
 using UnityEngine;
+using Michsky.MUIP;
 
 [ExecuteInEditMode]
 public class Task : MonoBehaviour
 {
+    private const string TaskManagerTag = "TaskManager";
+
     [SerializeField] private string headerText;
     [TextArea(6, 40)] [SerializeField] private string bodyText;
     [SerializeField] private string answerKey;
@@ -14,24 +17,65 @@ public class Task : MonoBehaviour
     [SerializeField] private UserMultiLineAnswerField answerField;
     [SerializeField] private WindowToggle windowToggle;
 
-    // Change-detection cache
+    [Header("Next Toggles")]
+    [SerializeField] private WindowToggle singleLineNextToggle;
+    [SerializeField] private WindowToggle multiLineNextToggle;
+
+    [Header("Correct Feedback")]
+    [SerializeField] private AnimatedPopupIcon correctMark;
+
+    [Header("Manager Link")]
+    [SerializeField] private TaskManager taskManager;
+
     [SerializeField, HideInInspector] private int _appliedHash;
 
     void OnEnable()
     {
+        EnsureTaskManagerLinked();
         RefreshUI();
     }
 
 #if UNITY_EDITOR
     void OnValidate()
     {
+        EnsureTaskManagerLinked();
         RefreshUI();
     }
 #endif
 
-    /// <summary>
-    /// Set textual data. Updates UI only when values change.
-    /// </summary>
+    public void SetTaskManager(TaskManager manager) => taskManager = manager;
+    public TaskManager TaskManager => taskManager;
+
+    public void PlayCorrectMark()
+    {
+        if (correctMark != null) correctMark.Play();
+    }
+
+    public void GoToPrevTask()
+    {
+        EnsureTaskManagerLinked();
+        taskManager?.GoToPrevTask(this);
+    }
+
+    public void GoToNextTask()
+    {
+        EnsureTaskManagerLinked();
+        taskManager?.GoToNextTask(this);
+    }
+
+    public void SetNextToggleByHasRight(bool hasRightTask)
+    {
+        bool aActive = hasRightTask;
+        if (singleLineNextToggle != null) singleLineNextToggle.SetModeA(aActive);
+        if (multiLineNextToggle != null)  multiLineNextToggle.SetModeA(aActive);
+    }
+
+    public void SendTip()
+    {
+        EnsureTaskManagerLinked();
+        taskManager?.SendTip();
+    }
+
     public void SetData(string header, string body, string answerKey)
     {
         int newHash = ComputeHash(header, body, answerKey);
@@ -45,13 +89,22 @@ public class Task : MonoBehaviour
         _appliedHash = newHash;
     }
 
-    /// <summary>
-    /// Window A = MultiLine, Window B = SingleLine.
-    /// </summary>
+    public void SetPlaceholder(string placeholder)
+    {
+        if (answerField != null) answerField.SetPlaceholder(placeholder);
+    }
+
     public void SetWindowByTaskType(bool multiLine_usesA)
     {
         if (windowToggle == null) return;
-        windowToggle.SetModeA(multiLine_usesA); // apply immediately (edit & play)
+        windowToggle.SetModeA(multiLine_usesA);
+    }
+
+    private void EnsureTaskManagerLinked()
+    {
+        if (taskManager != null) return;
+        var go = GameObject.FindGameObjectWithTag(TaskManagerTag);
+        if (go != null) taskManager = go.GetComponent<TaskManager>();
     }
 
     private void RefreshUI()

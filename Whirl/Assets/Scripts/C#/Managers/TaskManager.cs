@@ -1,8 +1,6 @@
-using System.Collections.Generic; 
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Events;
 using Michsky.MUIP;
-
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -16,34 +14,57 @@ public class TaskManager : MonoBehaviour
     [SerializeField] private CorrectIconFeedback correctIconFeedback;
     [SerializeField] private List<UserTask> tasks = new();
 
-    [Header("References")]
-    [SerializeField] private DataStorage dataStorage;
-
-    // Windows & selector
+    [Header("Main (Workspace) Windows")]
     [SerializeField] public WindowManager workspaceWindowManager;
     [SerializeField] public GameObject taskWindowPrefab;
+
+    [Header("Side Windows")]
+    [SerializeField] public WindowManager sideWindowManager;
+    [SerializeField] public GameObject sideTaskWindowPrefab;
+
+    [Header("Side Pane Layout")]
+    [SerializeField] public DualMultiContainer dualMultiContainer;
+
+    [Header("Selector & Progress")]
     [SerializeField] public HorizontalSelector taskSelector;
     [SerializeField] public string selectorItemPrefix = "Uppg. ";
-
-    // Optional progress markers (+ Prev/Next owner)
     [SerializeField] public MarkedIndicators markedIndicators;
 
-    // Cached per-task refs
+    [Header("Persistence")]
+    [SerializeField] private DataStorage dataStorage;
+
+    [Header("Chat")]
+    [SerializeField] private AssistantChatManager assistantChatManager;
+
+    // Cached per-task refs (main)
     [SerializeField, HideInInspector] private List<GameObject> taskWindowGOs = new();
     [SerializeField, HideInInspector] private List<Task> taskScripts = new();
+
+    // Cached per-task refs (side)
+    [SerializeField, HideInInspector] private List<GameObject> sideTaskWindowGOs = new();
+    [SerializeField, HideInInspector] private List<SideTask> sideTaskScripts = new();
 
     private void OnChanged()
     {
         SetWorkspaceTaskWindows();
+        SetSideTaskWindows();
+        SyncDualMultiContainerTargets();
+
         ApplyTaskDataToScripts();
         BuildTaskSelectorItems();
         SyncMarkedIndicators();
 
         if (markedIndicators != null && taskSelector != null)
             markedIndicators.SetPrevNext(taskSelector.index, tasks.Count);
+
+        if (dualMultiContainer != null && tasks.Count > 0)
+        {
+            int idx = Mathf.Clamp(taskSelector != null ? taskSelector.index : 0, 0, tasks.Count - 1);
+            dualMultiContainer.SetStretchTargetAlt(tasks[idx].taskType == TaskType.SingleLine);
+        }
     }
 
-    // Create/reuse a window named by its index and add it to WindowManager
+    // ---------- Create windows (MAIN) ----------
     internal void CreateWorkspaceTaskWindow(int taskIndex, Dictionary<int, Transform> existingByIndex)
     {
         if (workspaceWindowManager == null || taskWindowPrefab == null) return;
@@ -60,10 +81,9 @@ public class TaskManager : MonoBehaviour
         else
         {
 #if UNITY_EDITOR
-            if (!Application.isPlaying)
-                go = (GameObject)PrefabUtility.InstantiatePrefab(taskWindowPrefab, parent);
-            else
-                go = Instantiate(taskWindowPrefab, parent);
+            go = !Application.isPlaying
+                ? (GameObject)PrefabUtility.InstantiatePrefab(taskWindowPrefab, parent)
+                : Instantiate(taskWindowPrefab, parent);
 #else
             go = Instantiate(taskWindowPrefab, parent);
 #endif
@@ -77,16 +97,15 @@ public class TaskManager : MonoBehaviour
         if (taskScripts.Count <= taskIndex) taskScripts.Add(taskComp);
         else taskScripts[taskIndex] = taskComp;
 
+        if (taskComp != null) taskComp.SetTaskManager(this);
+
         workspaceWindowManager.windows.Add(new WindowManager.WindowItem
         {
             windowName = taskIndex.ToString(),
-            windowObject = go,
-            buttonObject = null,
-            firstSelected = null
+            windowObject = go
         });
     }
 
-    // Keep numeric-named window children in sync with tasks
     private void SetWorkspaceTaskWindows()
     {
         if (workspaceWindowManager == null) return;
@@ -107,7 +126,6 @@ public class TaskManager : MonoBehaviour
                 }
                 else toRemove.Add(c.gameObject);
             }
-            // text-named -> keep
         }
 
         for (int i = 0; i < toRemove.Count; i++)
@@ -131,10 +149,97 @@ public class TaskManager : MonoBehaviour
             CreateWorkspaceTaskWindow(i, existingByIndex);
     }
 
-    // Push current UserTask data into each Task component and set its window layout
+    // ---------- Create windows (SIDE) ----------
+    internal void CreateSideTaskWindow(int taskIndex, Dictionary<int, Transform> existingByIndex)
+    {
+        if (sideWindowManager == null || sideTaskWindowPrefab == null) return;
+
+        var parent = sideWindowManager.transform;
+        GameObject go;
+
+        if (existingByIndex != null && existingByIndex.TryGetValue(taskIndex, out var t))
+        {
+            go = t.gameObject;
+            go.transform.SetParent(parent, false);
+            go.name = taskIndex.ToString();
+        }
+        else
+        {
+#if UNITY_EDITOR
+            go = !Application.isPlaying
+                ? (GameObject)PrefabUtility.InstantiatePrefab(sideTaskWindowPrefab, parent)
+                : Instantiate(sideTaskWindowPrefab, parent);
+#else
+            go = Instantiate(sideTaskWindowPrefab, parent);
+#endif
+            go.name = taskIndex.ToString();
+        }
+
+        if (sideTaskWindowGOs.Count <= taskIndex) sideTaskWindowGOs.Add(go);
+        else sideTaskWindowGOs[taskIndex] = go;
+
+        var taskComp = go.GetComponent<SideTask>();
+        if (sideTaskScripts.Count <= taskIndex) sideTaskScripts.Add(taskComp);
+        else sideTaskScripts[taskIndex] = taskComp;
+
+        if (taskComp != null) taskComp.SetTaskManager(this);
+
+        sideWindowManager.windows.Add(new WindowManager.WindowItem
+        {
+            windowName = taskIndex.ToString(),
+            windowObject = go
+        });
+    }
+
+    private void SetSideTaskWindows()
+    {
+        if (sideWindowManager == null) return;
+
+        var parent = sideWindowManager.transform;
+        var existingByIndex = new Dictionary<int, Transform>();
+        var toRemove = new List<GameObject>();
+
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            var c = parent.GetChild(i);
+            if (int.TryParse(c.name, out int idx))
+            {
+                if (idx >= 0 && idx < tasks.Count)
+                {
+                    if (!existingByIndex.ContainsKey(idx)) existingByIndex[idx] = c;
+                    else toRemove.Add(c.gameObject);
+                }
+                else toRemove.Add(c.gameObject);
+            }
+        }
+
+        for (int i = 0; i < toRemove.Count; i++)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying) DestroyImmediate(toRemove[i]);
+            else Destroy(toRemove[i]);
+#else
+            Destroy(toRemove[i]);
+#endif
+        }
+
+        sideWindowManager.windows.Clear();
+
+        sideTaskWindowGOs.Clear();
+        sideTaskScripts.Clear();
+        sideTaskWindowGOs.Capacity = tasks.Count;
+        sideTaskScripts.Capacity = tasks.Count;
+
+        for (int i = 0; i < tasks.Count; i++)
+            CreateSideTaskWindow(i, existingByIndex);
+    }
+
+    // ---------- Apply data to Task & SideTask ----------
     private void ApplyTaskDataToScripts()
     {
         int count = tasks.Count;
+
+        // MAIN
         for (int i = 0; i < count; i++)
         {
             if (i >= taskScripts.Count) break;
@@ -143,24 +248,111 @@ public class TaskManager : MonoBehaviour
 
             var t = tasks[i];
 
-            view.SetData(
-                header: t.header,
-                body: t.body,
-                answerKey: t.answerKey
-            );
+            view.SetData(t.header, t.body, t.answerKey);
+            view.SetPlaceholder(t.placeholder);
+            view.SetWindowByTaskType(t.taskType == TaskType.MultiLine);
+            view.SetNextToggleByHasRight(t.hasRightTask);
 
-            // Window A = MultiLine, Window B = SingleLine
-            bool useA = (t.taskType == TaskType.MultiLine);
-            view.SetWindowByTaskType(useA);
+            if (i < taskWindowGOs.Count)
+            {
+                var go = taskWindowGOs[i];
+                if (go != null)
+                {
+                    var fields = go.GetComponentsInChildren<UserAnswerField>(true);
+                    for (int j = 0; j < fields.Length; j++)
+                    {
+                        var f = fields[j];
+                        f.ApplyColors(
+                            answerFieldColors.normal,
+                            answerFieldColors.edit,
+                            answerFieldColors.success,
+                            answerFieldColors.fail,
+                            answerFieldColors.almost
+                        );
+                        f.ApplyFeedback(
+                            feedbackAnimations.shakePixels,
+                            feedbackAnimations.shakeCycleDuration,
+                            Mathf.RoundToInt(feedbackAnimations.shakeCycles),
+                            feedbackAnimations.outlineLerp
+                        );
+                        f.SetPlaceholder(t.placeholder);
+                    }
+                }
+            }
+        }
+
+        // SIDE
+        for (int i = 0; i < count; i++)
+        {
+            if (i >= sideTaskScripts.Count) break;
+            var view = sideTaskScripts[i];
+            if (view == null) continue;
+
+            var t = tasks[i];
+
+            view.SetData(t.header, t.body, t.answerKey);
+            view.SetPlaceholder(t.placeholder);
+            view.SetWindowByTaskType(t.taskType == TaskType.MultiLine);
+            view.SetNextToggleByHasRight(t.hasRightTask);
+
+            if (i < sideTaskWindowGOs.Count)
+            {
+                var go = sideTaskWindowGOs[i];
+                if (go != null)
+                {
+                    var fields = go.GetComponentsInChildren<UserAnswerField>(true);
+                    for (int j = 0; j < fields.Length; j++)
+                    {
+                        var f = fields[j];
+                        f.ApplyColors(
+                            answerFieldColors.normal,
+                            answerFieldColors.edit,
+                            answerFieldColors.success,
+                            answerFieldColors.fail,
+                            answerFieldColors.almost
+                        );
+                        f.ApplyFeedback(
+                            feedbackAnimations.shakePixels,
+                            feedbackAnimations.shakeCycleDuration,
+                            Mathf.RoundToInt(feedbackAnimations.shakeCycles),
+                            feedbackAnimations.outlineLerp
+                        );
+                        f.SetPlaceholder(t.placeholder);
+                    }
+                }
+            }
         }
     }
 
-    // Build selector items WITHOUT calling MUIP methods that Destroy() in edit mode
+    // ---------- DualMultiContainer <-> SideTask targets ----------
+    private void SyncDualMultiContainerTargets()
+    {
+        if (dualMultiContainer == null) return;
+
+        int n = tasks.Count;
+        var defaults = new RectTransform[n];
+        var alts     = new RectTransform[n];
+
+        for (int i = 0; i < n; i++)
+        {
+            SideTask st = (i < sideTaskScripts.Count) ? sideTaskScripts[i] : null;
+            if (st != null)
+            {
+                defaults[i] = st.stretchTarget;
+                alts[i]     = st.altStretchTarget;
+            }
+        }
+
+        dualMultiContainer.stretchTargets    = defaults;
+        dualMultiContainer.altStretchTargets = alts;
+
+        dualMultiContainer.InitDisplay(); // refresh anchors immediately
+    }
+
     private void BuildTaskSelectorItems()
     {
         if (taskSelector == null) return;
 
-        // Build items and wire selection -> open corresponding window
         var newItems = new List<HorizontalSelector.Item>(tasks.Count);
         for (int i = 0; i < tasks.Count; i++)
         {
@@ -170,6 +362,11 @@ public class TaskManager : MonoBehaviour
             {
                 if (workspaceWindowManager != null)
                     workspaceWindowManager.OpenWindowByIndex(capturedIndex);
+                if (sideWindowManager != null)
+                    sideWindowManager.OpenWindowByIndex(capturedIndex);
+
+                if (dualMultiContainer != null)
+                    dualMultiContainer.SetStretchTargetAlt(tasks[capturedIndex].taskType == TaskType.SingleLine);
             });
             newItems.Add(item);
         }
@@ -179,7 +376,6 @@ public class TaskManager : MonoBehaviour
         taskSelector.defaultIndex = prevIndex;
         taskSelector.index = prevIndex;
 
-        // Keep Prev/Next visibility in sync via MarkedIndicators
         taskSelector.onValueChanged.RemoveAllListeners();
         taskSelector.onValueChanged.AddListener(idx =>
         {
@@ -190,13 +386,11 @@ public class TaskManager : MonoBehaviour
 #if UNITY_EDITOR
         if (!Application.isPlaying)
         {
-            // Avoid HorizontalSelector.SetupSelector/UpdateUI in edit mode; they call Destroy().
-            // Manually keep label text reasonable and clear any old indicators once.
             if (taskSelector.label != null && taskSelector.items.Count > 0)
                 taskSelector.label.text = taskSelector.items[taskSelector.index].itemTitle;
             if (taskSelector.labelHelper != null)
-                taskSelector.labelHelper.text = taskSelector.label != null ? taskSelector.label.text : (taskSelector.items.Count > 0 ? taskSelector.items[taskSelector.index].itemTitle : string.Empty);
-
+                taskSelector.labelHelper.text = taskSelector.label != null ? taskSelector.label.text :
+                    (taskSelector.items.Count > 0 ? taskSelector.items[taskSelector.index].itemTitle : string.Empty);
             ClearSelectorIndicatorsImmediate();
         }
         else
@@ -209,16 +403,16 @@ public class TaskManager : MonoBehaviour
 
         if (markedIndicators != null)
             markedIndicators.SetPrevNext(prevIndex, tasks.Count);
+
+        if (dualMultiContainer != null && newItems.Count > 0)
+            dualMultiContainer.SetStretchTargetAlt(tasks[prevIndex].taskType == TaskType.SingleLine);
     }
 
-    // Remove all selector indicators immediately (edit & play safe)
     private void ClearSelectorIndicatorsImmediate()
     {
         if (taskSelector == null || taskSelector.indicatorParent == null) return;
-
         var toKill = new List<GameObject>();
         foreach (Transform child in taskSelector.indicatorParent) toKill.Add(child.gameObject);
-
 #if UNITY_EDITOR
         if (!Application.isPlaying) toKill.ForEach(DestroyImmediate);
         else toKill.ForEach(Destroy);
@@ -227,11 +421,9 @@ public class TaskManager : MonoBehaviour
 #endif
     }
 
-    // Mark/unmark indicators by task progress
     public void SyncMarkedIndicators()
     {
         if (markedIndicators == null) return;
-
         for (int i = 0; i < tasks.Count; i++)
         {
             if (tasks[i].progress == Verdict.Success)
@@ -241,76 +433,70 @@ public class TaskManager : MonoBehaviour
         }
     }
 
-    // EXCLUDE CODE BELOW THIS
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    private void Awake()
+    // ---------- Progress & feedback ----------
+    public void OnAnswerFieldCorrect(Task task)
     {
-        UpdateNeighbors();
+        if (task == null) return;
+
+        int idx = taskScripts.IndexOf(task);
+        if (idx < 0 && task is SideTask st) idx = sideTaskScripts.IndexOf(st);
+        if (idx >= 0) SetTaskProgress(idx, Verdict.Success);
+
+        if (correctIconFeedback == CorrectIconFeedback.Never) return;
+
+        bool canPlay = correctIconFeedback == CorrectIconFeedback.Always
+            || (correctIconFeedback == CorrectIconFeedback.OnlyInWorkspaceView && task.gameObject.activeInHierarchy);
+
+        if (canPlay) task.PlayCorrectMark();
     }
+
+    public void GoToPrevTask(Task fromTask)
+    {
+        if (fromTask == null) return;
+        int idx = taskScripts.IndexOf(fromTask);
+        if (idx < 0 && fromTask is SideTask st) idx = sideTaskScripts.IndexOf(st);
+        if (idx <= 0) return;
+        OpenTaskByIndex(idx - 1);
+    }
+
+    public void GoToNextTask(Task fromTask)
+    {
+        if (fromTask == null) return;
+        int idx = taskScripts.IndexOf(fromTask);
+        if (idx < 0 && fromTask is SideTask st) idx = sideTaskScripts.IndexOf(st);
+        if (idx < 0 || idx >= tasks.Count - 1) return;
+        OpenTaskByIndex(idx + 1);
+    }
+
+    public void OpenTaskByIndex(int index)
+    {
+        if (index < 0 || index >= tasks.Count) return;
+
+        if (workspaceWindowManager != null) workspaceWindowManager.OpenWindowByIndex(index);
+        if (sideWindowManager != null) sideWindowManager.OpenWindowByIndex(index);
+
+        if (taskSelector != null) { taskSelector.index = index; taskSelector.UpdateUI(); }
+        if (markedIndicators != null) markedIndicators.SetPrevNext(index, tasks.Count);
+
+        if (dualMultiContainer != null)
+            dualMultiContainer.SetStretchTargetAlt(tasks[index].taskType == TaskType.SingleLine);
+    }
+
+    public void SendTip()
+    {
+        if (assistantChatManager != null)
+            assistantChatManager.SendPresetUserMessage("Tip");
+    }
+
+    // ---------- Lifecycle & persistence ----------
+    private void Awake() => UpdateNeighbors();
 
     private void OnEnable()
     {
-        if (dataStorage != null && Application.isPlaying)
+        if (dataStorage != null && Application.isPlaying && DataStorage.hasValue)
         {
-            if (DataStorage.hasValue)
-            {
-                var loaded = dataStorage.GetValue<List<UserTask>>();
-                if (loaded != null) tasks = loaded;
-            }
+            var loaded = dataStorage.GetValue<List<UserTask>>();
+            if (loaded != null) tasks = loaded;
         }
         UpdateNeighbors();
     }
@@ -318,9 +504,7 @@ public class TaskManager : MonoBehaviour
     private void OnDestroy()
     {
         if (dataStorage != null && Application.isPlaying)
-        {
             dataStorage.SetValue(tasks);
-        }
     }
 
     private void UpdateNeighbors()
@@ -333,7 +517,6 @@ public class TaskManager : MonoBehaviour
         }
     }
 
-    // --- Public API for task progress ---
     public void SetTaskProgress(int taskIndex, Verdict progress)
     {
         if (taskIndex < 0 || taskIndex >= tasks.Count) return;
@@ -367,23 +550,17 @@ public class TaskManager : MonoBehaviour
         }
     }
 
+    // ---------- Types ----------
     [System.Serializable]
     private struct AnswerFieldColors
     {
-        [ColorUsage(true, true)] public Color normal;
-        [ColorUsage(true, true)] public Color edit;
-        [ColorUsage(true, true)] public Color success;
-        [ColorUsage(true, true)] public Color fail;
-        [ColorUsage(true, true)] public Color almost;
+        [ColorUsage(true, true)] public Color normal, edit, success, fail, almost;
     }
 
     [System.Serializable]
     private struct FeedbackAnimations
     {
-        public float shakePixels;
-        public float shakeCycleDuration;
-        public float shakeCycles;
-        public float outlineLerp;
+        public float shakePixels, shakeCycleDuration, shakeCycles, outlineLerp;
     }
 
     private enum CorrectIconFeedback { Always, OnlyInWorkspaceView, Never }
@@ -392,9 +569,7 @@ public class TaskManager : MonoBehaviour
     [System.Serializable]
     private struct AIConditionDescriptions
     {
-        [TextArea(2, 40)] public string isCorrect;
-        [TextArea(2, 40)] public string isAlmost;
-        [TextArea(2, 40)] public string isAlmostFeedback;
+        [TextArea(2, 40)] public string isCorrect, isAlmost, isAlmostFeedback;
         public bool doGiveAlmostFeedback;
     }
 
@@ -403,8 +578,7 @@ public class TaskManager : MonoBehaviour
     {
         public bool caseSensitive;
         public CheckMode checkMode;
-        public string leftText;
-        public string rightText;
+        public string leftText, rightText;
     }
 
     [System.Serializable]
@@ -426,20 +600,16 @@ public class TaskManager : MonoBehaviour
         public TaskType taskType;
         public SingleLineSettings singleLineSettings;
         public MultiLineSettings multiLineSettings;
-        [HideInInspector] public bool hasLeftTask;
-        [HideInInspector] public bool hasRightTask;
+        [HideInInspector] public bool hasLeftTask, hasRightTask;
         [HideInInspector] public Verdict progress;
 
         public void SetNeighbors(bool hasLeft, bool hasRight)
         {
-            hasLeftTask = hasLeft;
-            hasRightTask = hasRight;
+            hasLeftTask = hasLeft; hasRightTask = hasRight;
         }
     }
 
 #if UNITY_EDITOR
-    // --- Editor-only: show only selected settings & change detection ---
-
     [CustomPropertyDrawer(typeof(UserTask))]
     private class UserTaskDrawer : PropertyDrawer
     {
@@ -450,19 +620,16 @@ public class TaskManager : MonoBehaviour
 
             float v = EditorGUIUtility.standardVerticalSpacing;
 
-            h += GetHeight(property, "header") + v;
-            h += GetHeight(property, "body") + v;
-            h += GetHeight(property, "placeholder") + v;
-            h += GetHeight(property, "answerKey") + v;
-            h += GetHeight(property, "gradingSettings") + v;
-            h += GetHeight(property, "aiConditionDescriptions") + v;
-            h += GetHeight(property, "taskType") + v;
+            h += GetH(property, "header") + v;
+            h += GetH(property, "body") + v;
+            h += GetH(property, "placeholder") + v;
+            h += GetH(property, "answerKey") + v;
+            h += GetH(property, "gradingSettings") + v;
+            h += GetH(property, "aiConditionDescriptions") + v;
+            h += GetH(property, "taskType") + v;
 
-            var taskTypeProp = property.FindPropertyRelative("taskType");
-            if (taskTypeProp != null && (TaskType)taskTypeProp.enumValueIndex == TaskType.SingleLine)
-                h += GetHeight(property, "singleLineSettings") + v;
-            else
-                h += GetHeight(property, "multiLineSettings") + v;
+            var tt = property.FindPropertyRelative("taskType");
+            h += GetH(property, tt != null && (TaskType)tt.enumValueIndex == TaskType.SingleLine ? "singleLineSettings" : "multiLineSettings") + v;
 
             return h;
         }
@@ -470,65 +637,50 @@ public class TaskManager : MonoBehaviour
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
             EditorGUI.BeginProperty(position, label, property);
-            float line = EditorGUIUtility.singleLineHeight;
-            float v = EditorGUIUtility.standardVerticalSpacing;
+            float line = EditorGUIUtility.singleLineHeight, v = EditorGUIUtility.standardVerticalSpacing;
 
             Rect r = new(position.x, position.y, position.width, line);
             property.isExpanded = EditorGUI.Foldout(r, property.isExpanded, label, true);
-            if (!property.isExpanded)
-            {
-                EditorGUI.EndProperty();
-                return;
-            }
+            if (!property.isExpanded) { EditorGUI.EndProperty(); return; }
 
             EditorGUI.indentLevel++;
             float y = r.y + line + v;
 
-            y = DrawField(position, y, "header", property);
-            y = DrawField(position, y, "body", property);
-            y = DrawField(position, y, "placeholder", property);
-            y = DrawField(position, y, "answerKey", property);
-            y = DrawField(position, y, "gradingSettings", property);
-            y = DrawField(position, y, "aiConditionDescriptions", property);
-            y = DrawField(position, y, "taskType", property);
+            y = Draw(position, y, "header", property);
+            y = Draw(position, y, "body", property);
+            y = Draw(position, y, "placeholder", property);
+            y = Draw(position, y, "answerKey", property);
+            y = Draw(position, y, "gradingSettings", property);
+            y = Draw(position, y, "aiConditionDescriptions", property);
+            y = Draw(position, y, "taskType", property);
 
-            var taskTypeProp = property.FindPropertyRelative("taskType");
-            if (taskTypeProp != null && (TaskType)taskTypeProp.enumValueIndex == TaskType.SingleLine)
-                y = DrawField(position, y, "singleLineSettings", property);
-            else
-                y = DrawField(position, y, "multiLineSettings", property);
+            var tt = property.FindPropertyRelative("taskType");
+            y = Draw(position, y, tt != null && (TaskType)tt.enumValueIndex == TaskType.SingleLine ? "singleLineSettings" : "multiLineSettings", property);
 
             EditorGUI.indentLevel--;
             EditorGUI.EndProperty();
         }
 
-        private static float GetHeight(SerializedProperty root, string rel)
+        private static float GetH(SerializedProperty root, string rel)
         {
             var p = root.FindPropertyRelative(rel);
-            if (p == null) return EditorGUIUtility.singleLineHeight;
-            return EditorGUI.GetPropertyHeight(p, true);
+            return p == null ? EditorGUIUtility.singleLineHeight : EditorGUI.GetPropertyHeight(p, true);
         }
 
-        private static float DrawField(Rect pos, float y, string rel, SerializedProperty root)
+        private static float Draw(Rect pos, float y, string rel, SerializedProperty root)
         {
             var p = root.FindPropertyRelative(rel);
             if (p == null) return y;
             float h = EditorGUI.GetPropertyHeight(p, true);
-            Rect r = new(pos.x, y, pos.width, h);
-            EditorGUI.PropertyField(r, p, true);
+            EditorGUI.PropertyField(new Rect(pos.x, y, pos.width, h), p, true);
             return y + h + EditorGUIUtility.standardVerticalSpacing;
         }
     }
 
-    // --- Editor-only change detection (hashing, runs once per second in play & edit) ---
-
     private int _lastHash;
     private double _nextCheckTime;
 
-    private void Update()
-    {
-        EditorHashTick();
-    }
+    private void Update() => EditorHashTick();
 
     private void EditorHashTick()
     {
@@ -571,8 +723,6 @@ public class TaskManager : MonoBehaviour
                 hash = hash * 23 + (t.body != null ? t.body.GetHashCode() : 0);
                 hash = hash * 23 + (t.placeholder != null ? t.placeholder.GetHashCode() : 0);
                 hash = hash * 23 + (t.answerKey != null ? t.answerKey.GetHashCode() : 0);
-
-                // gradingSettings is defined elsewhere; rely on its default GetHashCode
                 hash = hash * 23 + t.gradingSettings.GetHashCode();
 
                 var aic = t.aiConditionDescriptions;
@@ -602,4 +752,4 @@ public class TaskManager : MonoBehaviour
         }
     }
 #endif
-}
+} 
