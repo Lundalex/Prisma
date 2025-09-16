@@ -1,5 +1,6 @@
-using System.Collections.Generic;
+using System.Collections.Generic; 
 using UnityEngine;
+using UnityEngine.Events;
 using Michsky.MUIP;
 
 
@@ -14,15 +15,255 @@ public class TaskManager : MonoBehaviour
     [SerializeField] private FeedbackAnimations feedbackAnimations;
     [SerializeField] private CorrectIconFeedback correctIconFeedback;
     [SerializeField] private List<UserTask> tasks = new();
-    
+
     [Header("References")]
     [SerializeField] private DataStorage dataStorage;
-    [SerializeField] private WindowManager workspaceWindowManager;
+
+    // Windows & selector
+    [SerializeField] public WindowManager workspaceWindowManager;
+    [SerializeField] public GameObject taskWindowPrefab;
+    [SerializeField] public HorizontalSelector taskSelector;
+    [SerializeField] public string selectorItemPrefix = "Uppg. ";
+
+    // Optional progress markers (+ Prev/Next owner)
+    [SerializeField] public MarkedIndicators markedIndicators;
+
+    // Cached per-task refs
+    [SerializeField, HideInInspector] private List<GameObject> taskWindowGOs = new();
+    [SerializeField, HideInInspector] private List<Task> taskScripts = new();
 
     private void OnChanged()
     {
-        
+        SetWorkspaceTaskWindows();
+        ApplyTaskDataToScripts();
+        BuildTaskSelectorItems();
+        SyncMarkedIndicators();
+
+        if (markedIndicators != null && taskSelector != null)
+            markedIndicators.SetPrevNext(taskSelector.index, tasks.Count);
     }
+
+    // Create/reuse a window named by its index and add it to WindowManager
+    internal void CreateWorkspaceTaskWindow(int taskIndex, Dictionary<int, Transform> existingByIndex)
+    {
+        if (workspaceWindowManager == null || taskWindowPrefab == null) return;
+
+        var parent = workspaceWindowManager.transform;
+        GameObject go;
+
+        if (existingByIndex != null && existingByIndex.TryGetValue(taskIndex, out var t))
+        {
+            go = t.gameObject;
+            go.transform.SetParent(parent, false);
+            go.name = taskIndex.ToString();
+        }
+        else
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+                go = (GameObject)PrefabUtility.InstantiatePrefab(taskWindowPrefab, parent);
+            else
+                go = Instantiate(taskWindowPrefab, parent);
+#else
+            go = Instantiate(taskWindowPrefab, parent);
+#endif
+            go.name = taskIndex.ToString();
+        }
+
+        if (taskWindowGOs.Count <= taskIndex) taskWindowGOs.Add(go);
+        else taskWindowGOs[taskIndex] = go;
+
+        var taskComp = go.GetComponent<Task>();
+        if (taskScripts.Count <= taskIndex) taskScripts.Add(taskComp);
+        else taskScripts[taskIndex] = taskComp;
+
+        workspaceWindowManager.windows.Add(new WindowManager.WindowItem
+        {
+            windowName = taskIndex.ToString(),
+            windowObject = go,
+            buttonObject = null,
+            firstSelected = null
+        });
+    }
+
+    // Keep numeric-named window children in sync with tasks
+    private void SetWorkspaceTaskWindows()
+    {
+        if (workspaceWindowManager == null) return;
+
+        var parent = workspaceWindowManager.transform;
+        var existingByIndex = new Dictionary<int, Transform>();
+        var toRemove = new List<GameObject>();
+
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            var c = parent.GetChild(i);
+            if (int.TryParse(c.name, out int idx))
+            {
+                if (idx >= 0 && idx < tasks.Count)
+                {
+                    if (!existingByIndex.ContainsKey(idx)) existingByIndex[idx] = c;
+                    else toRemove.Add(c.gameObject);
+                }
+                else toRemove.Add(c.gameObject);
+            }
+            // text-named -> keep
+        }
+
+        for (int i = 0; i < toRemove.Count; i++)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying) DestroyImmediate(toRemove[i]);
+            else Destroy(toRemove[i]);
+#else
+            Destroy(toRemove[i]);
+#endif
+        }
+
+        workspaceWindowManager.windows.Clear();
+
+        taskWindowGOs.Clear();
+        taskScripts.Clear();
+        taskWindowGOs.Capacity = tasks.Count;
+        taskScripts.Capacity = tasks.Count;
+
+        for (int i = 0; i < tasks.Count; i++)
+            CreateWorkspaceTaskWindow(i, existingByIndex);
+    }
+
+    // Push current UserTask data into each Task component and set its window layout
+    private void ApplyTaskDataToScripts()
+    {
+        int count = tasks.Count;
+        for (int i = 0; i < count; i++)
+        {
+            if (i >= taskScripts.Count) break;
+            var view = taskScripts[i];
+            if (view == null) continue;
+
+            var t = tasks[i];
+
+            view.SetData(
+                header: t.header,
+                body: t.body,
+                answerKey: t.answerKey
+            );
+
+            // Window A = MultiLine, Window B = SingleLine
+            bool useA = (t.taskType == TaskType.MultiLine);
+            view.SetWindowByTaskType(useA);
+        }
+    }
+
+    // Build selector items WITHOUT calling MUIP methods that Destroy() in edit mode
+    private void BuildTaskSelectorItems()
+    {
+        if (taskSelector == null) return;
+
+        // Build items and wire selection -> open corresponding window
+        var newItems = new List<HorizontalSelector.Item>(tasks.Count);
+        for (int i = 0; i < tasks.Count; i++)
+        {
+            int capturedIndex = i;
+            var item = new HorizontalSelector.Item { itemTitle = $"{selectorItemPrefix}{capturedIndex + 1}" };
+            item.onItemSelect.AddListener(() =>
+            {
+                if (workspaceWindowManager != null)
+                    workspaceWindowManager.OpenWindowByIndex(capturedIndex);
+            });
+            newItems.Add(item);
+        }
+
+        int prevIndex = Mathf.Clamp(taskSelector.index, 0, Mathf.Max(0, newItems.Count - 1));
+        taskSelector.items = newItems;
+        taskSelector.defaultIndex = prevIndex;
+        taskSelector.index = prevIndex;
+
+        // Keep Prev/Next visibility in sync via MarkedIndicators
+        taskSelector.onValueChanged.RemoveAllListeners();
+        taskSelector.onValueChanged.AddListener(idx =>
+        {
+            if (markedIndicators != null)
+                markedIndicators.SetPrevNext(idx, tasks.Count);
+        });
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            // Avoid HorizontalSelector.SetupSelector/UpdateUI in edit mode; they call Destroy().
+            // Manually keep label text reasonable and clear any old indicators once.
+            if (taskSelector.label != null && taskSelector.items.Count > 0)
+                taskSelector.label.text = taskSelector.items[taskSelector.index].itemTitle;
+            if (taskSelector.labelHelper != null)
+                taskSelector.labelHelper.text = taskSelector.label != null ? taskSelector.label.text : (taskSelector.items.Count > 0 ? taskSelector.items[taskSelector.index].itemTitle : string.Empty);
+
+            ClearSelectorIndicatorsImmediate();
+        }
+        else
+        {
+            taskSelector.UpdateUI();
+        }
+#else
+        taskSelector.UpdateUI();
+#endif
+
+        if (markedIndicators != null)
+            markedIndicators.SetPrevNext(prevIndex, tasks.Count);
+    }
+
+    // Remove all selector indicators immediately (edit & play safe)
+    private void ClearSelectorIndicatorsImmediate()
+    {
+        if (taskSelector == null || taskSelector.indicatorParent == null) return;
+
+        var toKill = new List<GameObject>();
+        foreach (Transform child in taskSelector.indicatorParent) toKill.Add(child.gameObject);
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying) toKill.ForEach(DestroyImmediate);
+        else toKill.ForEach(Destroy);
+#else
+        toKill.ForEach(Destroy);
+#endif
+    }
+
+    // Mark/unmark indicators by task progress
+    public void SyncMarkedIndicators()
+    {
+        if (markedIndicators == null) return;
+
+        for (int i = 0; i < tasks.Count; i++)
+        {
+            if (tasks[i].progress == Verdict.Success)
+                markedIndicators.SetIndicatorMarked(i);
+            else
+                markedIndicators.SetIndicatorUnmarked(i);
+        }
+    }
+
+    // EXCLUDE CODE BELOW THIS
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

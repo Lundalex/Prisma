@@ -13,7 +13,11 @@ public class MarkedIndicators : MonoBehaviour
 
     [Header("Source")]
     [Tooltip("HorizontalSelector that holds the current index to mark.")]
-    [SerializeField] private Michsky.MUIP.HorizontalSelector selector;  // NEW
+    [SerializeField] private Michsky.MUIP.HorizontalSelector selector;
+
+    [Header("Prev/Next (managed by TaskManager)")]
+    [SerializeField] private GameObject prevButton;
+    [SerializeField] private GameObject nextButton;
 
 #if UNITY_EDITOR
     [Header("Editor Preview")]
@@ -30,34 +34,28 @@ public class MarkedIndicators : MonoBehaviour
         SetAllUnmarked();
     }
 
-    /// <summary>
-    /// Marks the indicator corresponding to the HorizontalSelector's current index.
-    /// </summary>
-    public void MarkCurrentIndicator() // NEW
+    /// <summary>Set Prev/Next visibility.</summary>
+    public void SetPrevNext(int currentIndex, int totalCount)
     {
-        if (selector == null)
-        {
-            Debug.LogWarning($"{nameof(MarkedIndicators)} ({name}): No HorizontalSelector assigned. Call ignored.");
-            return;
-        }
+        bool hasPrev = currentIndex > 0;
+        bool hasNext = currentIndex < (totalCount - 1);
+
+        if (prevButton != null && prevButton.activeSelf != hasPrev) prevButton.SetActive(hasPrev);
+        if (nextButton != null && nextButton.activeSelf != hasNext) nextButton.SetActive(hasNext);
+    }
+
+    /// <summary>Marks the indicator corresponding to the selector's current index.</summary>
+    public void MarkCurrentIndicator()
+    {
+        if (selector == null) return;
 
         int idx = selector.index;
         int count = transform.childCount;
-        if (idx < 0 || idx >= count)
-        {
-            Debug.LogWarning($"{nameof(MarkedIndicators)} ({name}): selector index {idx} is out of range (0..{count - 1}). Call ignored.");
-            return;
-        }
+        if (idx < 0 || idx >= count) return;
 
         SetIndicatorMarked(idx);
     }
 
-    /// <summary>
-    /// Sets the color (RGB only, preserves alpha) of ALL Images that are
-    /// direct children of the indicator at the given index to markedColor.
-    /// Index 0 = first child (top-most in hierarchy).
-    /// If index is out of range, logs a warning and does nothing.
-    /// </summary>
     public void SetIndicatorMarked(int index)
     {
         if (TryGetGrandchildImages(index, out var images))
@@ -67,12 +65,6 @@ public class MarkedIndicators : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Sets the color (RGB only, preserves alpha) of ALL Images that are
-    /// direct children of the indicator at the given index to unmarkedColor.
-    /// Index 0 = first child (top-most in hierarchy).
-    /// If index is out of range, logs a warning and does nothing.
-    /// </summary>
     public void SetIndicatorUnmarked(int index)
     {
         if (TryGetGrandchildImages(index, out var images))
@@ -82,7 +74,6 @@ public class MarkedIndicators : MonoBehaviour
         }
     }
 
-    /// <summary>Convenience: sets all indicators (all children) to unmarkedColor.</summary>
     public void SetAllUnmarked()
     {
         int count = transform.childCount;
@@ -96,7 +87,6 @@ public class MarkedIndicators : MonoBehaviour
         }
     }
 
-    /// <summary>Convenience: sets all indicators (all children) to markedColor.</summary>
     public void SetAllMarked()
     {
         int count = transform.childCount;
@@ -110,7 +100,6 @@ public class MarkedIndicators : MonoBehaviour
         }
     }
 
-    /// <summary>Convenience: unmarks all, then marks the specified indicator.</summary>
     public void SetOnlyMarked(int index)
     {
         SetAllUnmarked();
@@ -124,18 +113,10 @@ public class MarkedIndicators : MonoBehaviour
         images = null;
 
         int count = transform.childCount;
-        if (index < 0 || index >= count)
-        {
-            Debug.LogWarning($"{nameof(MarkedIndicators)} ({name}): index {index} is out of range (0..{count - 1}). Call ignored.");
-            return false;
-        }
+        if (index < 0 || index >= count) return false;
 
         Transform indicator = transform.GetChild(index);
-        if (indicator == null)
-        {
-            Debug.LogWarning($"{nameof(MarkedIndicators)} ({name}): child at index {index} is null. Call ignored.");
-            return false;
-        }
+        if (indicator == null) return false;
 
         var grandchildCount = indicator.childCount;
         System.Collections.Generic.List<Image> list = new System.Collections.Generic.List<Image>();
@@ -150,11 +131,7 @@ public class MarkedIndicators : MonoBehaviour
                 list.AddRange(imgsOnGrandchild);
         }
 
-        if (list.Count == 0)
-        {
-            Debug.LogWarning($"{nameof(MarkedIndicators)} ({name}): no Images found on direct children of '{indicator.name}' (index {index}). Call ignored.");
-            return false;
-        }
+        if (list.Count == 0) return false;
 
         images = list.ToArray();
         return true;
