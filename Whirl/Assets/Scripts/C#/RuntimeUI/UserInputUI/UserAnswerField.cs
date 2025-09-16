@@ -23,7 +23,7 @@ public class UserAnswerField : MonoBehaviour
     [Tooltip("Choose how to judge the answer: via AI, simple string comparison, or StringCompare then AI fallback.")]
     [SerializeField] private CheckMode checkMode = CheckMode.StringCompareThenAI;
 
-    // AI-COM: --- Begin AI fields (auto-resolved SmartAssistant; not set via Inspector) ---
+    // --- AI-COM ---
     [Header("AI")]
     [Tooltip("CommunicationSettings passed as the System profile to the AI when grading answers.")]
     [SerializeField] private CommunicationSettings gradingCommunicationSettings;
@@ -38,9 +38,9 @@ public class UserAnswerField : MonoBehaviour
         "Return true if the answer is 'almost' (on the right track but missing something important) per the CommunicationSettings. Else false.";
     [SerializeField] private string almostFeedbackInstructions =
         "If is_almost is true, return a SHORT, actionable hint guiding the user to the correct answer. Otherwise return an empty string.";
-    [SerializeField] private string almostHeaderInstructions =
+    private string almostHeaderInstructions =
         "If is_almost is true, return the HEADER text. Use the provided baseline header but translate it into the language of user_answer if that language differs from Swedish; otherwise return it unchanged. Keep it concise (max ~5 words).";
-    // AI-COM: --- End AI fields ---
+    // --- AI-COM ---
 
     [Tooltip("If enabled, will post a special assistant message when verdict is 'almost'.")]
     [SerializeField] private bool postAlmostChatMessage = true;
@@ -85,9 +85,6 @@ public class UserAnswerField : MonoBehaviour
     [Header("Events")]
     [Tooltip("Invoked when the submitted answer is correct. Bind AnimatedPopupIcon.Play() here.")]
     public UnityEvent onCorrect;
-
-    private enum Verdict { None, Success, Fail, Almost }
-    private enum CheckMode { AI, StringCompare, StringCompareThenAI }
 
     private SmartAssistant smartAssistant;
     Color _outlineBaseColor;
@@ -562,3 +559,6 @@ Output policy (CRITICAL):
         _shakeCo = null;
     }
 }
+
+public enum CheckMode { AI, StringCompare, StringCompareThenAI }
+public enum Verdict { None, Success, Fail, Almost }

@@ -28,12 +28,12 @@ public class UIController : MonoBehaviour
     public List<TMP_Text> body1s = new();
     public List<TMP_Text> body2s = new();
     public List<TMP_Text> notificationHeaders = new();
-    public List<TMP_Text> notificationBodies   = new();
+    public List<TMP_Text> notificationBodies = new();
     public List<TMP_Text> tooltips = new();
     public List<TMP_Text> interactHeaders = new();
     public List<TMP_Text> interactSliders = new();
     public List<TMP_Text> interactFields = new();
-    
+
     [Header("UIManager Reference")]
     [SerializeField] UIManager uiManager;
 
@@ -59,57 +59,80 @@ public class UIController : MonoBehaviour
         public TMP_ColorGradient preset;
     }
 
-#if UNITY_EDITOR
     bool refreshQueued;
-    double nextCheckTime;
-    const double CHECK_INTERVAL = 0.02;
     int cachedHash;
+
+    // Shared per-frame hash so only one controller computes it each frame.
+    static int s_lastComputedFrame = -1;
+    static int s_sharedHash;
 
     void OnEnable()
     {
-        if (Application.isPlaying) return;
-        EditorApplication.update += EditorUpdate;
-        Undo.undoRedoPerformed += QueueRefresh;
-        cachedHash = ComputeManagerHash();
-        QueueRefresh();
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            Undo.undoRedoPerformed += QueueRefresh;
+            cachedHash = int.MinValue;
+            QueueRefresh();
+        }
+#endif
     }
+
     void OnDisable()
     {
-        if (Application.isPlaying) return;
-        EditorApplication.update -= EditorUpdate;
-        Undo.undoRedoPerformed -= QueueRefresh;
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            Undo.undoRedoPerformed -= QueueRefresh;
+        }
+#endif
     }
-    void OnValidate() { if (!Application.isPlaying) QueueRefresh(); }
+
+    void OnValidate()
+    {
+        if (!Application.isPlaying) QueueRefresh();
+    }
+
     void QueueRefresh() => refreshQueued = true;
 
-    void EditorUpdate()
+    void Update()
     {
-        double now = EditorApplication.timeSinceStartup;
-        if (now >= nextCheckTime)
+        // Compute hash once per frame globally. First controller with a valid manager does the work.
+        int frame = Time.frameCount;
+        if (s_lastComputedFrame != frame && uiManager)
         {
-            nextCheckTime = now + CHECK_INTERVAL;
-            int newHash = ComputeManagerHash();
-            if (newHash != cachedHash) { cachedHash = newHash; refreshQueued = true; }
+            s_sharedHash = ComputeManagerHash(uiManager);
+            s_lastComputedFrame = frame;
         }
+
+        int newHash = (s_lastComputedFrame == frame) ? s_sharedHash : 0;
+
+        if (newHash != cachedHash)
+        {
+            cachedHash = newHash;
+            refreshQueued = true;
+        }
+
         if (!refreshQueued) return;
         refreshQueued = false;
 
         if (!uiManager) return;
         ApplyActivePalettes();
         RestoreIfDetached();
+#if UNITY_EDITOR
         if (this) EditorUtility.SetDirty(this);
+#endif
     }
 
-    int ComputeManagerHash()
+    static int ComputeManagerHash(UIManager mgr)
     {
-        if (!uiManager) return 0;
+        if (!mgr) return 0;
         unchecked
         {
             int h = 17;
-            h = h * 31 + uiManager.activePaletteIndex;
+            h = h * 31 + mgr.activePaletteIndex;
 
-            // Hash color palettes (unchanged)
-            foreach (var p in uiManager.colorPalettes)
+            foreach (var p in mgr.colorPalettes)
             {
                 h = h * 31 + p.outline.GetHashCode();
                 h = h * 31 + p.background.GetHashCode();
@@ -121,8 +144,7 @@ public class UIController : MonoBehaviour
                 h = h * 31 + (p.name?.GetHashCode() ?? 0);
             }
 
-            // Hash ACTIVE composed font palette instead of deprecated fields
-            var fp = uiManager.ActiveFontPalette;
+            var fp = mgr.ActiveFontPalette;
             h = h * 31 + (fp.name?.GetHashCode() ?? 0);
             h = h * 31 + HashFontSettings(fp.header1);
             h = h * 31 + HashFontSettings(fp.header2);
@@ -158,7 +180,6 @@ public class UIController : MonoBehaviour
             return h;
         }
     }
-#endif
 
     void Start()
     {
@@ -170,7 +191,7 @@ public class UIController : MonoBehaviour
         if (!uiManager) return;
 
         ColorPalette cp = uiManager.ActivePalette;
-        FontPalette  fp = uiManager.ActiveFontPalette;
+        FontPalette fp = uiManager.ActiveFontPalette;
 
         ApplyColour(outlines, cp.outline);
         ApplyColour(backgrounds, cp.background);
@@ -193,16 +214,16 @@ public class UIController : MonoBehaviour
         ApplyColour(interactSliders, cp.text);
         ApplyColour(interactFields, cp.text);
 
-        ApplyFont(header1s,   fp.header1);
-        ApplyFont(header2s,   fp.header2);
-        ApplyFont(body1s,     fp.body1);
-        ApplyFont(body2s,     fp.body2);
+        ApplyFont(header1s, fp.header1);
+        ApplyFont(header2s, fp.header2);
+        ApplyFont(body1s, fp.body1);
+        ApplyFont(body2s, fp.body2);
         ApplyFont(notificationHeaders, fp.notificationHeader);
-        ApplyFont(notificationBodies,  fp.notificationBody);
-        ApplyFont(tooltips,            fp.tooltip);
-        ApplyFont(interactHeaders,     fp.interactHeader);
-        ApplyFont(interactSliders,     fp.interactSlider);
-        ApplyFont(interactFields,      fp.interactField);
+        ApplyFont(notificationBodies, fp.notificationBody);
+        ApplyFont(tooltips, fp.tooltip);
+        ApplyFont(interactHeaders, fp.interactHeader);
+        ApplyFont(interactSliders, fp.interactSlider);
+        ApplyFont(interactFields, fp.interactField);
     }
 
     void ApplyColour(List<Image> imgs, Color c)
@@ -242,6 +263,7 @@ public class UIController : MonoBehaviour
             lbl.color = nc;
         }
     }
+
     void ApplyGradient(List<UIGradient> gs, Gradient g)
     {
         if (gs == null) return;
@@ -252,6 +274,7 @@ public class UIController : MonoBehaviour
             gr.EffectGradient = g;
         }
     }
+
     void ApplyGradient(List<TMP_Text> lbls, Gradient g)
     {
         if (lbls == null) return;
@@ -283,8 +306,8 @@ public class UIController : MonoBehaviour
             if (fs.overrideSpacing)
             {
                 lbl.characterSpacing = fs.characterSpacing;
-                lbl.wordSpacing      = fs.wordSpacing;
-                lbl.lineSpacing      = fs.lineSpacing;
+                lbl.wordSpacing = fs.wordSpacing;
+                lbl.lineSpacing = fs.lineSpacing;
                 lbl.paragraphSpacing = fs.paragraphSpacing;
             }
         }
@@ -295,10 +318,10 @@ public class UIController : MonoBehaviour
         if (txtOrig.ContainsKey(lbl)) return;
         txtOrig[lbl] = new OriginalTextData
         {
-            color     = lbl.color,
-            font      = lbl.font,
-            style     = lbl.fontStyle,
-            size      = lbl.fontSize,
+            color = lbl.color,
+            font = lbl.font,
+            style = lbl.fontStyle,
+            size = lbl.fontSize,
             charSpace = lbl.characterSpacing,
             wordSpace = lbl.wordSpacing,
             lineSpace = lbl.lineSpacing,
@@ -313,6 +336,7 @@ public class UIController : MonoBehaviour
         RestoreTexts();
         RestoreGraphicsColours();
     }
+
     void RestoreImages()
     {
         var keys = new List<Image>(imgOrig.Keys);
@@ -325,6 +349,7 @@ public class UIController : MonoBehaviour
             }
         }
     }
+
     void RestoreGradients()
     {
         var keys = new List<UIGradient>(gradOrig.Keys);
@@ -350,6 +375,7 @@ public class UIController : MonoBehaviour
             }
         }
     }
+
     void RestoreTexts()
     {
         var keys = new List<TMP_Text>(txtOrig.Keys);
@@ -360,19 +386,20 @@ public class UIController : MonoBehaviour
                 if (lbl)
                 {
                     var o = txtOrig[lbl];
-                    lbl.color             = o.color;
-                    lbl.font              = o.font;
-                    lbl.fontStyle         = o.style;
-                    lbl.fontSize          = o.size;
-                    lbl.characterSpacing  = o.charSpace;
-                    lbl.wordSpacing       = o.wordSpace;
-                    lbl.lineSpacing       = o.lineSpace;
-                    lbl.paragraphSpacing  = o.paraSpace;
+                    lbl.color = o.color;
+                    lbl.font = o.font;
+                    lbl.fontStyle = o.style;
+                    lbl.fontSize = o.size;
+                    lbl.characterSpacing = o.charSpace;
+                    lbl.wordSpacing = o.wordSpace;
+                    lbl.lineSpacing = o.lineSpace;
+                    lbl.paragraphSpacing = o.paraSpace;
                 }
                 txtOrig.Remove(lbl);
             }
         }
     }
+
     void RestoreGraphicsColours()
     {
         var keys = new List<MaskableGraphic>(gfxOrig.Keys);
@@ -392,15 +419,15 @@ public class UIController : MonoBehaviour
         contrasts.Contains(img) || notifications.Contains(img);
 
     bool IsInAnyTextListGraphic(MaskableGraphic g) =>
-        texts.Contains(g)     || header1s.Contains(g as TMP_Text) || header2s.Contains(g as TMP_Text) ||
-        body1s.Contains(g as TMP_Text)     || body2s.Contains(g as TMP_Text)   ||
+        texts.Contains(g) || header1s.Contains(g as TMP_Text) || header2s.Contains(g as TMP_Text) ||
+        body1s.Contains(g as TMP_Text) || body2s.Contains(g as TMP_Text) ||
         notificationHeaders.Contains(g as TMP_Text) || notificationBodies.Contains(g as TMP_Text) ||
         tooltips.Contains(g as TMP_Text) ||
         interactHeaders.Contains(g as TMP_Text) || interactSliders.Contains(g as TMP_Text) || interactFields.Contains(g as TMP_Text);
 
     bool IsInAnyTextList(TMP_Text t) =>
-        texts.Contains(t)     || header1s.Contains(t) || header2s.Contains(t) ||
-        body1s.Contains(t)     || body2s.Contains(t)   ||
+        texts.Contains(t) || header1s.Contains(t) || header2s.Contains(t) ||
+        body1s.Contains(t) || body2s.Contains(t) ||
         notificationHeaders.Contains(t) || notificationBodies.Contains(t) ||
         tooltips.Contains(t) ||
         interactHeaders.Contains(t) || interactSliders.Contains(t) || interactFields.Contains(t);

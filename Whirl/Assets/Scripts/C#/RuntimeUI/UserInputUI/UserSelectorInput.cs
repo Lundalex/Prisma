@@ -30,6 +30,7 @@ public class UserSelectorInput : UserUIElement
     public void SetSelectorIndex(int index)
     {
         if (selector == null) return;
+        if (selector.index == index) return;
 
         selector.index = selector.defaultIndex = index;
         lastValue = selector.index;
