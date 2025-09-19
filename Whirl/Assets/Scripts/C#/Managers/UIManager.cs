@@ -117,6 +117,28 @@ public class UIManager : ScriptableObject
         UpdateAll((int)textSize, (int)lineSpacing, (int)theme, dyslexiaMode);
     }
 
+    // === NEW: startup sync from UserSettings (kept simple) ===
+    public void SyncFromUserSettingsAndApply()
+    {
+        if (userSettings == null) return;
+        // Assuming UserSettings exposes these enums/flags:
+        UpdateAll(userSettings.textSize, userSettings.lineSpacing, userSettings.theme, userSettings.dyslexiaMode);
+        if (Application.isPlaying) ApplyActiveFontToMUIP();
+    }
+
+    // Also trigger for all loaded managers right after scene load.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void RuntimeSyncAllManagers()
+    {
+        var managers = Resources.FindObjectsOfTypeAll<UIManager>();
+        for (int i = 0; i < managers.Length; i++)
+        {
+            var m = managers[i];
+            if (m) m.SyncFromUserSettingsAndApply();
+        }
+    }
+    // === END: startup sync ===
+
     // Helpers for UpdateAll
     int ClampIndex<T>(int idx, List<T> list)
     {

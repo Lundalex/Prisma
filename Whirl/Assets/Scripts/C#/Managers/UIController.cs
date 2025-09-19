@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -183,6 +184,7 @@ public class UIController : MonoBehaviour
 
     void Start()
     {
+        if (uiManager) uiManager.SyncFromUserSettingsAndApply();
         ApplyActivePalettes();
     }
 
@@ -193,6 +195,7 @@ public class UIController : MonoBehaviour
         ColorPalette cp = uiManager.ActivePalette;
         FontPalette fp = uiManager.ActiveFontPalette;
 
+        // Apply colors & gradients first
         ApplyColour(outlines, cp.outline);
         ApplyColour(backgrounds, cp.background);
         ApplyColour(lightBackgrounds, cp.lightBackground);
@@ -214,6 +217,24 @@ public class UIController : MonoBehaviour
         ApplyColour(interactSliders, cp.text);
         ApplyColour(interactFields, cp.text);
 
+        // NEW: hide all affected TMP_Texts during font asset/style/size/spacing changes
+        ApplyFontsHidden(fp);
+    }
+
+    // === NEW: hide-while-changing-font helper ===
+    void ApplyFontsHidden(FontPalette fp)
+    {
+        var set = GatherAllTMPTexts();
+        var states = new List<KeyValuePair<TMP_Text, bool>>(set.Count);
+
+        foreach (var t in set)
+        {
+            if (!t) continue;
+            states.Add(new KeyValuePair<TMP_Text, bool>(t, t.enabled));
+            t.enabled = false;
+        }
+
+        // Apply font settings while hidden
         ApplyFont(header1s, fp.header1);
         ApplyFont(header2s, fp.header2);
         ApplyFont(body1s, fp.body1);
@@ -224,7 +245,50 @@ public class UIController : MonoBehaviour
         ApplyFont(interactHeaders, fp.interactHeader);
         ApplyFont(interactSliders, fp.interactSlider);
         ApplyFont(interactFields, fp.interactField);
+
+        // Restore original enabled states
+        for (int i = 0; i < states.Count; i++)
+        {
+            var t = states[i].Key;
+            if (t) t.enabled = states[i].Value;
+        }
     }
+
+    HashSet<TMP_Text> GatherAllTMPTexts()
+    {
+        var set = new HashSet<TMP_Text>();
+        AddList(set, header1s);
+        AddList(set, header2s);
+        AddList(set, body1s);
+        AddList(set, body2s);
+        AddList(set, notificationHeaders);
+        AddList(set, notificationBodies);
+        AddList(set, tooltips);
+        AddList(set, interactHeaders);
+        AddList(set, interactSliders);
+        AddList(set, interactFields);
+        // include any TMP_Texts added in generic 'texts'
+        if (texts != null)
+        {
+            for (int i = 0; i < texts.Count; i++)
+            {
+                var tt = texts[i] as TMP_Text;
+                if (tt) set.Add(tt);
+            }
+        }
+        return set;
+    }
+
+    static void AddList(HashSet<TMP_Text> set, List<TMP_Text> list)
+    {
+        if (list == null) return;
+        for (int i = 0; i < list.Count; i++)
+        {
+            var t = list[i];
+            if (t) set.Add(t);
+        }
+    }
+    // === END: hide helper ===
 
     void ApplyColour(List<Image> imgs, Color c)
     {

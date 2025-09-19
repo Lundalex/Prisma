@@ -7,6 +7,10 @@ using UnityEngine.Localization.Settings;
 using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 [CreateAssetMenu(fileName = "ProgramManagerAsset", menuName = "ProgramManager")]
 public class ProgramManager : ScriptableObject
 {
@@ -640,9 +644,11 @@ public class ProgramManager : ScriptableObject
         rapidFrameSteppingTimer = null;
 
         SetLastOpenedScene();
-#if UNITY_EDITOR
-        userSettings.Reset();
-#endif
+
+        // NOTE:
+        // We no longer call userSettings.Reset() here, because OnDestroy also
+        // executes on every scene reload during Play Mode.
+        // Reset is now handled by an editor-only playmode hook below.
     }
 
     public void UnsubscribeFromActions()
@@ -742,3 +748,40 @@ public class ProgramManager : ScriptableObject
         }
     }
 }
+
+#if UNITY_EDITOR
+// ─────────────────────────────────────────────────────────────────────────────
+// EDITOR-ONLY: Reset UserSettings once when exiting Play Mode (not on scene reload)
+// ─────────────────────────────────────────────────────────────────────────────
+[InitializeOnLoad]
+static class ProgramManager_PlaymodeResetHook
+{
+    private static bool queuedReset;
+
+    static ProgramManager_PlaymodeResetHook()
+    {
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+    }
+
+    private static void OnPlayModeStateChanged(PlayModeStateChange state)
+    {
+        if (state == PlayModeStateChange.ExitingPlayMode)
+        {
+            // We are leaving play mode; queue reset to happen after we're back in edit mode.
+            queuedReset = true;
+        }
+        else if (state == PlayModeStateChange.EnteredEditMode && queuedReset)
+        {
+            queuedReset = false;
+
+            var pm = ProgramManager.Instance;
+            if (pm != null && pm.userSettings != null)
+            {
+                pm.userSettings.Reset();
+                EditorUtility.SetDirty(pm.userSettings);
+                AssetDatabase.SaveAssets();
+            }
+        }
+    }
+}
+#endif
