@@ -11,12 +11,18 @@ public class SideTask : Task
     {
         base.SetWindowByTaskType(multiLine_usesA);
 
-        bool isMulti = !multiLine_usesA; // invert bool as crude fix.
+        bool isMulti = !multiLine_usesA; // keep your current inversion fix
 
         if (singleLineStretchTarget != null)
             singleLineStretchTarget.gameObject.SetActive(!isMulti);
 
         if (multiLineStretchTarget != null)
             multiLineStretchTarget.gameObject.SetActive(isMulti);
+    }
+
+    // Exposed so buttons/events on the side task can open the fullscreen
+    public void OpenFullscreenView()
+    {
+        TaskManager?.OpenFullscreenView();
     }
 }

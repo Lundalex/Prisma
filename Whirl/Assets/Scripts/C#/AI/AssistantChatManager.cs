@@ -1,14 +1,3 @@
-// ───────────────────────────────────────────────────────────────────────────── 
-// AssistantChatManager.cs
-// - Adds overrideSpecialMarking: force user=normal, assistant=special (overrides presets)
-// - Fixes "spacialMessage" -> "specialMessage" (kept with FormerlySerializedAs for compatibility)
-// - Adds firstResponseTimeoutSeconds under Resilience:
-//     * streaming: cancel & retry if no partial arrives before timeout
-//     * non-streaming: cancel & retry if full answer not returned before 2x timeout
-// - NEW: Sends a single initial AI message at Start (prefab if assigned).
-// - NEW: initialMessagePrefab (inspector): instantiate this prefab for the initial message (non-streaming).
-// - CHANGE: Added expandOnInitialAssistantMessage (default false). Initial message no longer forces panel Expand().
-// ─────────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections;
 using System.Threading;
@@ -24,11 +13,9 @@ public class SpecialMessagePreset
     [TextArea] public string visText;
     [TextArea] public string sendText;
 
-    // Typo fixed + backward compatibility for existing scenes
     [FormerlySerializedAs("spacialMessage")]
     public bool specialMessage = false;
 
-    [Tooltip("If true, the USER bubble created from this preset will animate its text (type-on).")]
     public bool streamAnimation = false;
 }
 
@@ -45,63 +32,50 @@ public class AssistantChatManager : MonoBehaviour
     [SerializeField] private StreamingMessage.StretchOrigin assistantStretchOrigin = StreamingMessage.StretchOrigin.Left;
 
     [Header("Input Source")]
-    [Tooltip("Reference to the UserAssistantField that raises a no-arg onSend UnityEvent and exposes lastSentMessage.")]
     [SerializeField] private UserAssistantField userAssistantField;
 
     [Header("Assistant")]
-    [Tooltip("If true, answers will stream token-by-token into the assistant bubble.")]
     [SerializeField] private bool responseStreaming = true;
     [SerializeField] private string openAIModel = "gpt-4o";
 
     [Header("Special Message (AI 'Almost')")]
-    [Tooltip("If true, the AI's special 'almost' message (header + feedback) will animate with a type-on effect.")]
     [SerializeField] private bool streamAlmostAssistantMessage = false;
 
     [Header("Communication")]
-    [Tooltip("Optional: settings bundle (instructions/context/docs) used to build the combined prompt.")]
     [SerializeField] private CommunicationSettings communicationSettings;
 
     [Header("Placeholders")]
-    [Tooltip("Shown in the assistant bubble while waiting for the answer.")]
     [SerializeField] private string assistantThinkingText = "…";
 
     [Header("Message Style Overrides")]
-    [Tooltip("If enabled: all USER messages are normal bubbles; all ASSISTANT messages are special bubbles. Overrides presets.")]
     [SerializeField] private bool overrideSpecialMarking = false;
 
     [Header("Resilience")]
-    [Tooltip("Max attempts for message retrieval.")]
     [SerializeField] private int maxAttempts = 3;
-
-    [Tooltip("Seconds to wait for the FIRST streamed token. If none arrives in time, cancel & retry. Non-streaming calls use 2x this value.")]
     [Min(2.0f)]
     [SerializeField] private float firstResponseTimeoutSeconds = 6f;
-
-    [Tooltip("Text shown if all attempts fail.")]
     [SerializeField] private string errorFallbackText = "Fel: kunde inte hämta svar.";
 
     [Header("Events")]
-    [Tooltip("Invoked EVERY time text is applied to a message bubble (user, assistant, streaming updates, errors, etc).")]
-    public UnityEvent onMessageTextSet;  // no parameters
+    public UnityEvent onMessageTextSet;
 
     [Header("Scroll")]
     public Scrollbar scrollBar;
 
     [Header("Expand/Minimize")]
-    [Tooltip("Optional. Will call Expand() every time a message is sent (user or special).")]
     [SerializeField] private RectExpandMinimizeController expandMinimizeController;
 
     [Header("Initial Message Behavior")]
-    [Tooltip("If true, the panel will Expand() when the initial assistant message is posted at Start(). Default: false.")]
     [SerializeField] private bool expandOnInitialAssistantMessage = false;
 
     [Header("Special Message Presets")]
-    [Tooltip("Lookup table for SendPresetUserMessage(presetName). Matching is case-insensitive and trims whitespace.")]
     [SerializeField] private SpecialMessagePreset[] specialMessagePresets;
+    [SerializeField] private GameObject fullscreenView;
 
     private SmartAssistant assistant;
     private CancellationTokenSource streamCts;
     private Coroutine _scrollbarResetRoutine;
+    private Coroutine _deferredExpandRoutine;
 
     void Awake()
     {
@@ -112,7 +86,6 @@ public class AssistantChatManager : MonoBehaviour
 
     void Start()
     {
-        // Post a single, initial assistant message at Start if a prefab is assigned.
         if (initialMessagePrefab == null)
         {
             Debug.LogWarning("initialMessagePrefab not assigned in inspector. Skipping sending an initial message");
@@ -125,21 +98,20 @@ public class AssistantChatManager : MonoBehaviour
             return;
         }
 
-        // IMPORTANT CHANGE: Do NOT auto-expand on initial message unless explicitly enabled.
-        if (expandMinimizeController != null && expandOnInitialAssistantMessage)
-            expandMinimizeController.Expand();
+        if (expandOnInitialAssistantMessage)
+            EnsureFullscreenAndExpanded();
 
-        // Instantiate the provided prefab exactly as configured in the project.
         var msg = Instantiate(initialMessagePrefab, messageList);
         msg.name = "AssistantMessage_Initial";
         msg.SetStretchOrigin(assistantStretchOrigin);
-        // Force non-streaming for the initial message
         msg.SetStreamOptions(false);
-        // We don't override its text; it's expected to be set up inside the prefab.
+
+        // Always pin initial message to the top
+        msg.transform.SetAsFirstSibling();
+
         onMessageTextSet?.Invoke();
     }
 
-    /// <summary>Hook this to UserAssistantField.onSend (no parameters).</summary>
     public void OnUserSend()
     {
         if (userAssistantField == null)
@@ -148,17 +120,22 @@ public class AssistantChatManager : MonoBehaviour
             return;
         }
         var userMessage = userAssistantField.lastSentMessage ?? string.Empty;
+        EnsureFullscreenAndExpanded();
         HandleUserMessage(userMessage);
     }
 
     // Kept for compatibility
-    public void OnUserMessageRecieved(string userMessage) => HandleUserMessage(userMessage);
-    public void OnUserMessageReceived(string userMessage) => HandleUserMessage(userMessage);
+    public void OnUserMessageRecieved(string userMessage)
+    {
+        EnsureFullscreenAndExpanded();
+        HandleUserMessage(userMessage);
+    }
+    public void OnUserMessageReceived(string userMessage)
+    {
+        EnsureFullscreenAndExpanded();
+        HandleUserMessage(userMessage);
+    }
 
-    /// <summary>
-    /// Send a message by preset name. The preset defines visText, sendText, specialMessage, and streamAnimation.
-    /// Also calls Expand() on the configured RectExpandMinimizeController (if any).
-    /// </summary>
     public void SendPresetUserMessage(string specialMessagePresetName)
     {
         var preset = FindPresetByName(specialMessagePresetName);
@@ -168,8 +145,7 @@ public class AssistantChatManager : MonoBehaviour
             return;
         }
 
-        if (expandMinimizeController != null)
-            expandMinimizeController.Expand();
+        EnsureFullscreenAndExpanded();
 
         _ = HandleUserMessageCore(
             visText: preset.visText ?? string.Empty,
@@ -179,11 +155,6 @@ public class AssistantChatManager : MonoBehaviour
         );
     }
 
-    /// <summary>
-    /// PUBLIC API: Post a SPECIAL assistant message (header + body).
-    /// Header may come from AI (possibly translated). Streaming is controlled by 'streamAlmostAssistantMessage'.
-    /// Always uses SPECIAL style (and also when overrideSpecialMarking is enabled).
-    /// </summary>
     public void PostAssistantSpecialMessage(string header, string body)
     {
         if (messageList == null)
@@ -192,8 +163,7 @@ public class AssistantChatManager : MonoBehaviour
             return;
         }
 
-        if (expandMinimizeController != null)
-            expandMinimizeController.Expand();
+        EnsureFullscreenAndExpanded();
 
         var prefab = (specialMessagePrefab != null ? specialMessagePrefab : messagePrefab);
         if (prefab == null)
@@ -208,18 +178,18 @@ public class AssistantChatManager : MonoBehaviour
 
         header = string.IsNullOrWhiteSpace(header) ? "Note" : header.Trim();
         body = (body ?? string.Empty).Trim();
-
         string combined = string.IsNullOrEmpty(body) ? header : $"{header}\n\n{body}";
 
-        // Configure streaming for the special message
         msg.SetStreamOptions(streamAlmostAssistantMessage);
         if (streamAlmostAssistantMessage) msg.SetText(combined);
         else msg.SetTextImmediate(combined);
 
+        // Ensure special assistant messages append below existing content
+        msg.transform.SetAsLastSibling();
+
         onMessageTextSet?.Invoke();
     }
 
-    /// <summary>Clears all chat bubbles and resets the scrollbar on the next frame.</summary>
     public void ClearChat()
     {
         if (streamCts != null)
@@ -266,23 +236,20 @@ public class AssistantChatManager : MonoBehaviour
         }
     }
 
-    // ----- Internal routing (kept for backward compatibility with existing hooks) -----
-
     private async void HandleUserMessage(string userMessage)
     {
-        if (expandMinimizeController != null)
-            expandMinimizeController.Expand();
-
+        EnsureFullscreenAndExpanded();
         await HandleUserMessageCore(userMessage ?? string.Empty, userMessage ?? string.Empty, false, false);
     }
 
-    // Shared implementation used by both the classic and preset-based APIs.
     private async System.Threading.Tasks.Task HandleUserMessageCore(
         string visText,
         string sendText,
         bool specialMessageRequested,
         bool userStreamAnimation)
     {
+        EnsureFullscreenAndExpanded();
+
         if ((messagePrefab == null && specialMessagePrefab == null) || messageList == null)
         {
             Debug.LogError("[AssistantChatManager] messagePrefab/specialMessagePrefab or messageList is not assigned.");
@@ -293,7 +260,6 @@ public class AssistantChatManager : MonoBehaviour
         {
             assistant = SmartAssistant.FindByTagOrNull();
 
-            // Even if assistant is missing, still render the UI messages to keep UX consistent.
             var userPrefabToUse = ResolveUserPrefab(specialMessageRequested);
             var userMsgFallback = Instantiate(userPrefabToUse, messageList);
             userMsgFallback.name = $"UserMessage_{Time.frameCount}";
@@ -301,21 +267,21 @@ public class AssistantChatManager : MonoBehaviour
             userMsgFallback.SetStreamOptions(userStreamAnimation);
             if (userStreamAnimation) userMsgFallback.SetText(visText ?? string.Empty);
             else userMsgFallback.SetTextImmediate(visText ?? string.Empty);
+            userMsgFallback.transform.SetAsLastSibling();
 
             var assistantPrefabToUse = ResolveAssistantPrefab();
             var assistantMsgFallback = Instantiate(assistantPrefabToUse, messageList);
             assistantMsgFallback.name = $"AssistantMessage_{Time.frameCount}";
             assistantMsgFallback.SetStretchOrigin(assistantStretchOrigin);
             ApplyText(assistantMsgFallback, "Assistant saknas i scenen (tag 'SmartAssistant').");
+            assistantMsgFallback.transform.SetAsLastSibling();
 
             Debug.LogError("[AssistantChatManager] Could not find SmartAssistant (tag 'SmartAssistant').");
             return;
         }
 
-        // Build prompt using the CommunicationSettings (if assigned) and the *sendText* (NOT visText)
         var promptToSend = assistant.BuildPrompt(communicationSettings, sendText);
 
-        // Create user message bubble (visible text)
         var userPrefab = ResolveUserPrefab(specialMessageRequested);
         var userMsg = Instantiate(userPrefab, messageList);
         userMsg.name = $"UserMessage_{Time.frameCount}";
@@ -323,15 +289,15 @@ public class AssistantChatManager : MonoBehaviour
         userMsg.SetStreamOptions(userStreamAnimation);
         if (userStreamAnimation) userMsg.SetText(visText ?? string.Empty);
         else userMsg.SetTextImmediate(visText ?? string.Empty);
+        userMsg.transform.SetAsLastSibling();
 
-        // Create assistant placeholder bubble
         var assistantPrefab = ResolveAssistantPrefab();
         var assistantMsg = Instantiate(assistantPrefab, messageList);
         assistantMsg.name = $"AssistantMessage_{Time.frameCount}";
         assistantMsg.SetStretchOrigin(assistantStretchOrigin);
         ApplyText(assistantMsg, string.IsNullOrEmpty(assistantThinkingText) ? "" : assistantThinkingText);
+        assistantMsg.transform.SetAsLastSibling();
 
-        // Cancel any prior attempt
         streamCts?.Cancel();
         streamCts?.Dispose();
         streamCts = new CancellationTokenSource();
@@ -349,7 +315,6 @@ public class AssistantChatManager : MonoBehaviour
                     {
                         bool beganStreaming = false;
 
-                        // Watchdog: if no partial arrives in time, cancel attempt and retry
                         _ = System.Threading.Tasks.Task.Run(async () =>
                         {
                             try
@@ -359,7 +324,7 @@ public class AssistantChatManager : MonoBehaviour
                                 if (!beganStreaming && !attemptCts.IsCancellationRequested)
                                     attemptCts.Cancel();
                             }
-                            catch { /* ignore */ }
+                            catch { }
                         });
 
                         string finalAnswer = await assistant.SendMessageStreamToCallbackAsync(
@@ -369,7 +334,6 @@ public class AssistantChatManager : MonoBehaviour
                                 beganStreaming = true;
                                 if (assistantMsg != null)
                                 {
-                                    // Assistant bubble text updates instantly (visual animation is handled by StreamingMessage, if any)
                                     ApplyText(assistantMsg, partial ?? string.Empty);
                                 }
                             },
@@ -382,7 +346,6 @@ public class AssistantChatManager : MonoBehaviour
                     }
                     else
                     {
-                        // Non-streaming watchdog: total timeout = 2x firstResponseTimeoutSeconds
                         int ms = Mathf.Max(500, Mathf.RoundToInt(firstResponseTimeoutSeconds * 2000f));
                         var answerTask = assistant.SendMessageAsync(
                             promptToSend,
@@ -395,17 +358,16 @@ public class AssistantChatManager : MonoBehaviour
                         var completed = await System.Threading.Tasks.Task.WhenAny(answerTask, timeoutTask);
                         if (completed == timeoutTask)
                         {
-                            // Cancel and let retry loop handle next attempt
                             attemptCts.Cancel();
                             throw new OperationCanceledException("Non-streaming response timed out.");
                         }
 
-                        string answer = await answerTask; // propagate exceptions if any
+                        string answer = await answerTask;
                         ApplyText(assistantMsg, answer ?? "");
                     }
 
                     success = true;
-                    break; // exit retry loop
+                    break;
                 }
                 catch (OperationCanceledException oce)
                 {
@@ -447,11 +409,9 @@ public class AssistantChatManager : MonoBehaviour
 
     private StreamingMessage ResolveUserPrefab(bool specialMessageRequested)
     {
-        // If override is ON, user messages are ALWAYS normal
         if (overrideSpecialMarking)
             return messagePrefab ?? specialMessagePrefab;
 
-        // Otherwise, respect the request (fall back gracefully)
         if (specialMessageRequested)
         {
             if (specialMessagePrefab != null) return specialMessagePrefab;
@@ -462,17 +422,14 @@ public class AssistantChatManager : MonoBehaviour
             }
             return null;
         }
-        // Regular path
         return messagePrefab ?? specialMessagePrefab;
     }
 
     private StreamingMessage ResolveAssistantPrefab()
     {
-        // If override is ON, assistant messages are ALWAYS special
         if (overrideSpecialMarking)
             return specialMessagePrefab != null ? specialMessagePrefab : messagePrefab;
 
-        // Otherwise: default assistant style is regular (falls back to special if missing)
         return messagePrefab ?? specialMessagePrefab;
     }
 
@@ -489,7 +446,6 @@ public class AssistantChatManager : MonoBehaviour
         }
     }
 
-    /// <summary>Centralized helper to set text instantly (assistant & special messages that aren't animated).</summary>
     private void ApplyText(StreamingMessage msg, string text)
     {
         if (msg == null) return;
@@ -509,5 +465,28 @@ public class AssistantChatManager : MonoBehaviour
         }
 
         _scrollbarResetRoutine = null;
+    }
+
+    private void EnsureFullscreenAndExpanded()
+    {
+        if (fullscreenView != null && !fullscreenView.activeSelf)
+            fullscreenView.SetActive(true);
+
+        if (expandMinimizeController == null) return;
+
+        if (_deferredExpandRoutine != null) StopCoroutine(_deferredExpandRoutine);
+        _deferredExpandRoutine = StartCoroutine(DeferredExpand());
+    }
+
+    private IEnumerator DeferredExpand()
+    {
+        yield return null;
+        yield return new WaitForEndOfFrame();
+        Canvas.ForceUpdateCanvases();
+
+        if (expandMinimizeController != null)
+            expandMinimizeController.Expand();
+
+        _deferredExpandRoutine = null;
     }
 }

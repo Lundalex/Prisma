@@ -36,13 +36,20 @@ public class TaskManager : MonoBehaviour
     [Header("Chat")]
     [SerializeField] private AssistantChatManager assistantChatManager;
 
-    // Cached per-task refs (main)
+    [Header("Fullscreen")]
+    [SerializeField] private GameObject fullscreenView;
+
     [SerializeField, HideInInspector] private List<GameObject> taskWindowGOs = new();
     [SerializeField, HideInInspector] private List<Task> taskScripts = new();
 
-    // Cached per-task refs (side)
     [SerializeField, HideInInspector] private List<GameObject> sideTaskWindowGOs = new();
     [SerializeField, HideInInspector] private List<SideTask> sideTaskScripts = new();
+
+    public void OpenFullscreenView()
+    {
+        if (fullscreenView != null && !fullscreenView.activeSelf)
+            fullscreenView.SetActive(true);
+    }
 
     private void OnChanged()
     {
@@ -488,7 +495,6 @@ public class TaskManager : MonoBehaviour
             assistantChatManager.SendPresetUserMessage("Tip");
     }
 
-    // ---------- Lifecycle & persistence ----------
     private void Awake() => UpdateNeighbors();
 
     private void OnEnable()
@@ -550,7 +556,6 @@ public class TaskManager : MonoBehaviour
         }
     }
 
-    // ---------- Types ----------
     [System.Serializable]
     private struct AnswerFieldColors
     {
