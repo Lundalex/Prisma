@@ -67,6 +67,7 @@ public class TaskManager : MonoBehaviour
         if (dualMultiContainer != null && tasks.Count > 0)
         {
             int idx = Mathf.Clamp(taskSelector != null ? taskSelector.index : 0, 0, tasks.Count - 1);
+            // useAlt = SingleLine
             dualMultiContainer.SetStretchTargetAlt(tasks[idx].taskType == TaskType.SingleLine);
         }
     }
@@ -260,6 +261,32 @@ public class TaskManager : MonoBehaviour
             view.SetWindowByTaskType(t.taskType == TaskType.MultiLine);
             view.SetNextToggleByHasRight(t.hasRightTask);
 
+            // --- Single-line UI (AutoGrowToText) wiring ---
+            var grow = view.SingleLineAutoGrow != null
+                ? view.SingleLineAutoGrow
+                : view.GetComponentInChildren<AutoGrowToText>(true);
+
+            if (grow != null)
+            {
+                grow.SetLeftText(t.singleLineSettings.leftText);
+                grow.SetRightText(t.singleLineSettings.rightText);
+                grow.SetPlaceholder(t.placeholder);
+
+                grow.SetFitMode(t.singleLineSettings.inputFitMode);
+                if (t.singleLineSettings.inputFitMode == InputFitMode.Absolute)
+                {
+                    float min = Mathf.Max(1f, t.singleLineSettings.minWidth);
+                    float max = Mathf.Max(min, t.singleLineSettings.maxWidth);
+                    grow.SetMinMaxWidth(min, max);
+                }
+                else
+                {
+                    grow.SetParentPadding(Mathf.Max(0f, t.singleLineSettings.parentPadding));
+                }
+
+                grow.ForceRecomputeNow();
+            }
+
             if (i < taskWindowGOs.Count)
             {
                 var go = taskWindowGOs[i];
@@ -269,6 +296,11 @@ public class TaskManager : MonoBehaviour
                     for (int j = 0; j < fields.Length; j++)
                     {
                         var f = fields[j];
+
+                        // Keep answer key in sync
+                        f.answerKey = t.answerKey;
+
+                        // Colors/FX
                         f.ApplyColors(
                             answerFieldColors.normal,
                             answerFieldColors.edit,
@@ -283,6 +315,23 @@ public class TaskManager : MonoBehaviour
                             feedbackAnimations.outlineLerp
                         );
                         f.SetPlaceholder(t.placeholder);
+
+                        // Per-mode settings
+                        if (f is UserMultiLineAnswerField)
+                        {
+                            f.SetCheckMode(t.multiLineSettings.checkMode);
+                            f.SetAllowAIThinking(t.multiLineSettings.allowAIThinking);
+                        }
+                        else
+                        {
+                            f.SetCaseSensitive(t.singleLineSettings.caseSensitive);
+                            f.SetCheckMode(t.singleLineSettings.checkMode);
+                        }
+
+                        // Shared settings
+                        f.SetGradingSettings(t.gradingSettings);
+                        var aic = t.aiConditionDescriptions;
+                        f.SetAIInstructions(aic.isCorrect, aic.isAlmost, aic.isAlmostFeedback, aic.doGiveAlmostFeedback);
                     }
                 }
             }
@@ -302,6 +351,32 @@ public class TaskManager : MonoBehaviour
             view.SetWindowByTaskType(t.taskType == TaskType.MultiLine);
             view.SetNextToggleByHasRight(t.hasRightTask);
 
+            // --- Single-line UI (AutoGrowToText) wiring (side) ---
+            var grow = view.SingleLineAutoGrow != null
+                ? view.SingleLineAutoGrow
+                : view.GetComponentInChildren<AutoGrowToText>(true);
+
+            if (grow != null)
+            {
+                grow.SetLeftText(t.singleLineSettings.leftText);
+                grow.SetRightText(t.singleLineSettings.rightText);
+                grow.SetPlaceholder(t.placeholder);
+
+                grow.SetFitMode(t.singleLineSettings.inputFitMode);
+                if (t.singleLineSettings.inputFitMode == InputFitMode.Absolute)
+                {
+                    float min = Mathf.Max(1f, t.singleLineSettings.minWidth);
+                    float max = Mathf.Max(min, t.singleLineSettings.maxWidth);
+                    grow.SetMinMaxWidth(min, max);
+                }
+                else
+                {
+                    grow.SetParentPadding(Mathf.Max(0f, t.singleLineSettings.parentPadding));
+                }
+
+                grow.ForceRecomputeNow();
+            }
+
             if (i < sideTaskWindowGOs.Count)
             {
                 var go = sideTaskWindowGOs[i];
@@ -311,6 +386,11 @@ public class TaskManager : MonoBehaviour
                     for (int j = 0; j < fields.Length; j++)
                     {
                         var f = fields[j];
+
+                        // Keep answer key in sync
+                        f.answerKey = t.answerKey;
+
+                        // Colors/FX
                         f.ApplyColors(
                             answerFieldColors.normal,
                             answerFieldColors.edit,
@@ -325,6 +405,23 @@ public class TaskManager : MonoBehaviour
                             feedbackAnimations.outlineLerp
                         );
                         f.SetPlaceholder(t.placeholder);
+
+                        // Per-mode settings
+                        if (f is UserMultiLineAnswerField)
+                        {
+                            f.SetCheckMode(t.multiLineSettings.checkMode);
+                            f.SetAllowAIThinking(t.multiLineSettings.allowAIThinking);
+                        }
+                        else
+                        {
+                            f.SetCaseSensitive(t.singleLineSettings.caseSensitive);
+                            f.SetCheckMode(t.singleLineSettings.checkMode);
+                        }
+
+                        // Shared settings
+                        f.SetGradingSettings(t.gradingSettings);
+                        var aic = t.aiConditionDescriptions;
+                        f.SetAIInstructions(aic.isCorrect, aic.isAlmost, aic.isAlmostFeedback, aic.doGiveAlmostFeedback);
                     }
                 }
             }
@@ -345,8 +442,9 @@ public class TaskManager : MonoBehaviour
             SideTask st = (i < sideTaskScripts.Count) ? sideTaskScripts[i] : null;
             if (st != null)
             {
-                defaults[i] = st.singleLineStretchTarget;
-                alts[i]     = st.multiLineStretchTarget;
+                // default = MultiLine, alt = SingleLine (useAlt true for SingleLine elsewhere)
+                defaults[i] = st.multiLineStretchTarget;
+                alts[i]     = st.singleLineStretchTarget;
             }
         }
 
@@ -482,7 +580,30 @@ public class TaskManager : MonoBehaviour
         if (workspaceWindowManager != null) workspaceWindowManager.OpenWindowByIndex(index);
         if (sideWindowManager != null) sideWindowManager.OpenWindowByIndex(index);
 
-        if (taskSelector != null) { taskSelector.index = index; taskSelector.UpdateUI(); }
+        if (taskSelector != null)
+        {
+            taskSelector.index = index;
+    #if UNITY_EDITOR
+            // In Edit Mode, avoid HorizontalSelector.UpdateUI() because it starts a coroutine.
+            if (!Application.isPlaying)
+            {
+                if (taskSelector.label != null && taskSelector.items.Count > 0)
+                    taskSelector.label.text = taskSelector.items[index].itemTitle;
+
+                if (taskSelector.labelHelper != null)
+                    taskSelector.labelHelper.text = taskSelector.label != null
+                        ? taskSelector.label.text
+                        : (taskSelector.items.Count > 0 ? taskSelector.items[index].itemTitle : string.Empty);
+            }
+            else
+            {
+                taskSelector.UpdateUI();
+            }
+    #else
+            taskSelector.UpdateUI();
+    #endif
+        }
+
         if (markedIndicators != null) markedIndicators.SetPrevNext(index, tasks.Count);
 
         if (dualMultiContainer != null)
@@ -505,6 +626,18 @@ public class TaskManager : MonoBehaviour
             if (loaded != null) tasks = loaded;
         }
         UpdateNeighbors();
+
+#if UNITY_EDITOR
+        EditorApplication.playModeStateChanged -= HandleEditorPlayModeChanged;
+        EditorApplication.playModeStateChanged += HandleEditorPlayModeChanged;
+#endif
+    }
+
+    private void OnDisable()
+    {
+#if UNITY_EDITOR
+        EditorApplication.playModeStateChanged -= HandleEditorPlayModeChanged;
+#endif
     }
 
     private void OnDestroy()
@@ -584,6 +717,12 @@ public class TaskManager : MonoBehaviour
         public bool caseSensitive;
         public CheckMode checkMode;
         public string leftText, rightText;
+
+        // Fit & size for AutoGrowToText
+        public InputFitMode inputFitMode;  // Relative = fit to parent (parentPadding); Absolute = min/max
+        public float minWidth;             // Absolute
+        public float maxWidth;             // Absolute
+        public float parentPadding;        // Relative
     }
 
     [System.Serializable]
@@ -682,6 +821,81 @@ public class TaskManager : MonoBehaviour
         }
     }
 
+    [CustomPropertyDrawer(typeof(SingleLineSettings))]
+    private class SingleLineSettingsDrawer : PropertyDrawer
+    {
+        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+        {
+            float h = 0f;
+            float v = EditorGUIUtility.standardVerticalSpacing;
+            float line(string rel) => EditorGUI.GetPropertyHeight(property.FindPropertyRelative(rel), true);
+
+            h += line("caseSensitive") + v;
+            h += line("checkMode") + v;
+            h += line("leftText") + v;
+            h += line("rightText") + v;
+
+            var fit = property.FindPropertyRelative("inputFitMode");
+            h += EditorGUIUtility.singleLineHeight + v; // inputFitMode
+            if ((InputFitMode)fit.enumValueIndex == InputFitMode.Absolute)
+            {
+                h += line("minWidth") + v;
+                h += line("maxWidth") + v;
+            }
+            else
+            {
+                h += line("parentPadding") + v;
+            }
+
+            return h;
+        }
+
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            float y = position.y;
+            float v = EditorGUIUtility.standardVerticalSpacing;
+            float w = position.width;
+
+            Rect Row(float height)
+            {
+                var r = new Rect(position.x, y, w, height);
+                y += height + v;
+                return r;
+            }
+
+            EditorGUI.BeginProperty(position, label, property);
+            EditorGUI.indentLevel++;
+
+            EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("caseSensitive"), true)),
+                property.FindPropertyRelative("caseSensitive"));
+            EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("checkMode"), true)),
+                property.FindPropertyRelative("checkMode"));
+            EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("leftText"), true)),
+                property.FindPropertyRelative("leftText"));
+            EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("rightText"), true)),
+                property.FindPropertyRelative("rightText"));
+
+            var fitProp = property.FindPropertyRelative("inputFitMode");
+            EditorGUI.PropertyField(Row(EditorGUIUtility.singleLineHeight), fitProp);
+
+            if ((InputFitMode)fitProp.enumValueIndex == InputFitMode.Absolute)
+            {
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("minWidth"), true)),
+                    property.FindPropertyRelative("minWidth"));
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("maxWidth"), true)),
+                    property.FindPropertyRelative("maxWidth"));
+            }
+            else
+            {
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("parentPadding"), true)),
+                    property.FindPropertyRelative("parentPadding"));
+            }
+
+            EditorGUI.indentLevel--;
+            EditorGUI.EndProperty();
+        }
+    }
+
     private int _lastHash;
     private double _nextCheckTime;
 
@@ -691,7 +905,7 @@ public class TaskManager : MonoBehaviour
     {
         double now = EditorApplication.timeSinceStartup;
         if (now < _nextCheckTime) return;
-        _nextCheckTime = now + 1.0;
+        _nextCheckTime = now + 0.1f;
 
         int h = ComputeStateHash();
         if (h != _lastHash)
@@ -743,6 +957,11 @@ public class TaskManager : MonoBehaviour
                 hash = hash * 23 + sl.checkMode.GetHashCode();
                 hash = hash * 23 + (sl.leftText != null ? sl.leftText.GetHashCode() : 0);
                 hash = hash * 23 + (sl.rightText != null ? sl.rightText.GetHashCode() : 0);
+                // NEW fields:
+                hash = hash * 23 + sl.inputFitMode.GetHashCode();
+                hash = hash * 23 + sl.minWidth.GetHashCode();
+                hash = hash * 23 + sl.maxWidth.GetHashCode();
+                hash = hash * 23 + sl.parentPadding.GetHashCode();
 
                 var ml = t.multiLineSettings;
                 hash = hash * 23 + ml.checkMode.GetHashCode();
@@ -755,6 +974,27 @@ public class TaskManager : MonoBehaviour
 
             return hash;
         }
+    }
+
+    // -------- Editor-only: force selector to first task when stopping Play Mode --------
+    private void HandleEditorPlayModeChanged(PlayModeStateChange change)
+    {
+        if (change == PlayModeStateChange.EnteredEditMode)
+            ResetSelectorToFirstInEditor();
+    }
+
+    private void ResetSelectorToFirstInEditor()
+    {
+        if (tasks == null || tasks.Count == 0) return;
+
+        EditorApplication.delayCall += () =>
+        {
+            if (this == null) return;
+
+            if (taskSelector != null) taskSelector.defaultIndex = 0;
+
+            OpenTaskByIndex(0);
+        };
     }
 #endif
 }

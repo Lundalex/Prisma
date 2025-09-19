@@ -3,8 +3,6 @@ using UnityEngine.UI;
 using System.Collections;
 using Resources2;
 using Michsky.MUIP;
-using Unity.VisualScripting;
-using Utilities.Extensions;
 
 [ExecuteInEditMode]
 public class MultiContainer : MonoBehaviour
@@ -29,7 +27,7 @@ public class MultiContainer : MonoBehaviour
     [SerializeField] private float minimizedHandleScaleMultiplier = 1.4f;
 
     [Header("Icon Tuning")]
-    [Tooltip("Multiplier applied to the REGULAR handle icon’s scale (used to fine-tune visual size).")]
+    [Tooltip("Multiplier applied to the REGULAR handle icon scales (used to fine-tune visual size).")]
     public float regularIconScaleFactor = 0.8f;
 
     [Header("Tooltips")]

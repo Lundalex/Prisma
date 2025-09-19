@@ -280,7 +280,7 @@ public class UserAnswerField : MonoBehaviour
                              : string.Equals(answer, key, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ---- NEW: styling/behavior hooks from TaskManager ----
+    // ---- Styling/behavior hooks from TaskManager (existing) ----
     public void ApplyColors(Color normal, Color edit, Color success, Color fail, Color almost)
     {
         defaultColor = normal;
@@ -305,7 +305,23 @@ public class UserAnswerField : MonoBehaviour
     {
         if (placeholder != null) placeholder.text = text ?? string.Empty;
     }
-    // ------------------------------------------------------
+
+    // ---- NEW: explicit setters so TaskManager can wire task settings cleanly ----
+    public void SetCaseSensitive(bool value) => caseSensitive = value;
+    public void SetCheckMode(CheckMode mode) => checkMode = mode;
+    public void SetAllowAIThinking(bool value) => allowAIThinking = value;
+    public void SetGradingSettings(CommunicationSettings settings) => gradingCommunicationSettings = settings;
+
+    public void SetAIInstructions(string isCorrect, string isAlmost, string almostFeedback, bool postAlmostToChat, string customAlmostHeaderInstruction = null)
+    {
+        if (!string.IsNullOrWhiteSpace(isCorrect))       isCorrectInstructions = isCorrect;
+        if (!string.IsNullOrWhiteSpace(isAlmost))        isAlmostInstructions = isAlmost;
+        if (!string.IsNullOrWhiteSpace(almostFeedback))  almostFeedbackInstructions = almostFeedback;
+        if (!string.IsNullOrWhiteSpace(customAlmostHeaderInstruction)) almostHeaderInstructions = customAlmostHeaderInstruction;
+
+        postAlmostChatMessage = postAlmostToChat;
+    }
+    // -----------------------------------------------------------
 
     private async Task<(bool isCorrect, bool isAlmost, string almostFeedback, string almostHeader)> EvaluateWithAI(string answer)
     {
@@ -332,7 +348,7 @@ Decide:
 - is_almost: true/false
 
 Output policy:
-- If is_almost is false: almost_feedback = """" and almost_header = """";
+- If is_almost is false: almost_feedback = """" and almost_header = """"; 
 - If is_almost is true:
   * almost_feedback: SHORT, actionable hint. Plain text only.
   * almost_header: 1–3 words; use baseline header but translate if needed.";

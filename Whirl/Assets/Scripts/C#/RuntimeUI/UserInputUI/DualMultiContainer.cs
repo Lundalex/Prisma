@@ -7,7 +7,7 @@ using UnityEditor;
 public class DualMultiContainer : MultiContainer
 {
     [Header("Alt Stretch Targets")]
-    [SerializeField] public RectTransform[] altStretchTargets; // <— alt array
+    [SerializeField] public RectTransform[] altStretchTargets;
 
     [Header("Alt Stretch Target Offsets")]
     [SerializeField] private float altLeftOffset = 0f;
@@ -17,14 +17,10 @@ public class DualMultiContainer : MultiContainer
 
     [SerializeField] private bool useAltStretchTarget = false;
 
-    [Header("Default/Alt Objects")]
-    [SerializeField] private GameObject[] defaultObjects;
-    [SerializeField] private GameObject[] altObjects;
-
     public void SetStretchTargetAlt(bool useAlt)
     {
         useAltStretchTarget = useAlt;
-        UpdateBucketsActive();
+        UpdateBucketsActive();          // <-- now runs in Editor & Play
         MatchAnchorsToOuterGlobal();
     }
 
@@ -49,6 +45,9 @@ public class DualMultiContainer : MultiContainer
 
     private void OnEnable()
     {
+        // Ensure correct active states both in Editor and Play mode
+        UpdateBucketsActive();
+
 #if UNITY_EDITOR
         if (!Application.isPlaying)
             EditorUpdateNow();
@@ -86,20 +85,19 @@ public class DualMultiContainer : MultiContainer
     }
 #endif
 
+    // Removed #if UNITY_EDITOR so this also executes at runtime
     private void UpdateBucketsActive()
     {
-#if UNITY_EDITOR
-        if (defaultObjects != null)
+        if (stretchTargets != null)
         {
-            foreach (var go in defaultObjects)
-                if (go) go.SetActive(!useAltStretchTarget);
+            foreach (var rt in stretchTargets)
+                if (rt) rt.gameObject.SetActive(!useAltStretchTarget);
         }
 
-        if (altObjects != null)
+        if (altStretchTargets != null)
         {
-            foreach (var go in altObjects)
-                if (go) go.SetActive(useAltStretchTarget);
+            foreach (var rt in altStretchTargets)
+                if (rt) rt.gameObject.SetActive(useAltStretchTarget);
         }
-#endif
     }
 }

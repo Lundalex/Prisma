@@ -22,6 +22,8 @@ namespace HtmlExporters
         [Header("UI")]
         public bool allowFullscreen = true;
         public string buttonLabel = "Helskärm";
+        [Tooltip("Pixels between the fullscreen button and the top edge.")]
+        public float fullscreenTopOffset = 10f;
 
         [Header("Font")]
         public GoogleFontFamily googleFontFamily = GoogleFontFamily.Assistant;
@@ -52,7 +54,8 @@ namespace HtmlExporters
                 allowFullscreen = this.allowFullscreen,
                 buttonLabel = this.buttonLabel,
                 googleFontFamily = this.googleFontFamily,
-                googleFontWeight = this.googleFontWeight
+                googleFontWeight = this.googleFontWeight,
+                fullscreenTopOffset = this.fullscreenTopOffset
             };
 
             string html = FramerHtmlGenerator.Build(settings);

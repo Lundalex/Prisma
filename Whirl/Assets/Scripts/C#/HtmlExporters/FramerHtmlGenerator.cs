@@ -28,6 +28,7 @@ namespace HtmlExporters
         public string buttonLabel;
         public GoogleFontFamily googleFontFamily;
         public int googleFontWeight;
+        public float fullscreenTopOffset;
     }
 
     public static class FramerHtmlGenerator
@@ -41,6 +42,7 @@ namespace HtmlExporters
             string cropPx       = s.crop.ToString(inv) + "px";
             string edgeCropPx   = s.edgeCrop.ToString(inv) + "px";
             string radiusPx     = s.radius.ToString(inv) + "px";
+            string fsTopPx      = s.fullscreenTopOffset.ToString(inv) + "px";
 
             string fullscreenAttrs = s.allowFullscreen
                 ? "allow=\"fullscreen\" allowfullscreen webkitallowfullscreen"
@@ -56,7 +58,7 @@ namespace HtmlExporters
             const string kFsBtnClass = "fs-btn";
 
             string html = $@"
-<div class=""{kGameWrapClass}"" style=""--wrap-width:{wrapWidthPx}; --wrap-height:{wrapHeightPx}; --crop:{cropPx}; --edge-crop:{edgeCropPx}; --radius:{radiusPx};"">
+<div class=""{kGameWrapClass}"" style=""--wrap-width:{wrapWidthPx}; --wrap-height:{wrapHeightPx}; --crop:{cropPx}; --edge-crop:{edgeCropPx}; --radius:{radiusPx}; --fs-top-offset:{fsTopPx};"">
   <div class=""{kClipClass}"">
     <iframe
       src=""{s.iframeSrc}""
@@ -112,7 +114,7 @@ namespace HtmlExporters
 
   .{kControlsClass} {{
     position: absolute;
-    top: 10px;
+    top: var(--fs-top-offset);
     left: 50%;
     transform: translateX(-50%);
     z-index: 2;

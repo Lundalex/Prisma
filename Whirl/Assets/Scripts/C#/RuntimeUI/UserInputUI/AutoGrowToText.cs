@@ -1,36 +1,45 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.Serialization;
+
+public enum InputFitMode { Relative, Absolute }
 
 [RequireComponent(typeof(RectTransform)), ExecuteAlways]
 public class AutoGrowToText : MonoBehaviour
 {
+    [Header("Text Objects")]
     [SerializeField] TMP_Text text;
     [SerializeField] TMP_Text leftText;
     [SerializeField] TMP_Text placeholderText;
     [SerializeField] TMP_Text rightText;
 
+    [Header("Targets")]
     [SerializeField] RectTransform target;
     [SerializeField] RectTransform leftTarget;
     [SerializeField] RectTransform rightTarget;
     [SerializeField] RectTransform parentContainer;
 
+    [Header("Spacing")]
     [SerializeField] float leftSpacing = 8f;
     [SerializeField] float rightSpacing = 8f;
     [SerializeField] float padding = 32f;
+
+    [Header("Absolute Widths")]
     [SerializeField] float minWidth = 105f;
     [SerializeField] float maxWidth = 280f;
 
-    [Header("Fit To Parent")]
-    [SerializeField] bool fitToParentContainer = false;
+    [Header("Fit Mode")]
+    // Legacy migration support from old bool:
+    [FormerlySerializedAs("fitToParentContainer")] [SerializeField, HideInInspector] bool _legacyFitToParent;
+    [SerializeField] InputFitMode inputFitMode = InputFitMode.Absolute;
     [SerializeField] float parentPadding = 0f;
 
-    [Header("Texts")]
+    [Header("Texts (Initial)")]
     [TextArea] [SerializeField] string leftStr = "";
     [TextArea] [SerializeField] string placeholderStr = "";
     [TextArea] [SerializeField] string rightStr = "";
 
-    // NEW: link to the answer field (optional). When animating, updates are blocked.
     [Header("Answer Field (optional)")]
     [SerializeField] UserAnswerField userAnswerField;
 
@@ -41,19 +50,18 @@ public class AutoGrowToText : MonoBehaviour
     bool _dirtySize;
     bool _suppressDimCallback;
     bool _suppressTMPCallback;
-
 #if UNITY_EDITOR
     bool _pendingEditorRebuild;
+    bool _didMigrateLegacyFit;
 #endif
 
     void Reset()
     {
         target = (RectTransform)transform;
         if (text == null) text = GetComponentInChildren<TMP_Text>();
-        if (leftTarget != null && leftText == null) leftText = leftTarget.GetComponentInChildren<TMP_Text>();
-        if (rightTarget != null && rightText == null) rightText = rightTarget.GetComponentInChildren<TMP_Text>();
-        if (parentContainer == null && transform.parent != null)
-            parentContainer = transform.parent as RectTransform;
+        if (leftTarget != null && leftText == null) leftText = leftTarget.GetComponentInChildren<TMP_Text>(true);
+        if (rightTarget != null && rightText == null) rightText = rightTarget.GetComponentInChildren<TMP_Text>(true);
+        if (parentContainer == null && transform.parent != null) parentContainer = transform.parent as RectTransform;
     }
 
     void OnEnable()
@@ -61,6 +69,11 @@ public class AutoGrowToText : MonoBehaviour
         RegisterTMPListeners();
         TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTMPGlobalChanged);
 #if UNITY_EDITOR
+        if (!_didMigrateLegacyFit)
+        {
+            inputFitMode = _legacyFitToParent ? InputFitMode.Relative : inputFitMode;
+            _didMigrateLegacyFit = true;
+        }
         if (!Application.isPlaying) _pendingEditorRebuild = true;
 #endif
     }
@@ -85,7 +98,6 @@ public class AutoGrowToText : MonoBehaviour
         ApplyInspectorTexts();
 
         _lastParentWidth = parentContainer ? parentContainer.rect.width : float.NaN;
-
         RecomputeAllTwice();
     }
 
@@ -98,6 +110,44 @@ public class AutoGrowToText : MonoBehaviour
         if (!Application.isPlaying) _pendingEditorRebuild = true;
 #endif
     }
+
+    // ----------- Public API for external wiring -----------
+    public void SetLeftText(string s)
+    {
+        leftStr = s ?? "";
+        if (leftText && leftText.text != leftStr) leftText.text = leftStr;
+        _dirtySize = true;
+    }
+    public void SetRightText(string s)
+    {
+        rightStr = s ?? "";
+        if (rightText && rightText.text != rightStr) rightText.text = rightStr;
+        _dirtySize = true;
+    }
+    public void SetPlaceholder(string s)
+    {
+        placeholderStr = s ?? "";
+        if (placeholderText && placeholderText.text != placeholderStr) placeholderText.text = placeholderStr;
+        _dirtySize = true;
+    }
+    public void SetFitMode(InputFitMode mode)
+    {
+        inputFitMode = mode;
+        _dirtySize = true;
+    }
+    public void SetMinMaxWidth(float min, float max)
+    {
+        minWidth = Mathf.Max(1f, min);
+        maxWidth = Mathf.Max(minWidth, max);
+        _dirtySize = true;
+    }
+    public void SetParentPadding(float pad)
+    {
+        parentPadding = Mathf.Max(0f, pad);
+        _dirtySize = true;
+    }
+    public void ForceRecomputeNow() => RecomputeAllTwice();
+    // ------------------------------------------------------
 
     void RegisterTMPListeners()
     {
@@ -118,25 +168,24 @@ public class AutoGrowToText : MonoBehaviour
     void OnAnyTMPDirty()
     {
         if (_suppressTMPCallback) return;
-        _dirtySize = true; // triggers double pass in LateUpdate
+        _dirtySize = true;
     }
 
     void ApplyInspectorTexts()
     {
-        if (leftText && leftStr != null && leftText.text != leftStr) leftText.text = leftStr;
-        if (rightText && rightStr != null && rightText.text != rightStr) rightText.text = rightStr;
-        if (placeholderText && placeholderStr != null && placeholderText.text != placeholderStr) placeholderText.text = placeholderStr;
+        if (leftText && leftText.text != leftStr) leftText.text = leftStr;
+        if (rightText && rightText.text != rightStr) rightText.text = rightStr;
+        if (placeholderText && placeholderText.text != placeholderStr) placeholderText.text = placeholderStr;
     }
 
     bool TryGetParentEffectiveMax(out float effectiveMax)
     {
         effectiveMax = 0f;
-        if (!fitToParentContainer || parentContainer == null) return false;
+        if (inputFitMode != InputFitMode.Relative || parentContainer == null) return false;
         effectiveMax = Mathf.Max(1f, parentContainer.rect.width - parentPadding);
         return true;
     }
 
-    // NEW: simple gate
     bool IsBlockedByAnswerAnim()
     {
         return userAnswerField != null && userAnswerField.IsAnimating;
@@ -162,7 +211,6 @@ public class AutoGrowToText : MonoBehaviour
         }
 
         Vector2 pref = text.GetPreferredValues(newValue, widthConstraint, 0f);
-
         float wRaw = pref.x + padding;
         float w = Mathf.Clamp(wRaw, Mathf.Max(1f, minWidth), float.IsInfinity(upperBound) ? wRaw : upperBound);
 
@@ -252,7 +300,7 @@ public class AutoGrowToText : MonoBehaviour
             RecomputeAllTwice();
         }
 #endif
-        if (fitToParentContainer && parentContainer)
+        if (inputFitMode == InputFitMode.Relative && parentContainer)
         {
             float pw = parentContainer.rect.width;
             if (!Mathf.Approximately(pw, _lastParentWidth))
@@ -262,7 +310,6 @@ public class AutoGrowToText : MonoBehaviour
             }
         }
 
-        // NEW: block any recompute during answer animations
         if (IsBlockedByAnswerAnim()) return;
 
         if (_dirtySize)
@@ -284,7 +331,6 @@ public class AutoGrowToText : MonoBehaviour
         _dirtySize = true;
     }
 
-    // --- double-pass recompute ---
     void RecomputeAllOnce()
     {
         if (IsBlockedByAnswerAnim()) return;
@@ -309,13 +355,6 @@ public class AutoGrowToText : MonoBehaviour
         if (rightTarget) LayoutRebuilder.ForceRebuildLayoutImmediate(rightTarget);
 
         RecomputeAllOnce();
-    }
-
-    // --- listeners that catch "any change" on TMP objects ---
-    void OnAnyTMPPreRender(TMP_TextInfo _)
-    {
-        if (_suppressTMPCallback) return;
-        _dirtySize = true; // triggers double pass in LateUpdate
     }
 
     void OnTMPGlobalChanged(Object changedObj)

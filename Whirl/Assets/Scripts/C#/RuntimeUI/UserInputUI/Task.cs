@@ -18,8 +18,11 @@ public class Task : MonoBehaviour
     [Header("Refs")]
     [SerializeField] private TMP_Text headerTextObj;
     [SerializeField] private TMPBulletListFormatter bodyTextFormatter;
-    [SerializeField] private UserMultiLineAnswerField answerField;
+    [SerializeField] private UserMultiLineAnswerField answerField; // multi-line
     [SerializeField] private WindowToggle windowToggle;
+
+    [Header("Single-Line UI")]
+    [SerializeField] private AutoGrowToText singleLineAutoGrow;
 
     [Header("Next Toggles")]
     [SerializeField] private WindowToggle singleLineNextToggle;
@@ -32,8 +35,6 @@ public class Task : MonoBehaviour
     [SerializeField] private TaskManager taskManager;
 
     [SerializeField, HideInInspector] private int _appliedHash;
-
-    // Remember the intended mode and re-apply after editor serialization
     [SerializeField, HideInInspector] private bool _desiredModeA;
 
     void OnEnable()
@@ -48,8 +49,6 @@ public class Task : MonoBehaviour
     {
         EnsureTaskManagerLinked();
         RefreshUI();
-
-        // Do not call SetActive inside OnValidate; defer to next editor tick
         EditorApplication.delayCall += () =>
         {
             if (this == null) return;
@@ -61,23 +60,12 @@ public class Task : MonoBehaviour
 
     public void SetTaskManager(TaskManager manager) => taskManager = manager;
     public TaskManager TaskManager => taskManager;
+    public AutoGrowToText SingleLineAutoGrow => singleLineAutoGrow;
 
-    public void PlayCorrectMark()
-    {
-        if (correctMark != null) correctMark.Play();
-    }
+    public void PlayCorrectMark() { if (correctMark != null) correctMark.Play(); }
 
-    public void GoToPrevTask()
-    {
-        EnsureTaskManagerLinked();
-        taskManager?.GoToPrevTask(this);
-    }
-
-    public void GoToNextTask()
-    {
-        EnsureTaskManagerLinked();
-        taskManager?.GoToNextTask(this);
-    }
+    public void GoToPrevTask() { EnsureTaskManagerLinked(); taskManager?.GoToPrevTask(this); }
+    public void GoToNextTask() { EnsureTaskManagerLinked(); taskManager?.GoToNextTask(this); }
 
     public void SetNextToggleByHasRight(bool hasRightTask)
     {
@@ -86,11 +74,7 @@ public class Task : MonoBehaviour
         if (multiLineNextToggle != null)  multiLineNextToggle.SetModeA(aActive);
     }
 
-    public void SendTip()
-    {
-        EnsureTaskManagerLinked();
-        taskManager?.SendTip();
-    }
+    public void SendTip() { EnsureTaskManagerLinked(); taskManager?.SendTip(); }
 
     public void SetData(string header, string body, string answerKey)
     {
@@ -108,6 +92,7 @@ public class Task : MonoBehaviour
     public void SetPlaceholder(string placeholder)
     {
         if (answerField != null) answerField.SetPlaceholder(placeholder);
+        if (singleLineAutoGrow != null) singleLineAutoGrow.SetPlaceholder(placeholder);
     }
 
     // multiLine_usesA: true => A active (your MultiLine), false => B active (your SingleLine)
@@ -135,6 +120,7 @@ public class Task : MonoBehaviour
         if (headerTextObj != null) headerTextObj.text = headerText ?? string.Empty;
         if (bodyTextFormatter != null) bodyTextFormatter.sourceText = bodyText ?? string.Empty;
         if (answerField != null) answerField.answerKey = answerKey ?? string.Empty;
+        // AutoGrow's left/right/placeholder are wired from TaskManager per-task settings.
     }
 
     private static int ComputeHash(string h, string b, string k)
