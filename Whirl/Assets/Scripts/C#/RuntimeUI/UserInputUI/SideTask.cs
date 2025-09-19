@@ -7,20 +7,30 @@ public class SideTask : Task
     public RectTransform singleLineStretchTarget;
     public RectTransform multiLineStretchTarget;
 
+    [Header("Correct Feedback (Side)")]
+    [SerializeField] private AnimatedPopupIcon singleLineCorrectIcon;
+    [SerializeField] private AnimatedPopupIcon multiLineCorrectIcon;
+
+    bool _isMulti;
+
     public override void SetWindowByTaskType(bool multiLine_usesA)
     {
         base.SetWindowByTaskType(multiLine_usesA);
 
-        bool isMulti = !multiLine_usesA; // keep your current inversion fix
+        _isMulti = !multiLine_usesA;
 
-        if (singleLineStretchTarget != null)
-            singleLineStretchTarget.gameObject.SetActive(!isMulti);
-
-        if (multiLineStretchTarget != null)
-            multiLineStretchTarget.gameObject.SetActive(isMulti);
+        if (singleLineStretchTarget != null) singleLineStretchTarget.gameObject.SetActive(!_isMulti);
+        if (multiLineStretchTarget != null) multiLineStretchTarget.gameObject.SetActive(_isMulti);
     }
 
-    // Exposed so buttons/events on the side task can open the fullscreen
+    public override void PlayCorrectMark()
+    {
+        var icon = _isMulti ? multiLineCorrectIcon : singleLineCorrectIcon;
+        if (icon == null) icon = multiLineCorrectIcon ?? singleLineCorrectIcon;
+        if (icon != null) icon.Play();
+        else base.PlayCorrectMark();
+    }
+
     public void OpenFullscreenView()
     {
         TaskManager?.OpenFullscreenView();

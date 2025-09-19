@@ -11,10 +11,10 @@ using Michsky.MUIP;
 [ExecuteInEditMode]
 public class UserAnswerField : MonoBehaviour
 {
-    private const string TagSmartAssistant = "SmartAssistant";
-    private const string TagChatManager    = "ChatManager";
-    private const string TagTaskManager    = "TaskManager";
-    private const string almostHeader = "<size=160%><b><u>Nästan!</u></b></size>";
+    const string TagSmartAssistant = "SmartAssistant";
+    const string TagChatManager = "ChatManager";
+    const string TagTaskManager = "TaskManager";
+    const string almostHeader = "<size=160%><b><u>Nästan!</u></b></size>";
 
     [Header("Answer Settings")]
     public string answerKey;
@@ -32,12 +32,12 @@ public class UserAnswerField : MonoBehaviour
         "Return true if the answer is 'almost' (on the right track but missing something important) per the CommunicationSettings. Else false.";
     [SerializeField] private string almostFeedbackInstructions =
         "If is_almost is true, return a SHORT, actionable hint guiding the user to the correct answer. Otherwise return an empty string.";
-    private string almostHeaderInstructions =
+    string almostHeaderInstructions =
         "If is_almost is true, return the HEADER text. Use the provided baseline header but translate it into the language of user_answer if that language differs from Swedish; otherwise return it unchanged. Keep it concise (max ~5 words).";
 
     [SerializeField] private bool postAlmostChatMessage = true;
 
-    private AssistantChatManager chatManager;
+    AssistantChatManager chatManager;
 
     [Header("Colors")]
     [SerializeField, ColorUsage(true, true)] private Color defaultColor = Color.gray;
@@ -70,21 +70,24 @@ public class UserAnswerField : MonoBehaviour
     [Header("Events (legacy - not used on success)")]
     public UnityEvent onCorrect;
 
-    private SmartAssistant smartAssistant;
+    SmartAssistant smartAssistant;
     Color _outlineBaseColor;
     Coroutine _shakeCo, _flashCo;
 
     bool _editingOverride;
     Verdict _verdict = Verdict.None;
     string _lastSubmittedText = "";
-    bool _dirtySinceSubmit = false;
-    bool _prevEditing = false;
-    bool _lostFocusAfterSubmit = false;
-    bool _isEvaluating = false;
+    bool _dirtySinceSubmit;
+    bool _prevEditing;
+    bool _lostFocusAfterSubmit;
+    bool _isEvaluating;
 
     [Header("Links")]
     [SerializeField] private Task task;
     [SerializeField] private TaskManager taskManager;
+
+    [Header("Correct Color Targets")]
+    [SerializeField] private Image[] correctColorImages;
 
     public bool IsAnimating => _shakeCo != null || _flashCo != null;
 
@@ -193,8 +196,8 @@ public class UserAnswerField : MonoBehaviour
             else if (checkMode == CheckMode.AI)
             {
                 var aiRes = await EvaluateWithAI(answer);
-                answerIsCorrect    = aiRes.isCorrect;
-                answerIsAlmost     = aiRes.isAlmost;
+                answerIsCorrect = aiRes.isCorrect;
+                answerIsAlmost = aiRes.isAlmost;
                 almostFeedbackText = aiRes.almostFeedback;
                 almostHeaderFromAi = aiRes.almostHeader;
             }
@@ -204,8 +207,8 @@ public class UserAnswerField : MonoBehaviour
                 if (!answerIsCorrect)
                 {
                     var aiRes = await EvaluateWithAI(answer);
-                    answerIsCorrect    = aiRes.isCorrect;
-                    answerIsAlmost     = aiRes.isAlmost;
+                    answerIsCorrect = aiRes.isCorrect;
+                    answerIsAlmost = aiRes.isAlmost;
                     almostFeedbackText = aiRes.almostFeedback;
                     almostHeaderFromAi = aiRes.almostHeader;
                 }
@@ -280,7 +283,6 @@ public class UserAnswerField : MonoBehaviour
                              : string.Equals(answer, key, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ---- Styling/behavior hooks from TaskManager (existing) ----
     public void ApplyColors(Color normal, Color edit, Color success, Color fail, Color almost)
     {
         defaultColor = normal;
@@ -288,6 +290,17 @@ public class UserAnswerField : MonoBehaviour
         successColor = success;
         failColor = fail;
         almostColor = almost;
+
+        if (correctColorImages != null)
+        {
+            for (int i = 0; i < correctColorImages.Length; i++)
+            {
+                var img = correctColorImages[i];
+                if (img == null) continue;
+                var c = img.color;
+                img.color = new Color(successColor.r, successColor.g, successColor.b, c.a);
+            }
+        }
 
         if (outlineImage != null && _verdict == Verdict.None && !_editingOverride)
             outlineImage.color = defaultColor;
@@ -306,7 +319,6 @@ public class UserAnswerField : MonoBehaviour
         if (placeholder != null) placeholder.text = text ?? string.Empty;
     }
 
-    // ---- NEW: explicit setters so TaskManager can wire task settings cleanly ----
     public void SetCaseSensitive(bool value) => caseSensitive = value;
     public void SetCheckMode(CheckMode mode) => checkMode = mode;
     public void SetAllowAIThinking(bool value) => allowAIThinking = value;
@@ -314,16 +326,41 @@ public class UserAnswerField : MonoBehaviour
 
     public void SetAIInstructions(string isCorrect, string isAlmost, string almostFeedback, bool postAlmostToChat, string customAlmostHeaderInstruction = null)
     {
-        if (!string.IsNullOrWhiteSpace(isCorrect))       isCorrectInstructions = isCorrect;
-        if (!string.IsNullOrWhiteSpace(isAlmost))        isAlmostInstructions = isAlmost;
-        if (!string.IsNullOrWhiteSpace(almostFeedback))  almostFeedbackInstructions = almostFeedback;
+        if (!string.IsNullOrWhiteSpace(isCorrect)) isCorrectInstructions = isCorrect;
+        if (!string.IsNullOrWhiteSpace(isAlmost)) isAlmostInstructions = isAlmost;
+        if (!string.IsNullOrWhiteSpace(almostFeedback)) almostFeedbackInstructions = almostFeedback;
         if (!string.IsNullOrWhiteSpace(customAlmostHeaderInstruction)) almostHeaderInstructions = customAlmostHeaderInstruction;
-
         postAlmostChatMessage = postAlmostToChat;
     }
-    // -----------------------------------------------------------
 
-    private async Task<(bool isCorrect, bool isAlmost, string almostFeedback, string almostHeader)> EvaluateWithAI(string answer)
+    public void ApplyProgressState(Verdict v)
+    {
+        if (_shakeCo != null) { StopCoroutine(_shakeCo); _shakeCo = null; }
+        if (_flashCo != null) { StopCoroutine(_flashCo); _flashCo = null; }
+        if (_rt != null) _rt.anchoredPosition = Vector2.zero;
+
+        _verdict = v;
+        _editingOverride = false;
+        _dirtySinceSubmit = false;
+        _lostFocusAfterSubmit = false;
+
+        if (outlineObject != null) outlineObject.SetActive(true);
+
+        if (outlineImage != null)
+        {
+            var c = defaultColor;
+            switch (v)
+            {
+                case Verdict.Success: c = successColor; break;
+                case Verdict.Fail:    c = failColor;    break;
+                case Verdict.Almost:  c = almostColor;  break;
+                case Verdict.None:    c = defaultColor; break;
+            }
+            outlineImage.color = c;
+        }
+    }
+
+    async Task<(bool isCorrect, bool isAlmost, string almostFeedback, string almostHeader)> EvaluateWithAI(string answer)
     {
         bool isCorrect = false, isAlmost = false;
         string feedback = null, header = null;
@@ -348,7 +385,7 @@ Decide:
 - is_almost: true/false
 
 Output policy:
-- If is_almost is false: almost_feedback = """" and almost_header = """"; 
+- If is_almost is false: almost_feedback = """" and almost_header = """";
 - If is_almost is true:
   * almost_feedback: SHORT, actionable hint. Plain text only.
   * almost_header: 1–3 words; use baseline header but translate if needed.";
@@ -394,7 +431,7 @@ Output policy:
         return (isCorrect, isAlmost, feedback, header);
     }
 
-    private void ResolveTaskAndManager()
+    void ResolveTaskAndManager()
     {
         if (task == null) task = GetComponentInParent<Task>();
 
@@ -409,13 +446,13 @@ Output policy:
         }
     }
 
-    private void NotifyTaskManagerCorrect()
+    void NotifyTaskManagerCorrect()
     {
         if (taskManager == null || task == null) ResolveTaskAndManager();
         if (taskManager != null && task != null) taskManager.OnAnswerFieldCorrect(task);
     }
 
-    private void ResolveSmartAssistant()
+    void ResolveSmartAssistant()
     {
         smartAssistant = null;
         var objs = GameObject.FindGameObjectsWithTag(TagSmartAssistant);
@@ -423,7 +460,7 @@ Output policy:
             smartAssistant = objs[0].GetComponent<SmartAssistant>();
     }
 
-    private void ResolveChatManager()
+    void ResolveChatManager()
     {
         chatManager = null;
         try
@@ -435,7 +472,7 @@ Output policy:
         catch { }
     }
 
-    private string SanitizeHeader(string header)
+    string SanitizeHeader(string header)
     {
         if (string.IsNullOrWhiteSpace(header)) return "Almost";
         header = header.Trim();

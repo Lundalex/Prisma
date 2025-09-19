@@ -9,7 +9,7 @@ using UnityEditor;
 [ExecuteInEditMode]
 public class Task : MonoBehaviour
 {
-    private const string TaskManagerTag = "TaskManager";
+    const string TaskManagerTag = "TaskManager";
 
     [SerializeField] private string headerText;
     [TextArea(6, 40)] [SerializeField] private string bodyText;
@@ -18,7 +18,7 @@ public class Task : MonoBehaviour
     [Header("Refs")]
     [SerializeField] private TMP_Text headerTextObj;
     [SerializeField] private TMPBulletListFormatter bodyTextFormatter;
-    [SerializeField] private UserMultiLineAnswerField answerField; // multi-line
+    [SerializeField] private UserMultiLineAnswerField answerField;
     [SerializeField] private WindowToggle windowToggle;
 
     [Header("Single-Line UI")]
@@ -62,16 +62,18 @@ public class Task : MonoBehaviour
     public TaskManager TaskManager => taskManager;
     public AutoGrowToText SingleLineAutoGrow => singleLineAutoGrow;
 
-    public void PlayCorrectMark() { if (correctMark != null) correctMark.Play(); }
+    public virtual void PlayCorrectMark()
+    {
+        if (correctMark != null) correctMark.Play();
+    }
 
     public void GoToPrevTask() { EnsureTaskManagerLinked(); taskManager?.GoToPrevTask(this); }
     public void GoToNextTask() { EnsureTaskManagerLinked(); taskManager?.GoToNextTask(this); }
 
     public void SetNextToggleByHasRight(bool hasRightTask)
     {
-        bool aActive = hasRightTask;
-        if (singleLineNextToggle != null) singleLineNextToggle.SetModeA(aActive);
-        if (multiLineNextToggle != null)  multiLineNextToggle.SetModeA(aActive);
+        if (singleLineNextToggle != null) singleLineNextToggle.SetModeA(hasRightTask);
+        if (multiLineNextToggle != null) multiLineNextToggle.SetModeA(hasRightTask);
     }
 
     public void SendTip() { EnsureTaskManagerLinked(); taskManager?.SendTip(); }
@@ -95,35 +97,34 @@ public class Task : MonoBehaviour
         if (singleLineAutoGrow != null) singleLineAutoGrow.SetPlaceholder(placeholder);
     }
 
-    // multiLine_usesA: true => A active (your MultiLine), false => B active (your SingleLine)
+    // multiLine_usesA: true => MultiLine active (A), false => SingleLine active (B)
     public virtual void SetWindowByTaskType(bool multiLine_usesA)
     {
         _desiredModeA = multiLine_usesA;
         ApplyWindowToggle();
     }
 
-    private void ApplyWindowToggle()
+    void ApplyWindowToggle()
     {
         if (windowToggle == null) return;
         windowToggle.SetModeA(_desiredModeA);
     }
 
-    private void EnsureTaskManagerLinked()
+    void EnsureTaskManagerLinked()
     {
         if (taskManager != null) return;
         var go = GameObject.FindGameObjectWithTag(TaskManagerTag);
         if (go != null) taskManager = go.GetComponent<TaskManager>();
     }
 
-    private void RefreshUI()
+    void RefreshUI()
     {
         if (headerTextObj != null) headerTextObj.text = headerText ?? string.Empty;
         if (bodyTextFormatter != null) bodyTextFormatter.sourceText = bodyText ?? string.Empty;
         if (answerField != null) answerField.answerKey = answerKey ?? string.Empty;
-        // AutoGrow's left/right/placeholder are wired from TaskManager per-task settings.
     }
 
-    private static int ComputeHash(string h, string b, string k)
+    static int ComputeHash(string h, string b, string k)
     {
         unchecked
         {

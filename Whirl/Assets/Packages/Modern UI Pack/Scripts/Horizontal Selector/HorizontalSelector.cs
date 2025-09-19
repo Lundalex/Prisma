@@ -20,7 +20,7 @@ namespace Michsky.MUIP
         public Animator selectorAnimator;
         public HorizontalLayoutGroup contentLayout;
         public HorizontalLayoutGroup contentLayoutHelper;
-        private string newItemTitle;
+        string newItemTitle;
 
         // Saving
         public bool enableIcon = true;
@@ -56,10 +56,10 @@ namespace Michsky.MUIP
 
         void Awake()
         {
-            if (selectorAnimator == null) { selectorAnimator = gameObject.GetComponent<Animator>(); }
+            if (selectorAnimator == null) selectorAnimator = gameObject.GetComponent<Animator>();
             if (label == null || labelHelper == null)
             {
-                Debug.LogError("<b>[Horizontal Selector]</b> Cannot initalize the object due to missing resources.", this);
+                Debug.LogError("<b>[Horizontal Selector]</b> Missing label references.", this);
                 return;
             }
 
@@ -75,18 +75,17 @@ namespace Michsky.MUIP
 
         void OnEnable()
         {
-            if (gameObject.activeInHierarchy) { StartCoroutine("DisableAnimator"); }
+            if (gameObject.activeInHierarchy) StartCoroutine("DisableAnimator");
         }
 
         public void SetupSelector()
         {
-            if (items.Count == 0)
-                return;
+            if (items.Count == 0) return;
 
             if (saveSelected)
             {
-                if (PlayerPrefs.HasKey("HorizontalSelector_" + saveKey)) { defaultIndex = PlayerPrefs.GetInt("HorizontalSelector_" + saveKey); }
-                else { PlayerPrefs.SetInt("HorizontalSelector_" + saveKey, defaultIndex); }
+                if (PlayerPrefs.HasKey("HorizontalSelector_" + saveKey)) defaultIndex = PlayerPrefs.GetInt("HorizontalSelector_" + saveKey);
+                else PlayerPrefs.SetInt("HorizontalSelector_" + saveKey, defaultIndex);
             }
 
             label.text = items[defaultIndex].itemTitle;
@@ -98,23 +97,21 @@ namespace Michsky.MUIP
                 labelIcon.sprite = items[defaultIndex].itemIcon;
                 labelIconHelper.sprite = labelIcon.sprite;
             }
-
-            else if (!enableIcon)
+            else
             {
-                if (labelIcon != null) { labelIcon.gameObject.SetActive(false); }
-                if (labelIconHelper != null) { labelIconHelper.gameObject.SetActive(false); }
+                if (labelIcon != null) labelIcon.gameObject.SetActive(false);
+                if (labelIconHelper != null) labelIconHelper.gameObject.SetActive(false);
             }
 
             index = defaultIndex;
 
-            if (enableIndicators) { UpdateIndicators(); }
-            else if (indicatorParent != null) { Destroy(indicatorParent.gameObject); }
+            if (enableIndicators) UpdateIndicators();
+            else if (indicatorParent != null) Destroy(indicatorParent.gameObject);
         }
 
         public void PreviousItem()
         {
-            if (items.Count == 0)
-                return;
+            if (items.Count == 0) return;
 
             StopCoroutine("DisableAnimator");
             selectorAnimator.enabled = true;
@@ -124,50 +121,43 @@ namespace Michsky.MUIP
                 if (index != 0)
                 {
                     labelHelper.text = label.text;
-                    if (labelIcon != null && enableIcon) { labelIconHelper.sprite = labelIcon.sprite; }
+                    if (labelIcon != null && enableIcon) labelIconHelper.sprite = labelIcon.sprite;
 
-                    if (index == 0) { index = items.Count - 1; }
-                    else { index--; }
+                    index = Mathf.Max(0, index - 1);
 
                     label.text = items[index].itemTitle;
                     onItemTextChanged?.Invoke(label);
-                    if (labelIcon != null && enableIcon) { labelIcon.sprite = items[index].itemIcon; }
+                    if (labelIcon != null && enableIcon) labelIcon.sprite = items[index].itemIcon;
 
                     items[index].onItemSelect.Invoke();
                     onValueChanged.Invoke(index);
-                   
+
                     selectorAnimator.Play(null);
                     selectorAnimator.StopPlayback();
-
-                    if (invertAnimation) { selectorAnimator.Play("Forward"); }
-                    else { selectorAnimator.Play("Previous"); }
+                    selectorAnimator.Play(invertAnimation ? "Forward" : "Previous");
                 }
             }
-
             else
             {
                 labelHelper.text = label.text;
-                if (labelIcon != null && enableIcon) { labelIconHelper.sprite = labelIcon.sprite; }
+                if (labelIcon != null && enableIcon) labelIconHelper.sprite = labelIcon.sprite;
 
-                if (index == 0) { index = items.Count - 1; }
-                else { index--; }
+                index = (index == 0) ? items.Count - 1 : index - 1;
 
                 label.text = items[index].itemTitle;
                 onItemTextChanged?.Invoke(label);
-                if (labelIcon != null && enableIcon) { labelIcon.sprite = items[index].itemIcon; }
+                if (labelIcon != null && enableIcon) labelIcon.sprite = items[index].itemIcon;
 
                 items[index].onItemSelect.Invoke();
                 onValueChanged.Invoke(index);
-                
+
                 selectorAnimator.Play(null);
                 selectorAnimator.StopPlayback();
-
-                if (invertAnimation) { selectorAnimator.Play("Forward"); }
-                else { selectorAnimator.Play("Previous"); }
+                selectorAnimator.Play(invertAnimation ? "Forward" : "Previous");
             }
 
-            if (saveSelected) { PlayerPrefs.SetInt("HorizontalSelector_" + saveKey, index); }
-            if (gameObject.activeInHierarchy) { StartCoroutine("DisableAnimator"); }
+            if (saveSelected) PlayerPrefs.SetInt("HorizontalSelector_" + saveKey, index);
+            if (gameObject.activeInHierarchy) StartCoroutine("DisableAnimator");
             if (enableIndicators)
             {
                 for (int i = 0; i < items.Count; ++i)
@@ -175,17 +165,16 @@ namespace Michsky.MUIP
                     GameObject go = indicatorParent.GetChild(i).gameObject;
                     Transform onObj = go.transform.Find("On");
                     Transform offObj = go.transform.Find("Off");
-
-                    if (i == index) { onObj.gameObject.SetActive(true); offObj.gameObject.SetActive(false); }
-                    else { onObj.gameObject.SetActive(false); offObj.gameObject.SetActive(true); }
+                    bool active = (i == index);
+                    if (onObj != null) onObj.gameObject.SetActive(active);
+                    if (offObj != null) offObj.gameObject.SetActive(!active);
                 }
             }
         }
 
         public void NextItem()
         {
-            if (items.Count == 0)
-                return;
+            if (items.Count == 0) return;
 
             StopCoroutine("DisableAnimator");
             selectorAnimator.enabled = true;
@@ -195,63 +184,57 @@ namespace Michsky.MUIP
                 if (index != items.Count - 1)
                 {
                     labelHelper.text = label.text;
-                    if (labelIcon != null && enableIcon) { labelIconHelper.sprite = labelIcon.sprite; }
+                    if (labelIcon != null && enableIcon) labelIconHelper.sprite = labelIcon.sprite;
 
-                    if ((index + 1) >= items.Count) { index = 0; }
-                    else { index++; }
+                    index = Mathf.Min(items.Count - 1, index + 1);
 
                     label.text = items[index].itemTitle;
                     onItemTextChanged?.Invoke(label);
-                    if (labelIcon != null && enableIcon) { labelIcon.sprite = items[index].itemIcon; }
+                    if (labelIcon != null && enableIcon) labelIcon.sprite = items[index].itemIcon;
 
                     items[index].onItemSelect.Invoke();
                     onValueChanged.Invoke(index);
-                   
+
                     selectorAnimator.Play(null);
                     selectorAnimator.StopPlayback();
-
-                    if (invertAnimation) { selectorAnimator.Play("Previous"); }
-                    else { selectorAnimator.Play("Forward"); }
+                    selectorAnimator.Play(invertAnimation ? "Previous" : "Forward");
                 }
             }
-
             else
             {
                 labelHelper.text = label.text;
-                if (labelIcon != null && enableIcon) { labelIconHelper.sprite = labelIcon.sprite; }
+                if (labelIcon != null && enableIcon) labelIconHelper.sprite = labelIcon.sprite;
 
-                if ((index + 1) >= items.Count) { index = 0; }
-                else { index++; }
+                index = (index + 1 >= items.Count) ? 0 : index + 1;
 
                 label.text = items[index].itemTitle;
                 onItemTextChanged?.Invoke(label);
-                if (labelIcon != null && enableIcon) { labelIcon.sprite = items[index].itemIcon; }
+                if (labelIcon != null && enableIcon) labelIcon.sprite = items[index].itemIcon;
 
                 items[index].onItemSelect.Invoke();
                 onValueChanged.Invoke(index);
-               
+
                 selectorAnimator.Play(null);
                 selectorAnimator.StopPlayback();
-
-                if (invertAnimation) { selectorAnimator.Play("Previous"); }
-                else { selectorAnimator.Play("Forward"); }
+                selectorAnimator.Play(invertAnimation ? "Previous" : "Forward");
             }
 
-            if (saveSelected) { PlayerPrefs.SetInt("HorizontalSelector_" + saveKey, index); }
+            if (saveSelected) PlayerPrefs.SetInt("HorizontalSelector_" + saveKey, index);
+
             if (enableIndicators)
             {
                 for (int i = 0; i < items.Count; ++i)
                 {
                     GameObject go = indicatorParent.GetChild(i).gameObject;
-                    Transform onObj = go.transform.Find("On"); ;
+                    Transform onObj = go.transform.Find("On");
                     Transform offObj = go.transform.Find("Off");
-
-                    if (i == index) { onObj.gameObject.SetActive(true); offObj.gameObject.SetActive(false); }
-                    else { onObj.gameObject.SetActive(false); offObj.gameObject.SetActive(true); }
+                    bool active = (i == index);
+                    if (onObj != null) onObj.gameObject.SetActive(active);
+                    if (offObj != null) offObj.gameObject.SetActive(!active);
                 }
             }
 
-            if (gameObject.activeInHierarchy) { StartCoroutine("DisableAnimator"); }
+            if (gameObject.activeInHierarchy) StartCoroutine("DisableAnimator");
         }
 
         // Obsolete
@@ -260,18 +243,15 @@ namespace Michsky.MUIP
 
         public void CreateNewItem(string title)
         {
-            Item item = new Item();
+            Item item = new Item { itemTitle = title };
             newItemTitle = title;
-            item.itemTitle = newItemTitle;
             items.Add(item);
         }
 
         public void CreateNewItem(string title, Sprite icon)
         {
-            Item item = new Item();
+            Item item = new Item { itemTitle = title, itemIcon = icon };
             newItemTitle = title;
-            item.itemTitle = newItemTitle;
-            item.itemIcon = icon;
             items.Add(item);
         }
 
@@ -288,38 +268,48 @@ namespace Michsky.MUIP
 
             label.text = items[index].itemTitle;
             onItemTextChanged?.Invoke(label);
-            
-            if (labelIcon != null && enableIcon) { labelIcon.sprite = items[index].itemIcon; }
-            if (gameObject.activeInHierarchy) { StartCoroutine("DisableAnimator"); }
-          
+
+            if (labelIcon != null && enableIcon) labelIcon.sprite = items[index].itemIcon;
+            if (gameObject.activeInHierarchy) StartCoroutine("DisableAnimator");
+
             UpdateContentLayout();
             UpdateIndicators();
         }
 
         public void UpdateIndicators()
         {
-            if (!enableIndicators)
-                return;
+            if (!enableIndicators || indicatorParent == null || indicatorObject == null) return;
 
-            foreach (Transform child in indicatorParent) { Destroy(child.gameObject); }
-            for (int i = 0; i < items.Count; ++i)
+            int targetCount = items.Count;
+            int currentCount = indicatorParent.childCount;
+
+            for (int i = currentCount - 1; i >= targetCount; i--)
+                Destroy(indicatorParent.GetChild(i).gameObject);
+
+            for (int i = currentCount; i < targetCount; i++)
             {
-                GameObject go = Instantiate(indicatorObject, new Vector3(0, 0, 0), Quaternion.identity);
+                var go = Instantiate(indicatorObject);
                 go.transform.SetParent(indicatorParent, false);
-                go.name = items[i].itemTitle;
-                
-                Transform onObj = go.transform.Find("On");
-                Transform offObj = go.transform.Find("Off");
+            }
 
-                if (i == index) { onObj.gameObject.SetActive(true); offObj.gameObject.SetActive(false); }
-                else { onObj.gameObject.SetActive(false); offObj.gameObject.SetActive(true); }
+            for (int i = 0; i < targetCount; i++)
+            {
+                var child = indicatorParent.GetChild(i).gameObject;
+                child.name = items[i].itemTitle;
+
+                var onObj = child.transform.Find("On");
+                var offObj = child.transform.Find("Off");
+                bool active = (i == index);
+
+                if (onObj != null) onObj.gameObject.SetActive(active);
+                if (offObj != null) offObj.gameObject.SetActive(!active);
             }
         }
 
         public void UpdateContentLayout()
         {
-            if (contentLayout != null) { contentLayout.spacing = contentSpacing; }
-            if (contentLayoutHelper != null) { contentLayoutHelper.spacing = contentSpacing; }
+            if (contentLayout != null) contentLayout.spacing = contentSpacing;
+            if (contentLayoutHelper != null) contentLayoutHelper.spacing = contentSpacing;
             if (labelIcon != null)
             {
                 labelIcon.transform.localScale = new Vector3(iconScale, iconScale, iconScale);

@@ -189,7 +189,7 @@ namespace Michsky.MUIP
                 currentWindowAnimator = currentWindow.GetComponent<Animator>();
                 nextWindowAnimator = nextWindow.GetComponent<Animator>();
 
-                if (!gameObject.activeInHierarchy) return;
+                if (!gameObject || !gameObject.activeInHierarchy) return;
 
                 currentWindowAnimator.Play(windowFadeOut);
                 nextWindowAnimator.Play(windowFadeIn);
