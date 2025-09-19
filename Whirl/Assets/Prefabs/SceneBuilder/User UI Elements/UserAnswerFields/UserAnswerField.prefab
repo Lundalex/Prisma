@@ -134,17 +134,38 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   answerKey: Hej
   caseSensitive: 0
+  checkMode: 2
+  gradingCommunicationSettings: {fileID: 0}
+  allowAIThinking: 0
+  isCorrectInstructions: Return true if the user_answer should be marked correct
+    according to the rules. Else false.
+  isAlmostInstructions: Return true if the answer is 'almost' (on the right track
+    but missing something important) per the CommunicationSettings. Else false.
+  almostFeedbackInstructions: If is_almost is true, return a SHORT, actionable hint
+    guiding the user to the correct answer. Otherwise return an empty string.
+  postAlmostChatMessage: 1
   defaultColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   editColor: {r: 0.078431375, g: 0.49019608, b: 0.78431374, a: 1}
   successColor: {r: 0.05882353, g: 0.8627451, b: 0.09803922, a: 1}
   failColor: {r: 0.8627451, g: 0.078431375, b: 0.11764706, a: 1}
+  almostColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   outlineImage: {fileID: 4392282032150443933}
   outlineObject: {fileID: 4944170302582702937}
   inputField: {fileID: 2178544903127581183}
+  placeholder: {fileID: 0}
+  submitNextWindowManager: {fileID: 0}
+  submitWindowName: 
+  nextWindowName: 
   shakePixels: 8
   shakeCycleDuration: 0.14
   shakeCycles: 3
   outlineLerp: 0.06
+  _rt: {fileID: 0}
+  onCorrect:
+    m_PersistentCalls:
+      m_Calls: []
+  task: {fileID: 0}
+  taskManager: {fileID: 0}
 --- !u!114 &2178544903127581183
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -513,7 +534,7 @@ MonoBehaviour:
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 15
+  m_PixelsPerUnitMultiplier: 20
 --- !u!1 &7917670123319840075
 GameObject:
   m_ObjectHideFlags: 0

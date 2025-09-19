@@ -338,15 +338,15 @@ public class TaskManager : MonoBehaviour
             SideTask st = (i < sideTaskScripts.Count) ? sideTaskScripts[i] : null;
             if (st != null)
             {
-                defaults[i] = st.stretchTarget;
-                alts[i]     = st.altStretchTarget;
+                defaults[i] = st.singleLineStretchTarget;
+                alts[i]     = st.multiLineStretchTarget;
             }
         }
 
         dualMultiContainer.stretchTargets    = defaults;
         dualMultiContainer.altStretchTargets = alts;
 
-        dualMultiContainer.InitDisplay(); // refresh anchors immediately
+        dualMultiContainer.InitDisplay();
     }
 
     private void BuildTaskSelectorItems()

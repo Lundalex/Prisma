@@ -43,7 +43,7 @@ namespace Michsky.MUIP
                 tooltipAnimator = tooltipRect.GetComponentInParent<Animator>();
             }
 
-            if (tpManager.contentLE == null)
+            if (tpManager) if (tpManager.contentLE == null)
                 tpManager.contentLE = descriptionText.GetComponent<LayoutElement>();
         }
 

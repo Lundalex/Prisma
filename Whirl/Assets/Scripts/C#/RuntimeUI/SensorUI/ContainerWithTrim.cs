@@ -11,7 +11,7 @@ public class ContainerWithTrim : MonoBehaviour
 
     void Update()
     {
-        containerSpacing = new(10, 10);
+        containerSpacing = new(8, 8);
         if (!Application.isPlaying)
         {
             if (otherContainer != null && trimContainer != null && innerContainer != null)
@@ -24,7 +24,7 @@ public class ContainerWithTrim : MonoBehaviour
 
     void Start()
     {
-        containerSpacing = new(10, 10);
+        containerSpacing = new(8, 8);
         if (otherContainer != null && trimContainer != null && innerContainer != null)
         {
             trimContainer.sizeDelta = otherContainer.sizeDelta - containerSpacing;

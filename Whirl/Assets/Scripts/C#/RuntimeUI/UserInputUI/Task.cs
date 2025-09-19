@@ -2,6 +2,10 @@ using TMPro;
 using UnityEngine;
 using Michsky.MUIP;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 [ExecuteInEditMode]
 public class Task : MonoBehaviour
 {
@@ -29,10 +33,14 @@ public class Task : MonoBehaviour
 
     [SerializeField, HideInInspector] private int _appliedHash;
 
+    // Remember the intended mode and re-apply after editor serialization
+    [SerializeField, HideInInspector] private bool _desiredModeA;
+
     void OnEnable()
     {
         EnsureTaskManagerLinked();
         RefreshUI();
+        ApplyWindowToggle();
     }
 
 #if UNITY_EDITOR
@@ -40,6 +48,14 @@ public class Task : MonoBehaviour
     {
         EnsureTaskManagerLinked();
         RefreshUI();
+
+        // Do not call SetActive inside OnValidate; defer to next editor tick
+        EditorApplication.delayCall += () =>
+        {
+            if (this == null) return;
+            if (!isActiveAndEnabled) return;
+            ApplyWindowToggle();
+        };
     }
 #endif
 
@@ -94,10 +110,17 @@ public class Task : MonoBehaviour
         if (answerField != null) answerField.SetPlaceholder(placeholder);
     }
 
-    public void SetWindowByTaskType(bool multiLine_usesA)
+    // multiLine_usesA: true => A active (your MultiLine), false => B active (your SingleLine)
+    public virtual void SetWindowByTaskType(bool multiLine_usesA)
+    {
+        _desiredModeA = multiLine_usesA;
+        ApplyWindowToggle();
+    }
+
+    private void ApplyWindowToggle()
     {
         if (windowToggle == null) return;
-        windowToggle.SetModeA(multiLine_usesA);
+        windowToggle.SetModeA(_desiredModeA);
     }
 
     private void EnsureTaskManagerLinked()
