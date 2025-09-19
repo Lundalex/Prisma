@@ -12,9 +12,9 @@ using Michsky.MUIP;
 public class UserAnswerField : MonoBehaviour
 {
     const string TagSmartAssistant = "SmartAssistant";
-    const string TagChatManager = "ChatManager";
-    const string TagTaskManager = "TaskManager";
-    const string almostHeader = "<size=160%><b><u>Nästan!</u></b></size>";
+    const string TagChatManager    = "ChatManager";
+    const string TagTaskManager    = "TaskManager";
+    const string almostHeader      = "<size=160%><b><u>Nästan!</u></b></size>";
 
     [Header("Answer Settings")]
     public string answerKey;
@@ -54,7 +54,7 @@ public class UserAnswerField : MonoBehaviour
     [SerializeField] private TMP_InputField inputField;
     [SerializeField] private TMP_Text placeholder;
 
-    [Header("Window Manager")]
+    [Header("Submit / Next UI")]
     [SerializeField] private WindowManager submitNextWindowManager;
     [SerializeField] private string submitWindowName;
     [SerializeField] private string nextWindowName;
@@ -196,8 +196,8 @@ public class UserAnswerField : MonoBehaviour
             else if (checkMode == CheckMode.AI)
             {
                 var aiRes = await EvaluateWithAI(answer);
-                answerIsCorrect = aiRes.isCorrect;
-                answerIsAlmost = aiRes.isAlmost;
+                answerIsCorrect    = aiRes.isCorrect;
+                answerIsAlmost     = aiRes.isAlmost;
                 almostFeedbackText = aiRes.almostFeedback;
                 almostHeaderFromAi = aiRes.almostHeader;
             }
@@ -207,8 +207,8 @@ public class UserAnswerField : MonoBehaviour
                 if (!answerIsCorrect)
                 {
                     var aiRes = await EvaluateWithAI(answer);
-                    answerIsCorrect = aiRes.isCorrect;
-                    answerIsAlmost = aiRes.isAlmost;
+                    answerIsCorrect    = aiRes.isCorrect;
+                    answerIsAlmost     = aiRes.isAlmost;
                     almostFeedbackText = aiRes.almostFeedback;
                     almostHeaderFromAi = aiRes.almostHeader;
                 }
@@ -223,6 +223,7 @@ public class UserAnswerField : MonoBehaviour
                 _dirtySinceSubmit = false;
                 _lostFocusAfterSubmit = false;
 
+                ApplySubmitNextAndToggle(_verdict);
                 NotifyTaskManagerCorrect();
 
                 if (submitNextWindowManager != null)
@@ -240,6 +241,8 @@ public class UserAnswerField : MonoBehaviour
                 _lastSubmittedText = answer;
                 _dirtySinceSubmit = false;
                 _lostFocusAfterSubmit = false;
+
+                ApplySubmitNextAndToggle(_verdict);
 
                 if (postAlmostChatMessage)
                 {
@@ -268,6 +271,8 @@ public class UserAnswerField : MonoBehaviour
                 _lastSubmittedText = answer;
                 _dirtySinceSubmit = false;
                 _lostFocusAfterSubmit = false;
+
+                ApplySubmitNextAndToggle(_verdict);
             }
         }
         finally
@@ -358,6 +363,17 @@ public class UserAnswerField : MonoBehaviour
             }
             outlineImage.color = c;
         }
+
+        ApplySubmitNextAndToggle(v);
+    }
+
+    void ApplySubmitNextAndToggle(Verdict v)
+    {
+        if (submitNextWindowManager != null)
+            submitNextWindowManager.OpenWindow(v == Verdict.Success ? nextWindowName : submitWindowName);
+
+        if (task == null) task = GetComponentInParent<Task>();
+        if (task != null) task.ApplyProgressToNextToggles(v);
     }
 
     async Task<(bool isCorrect, bool isAlmost, string almostFeedback, string almostHeader)> EvaluateWithAI(string answer)

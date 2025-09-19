@@ -29,13 +29,17 @@ public class Task : MonoBehaviour
     [SerializeField] private WindowToggle multiLineNextToggle;
 
     [Header("Correct Feedback")]
-    [SerializeField] private AnimatedPopupIcon correctMark;
+    public AnimatedPopupIcon singleLineCorrectIcon;
+    public AnimatedPopupIcon multiLineCorrectIcon;
 
     [Header("Manager Link")]
     [SerializeField] private TaskManager taskManager;
 
     [SerializeField, HideInInspector] private int _appliedHash;
     [SerializeField, HideInInspector] private bool _desiredModeA;
+
+    public bool _isMulti;
+    bool _hasRightTaskCache;
 
     void OnEnable()
     {
@@ -64,7 +68,9 @@ public class Task : MonoBehaviour
 
     public virtual void PlayCorrectMark()
     {
-        if (correctMark != null) correctMark.Play();
+        var icon = _isMulti ? multiLineCorrectIcon : singleLineCorrectIcon;
+        if (icon == null) icon = multiLineCorrectIcon ?? singleLineCorrectIcon;
+        if (icon != null) icon.Play();
     }
 
     public void GoToPrevTask() { EnsureTaskManagerLinked(); taskManager?.GoToPrevTask(this); }
@@ -72,8 +78,16 @@ public class Task : MonoBehaviour
 
     public void SetNextToggleByHasRight(bool hasRightTask)
     {
+        _hasRightTaskCache = hasRightTask;
         if (singleLineNextToggle != null) singleLineNextToggle.SetModeA(hasRightTask);
         if (multiLineNextToggle != null) multiLineNextToggle.SetModeA(hasRightTask);
+    }
+
+    public void ApplyProgressToNextToggles(Verdict v)
+    {
+        bool showNext = v == Verdict.Success && _hasRightTaskCache;
+        if (singleLineNextToggle != null) singleLineNextToggle.SetModeA(showNext);
+        if (multiLineNextToggle != null)  multiLineNextToggle.SetModeA(showNext);
     }
 
     public void SendTip() { EnsureTaskManagerLinked(); taskManager?.SendTip(); }
@@ -97,10 +111,11 @@ public class Task : MonoBehaviour
         if (singleLineAutoGrow != null) singleLineAutoGrow.SetPlaceholder(placeholder);
     }
 
-    // multiLine_usesA: true => MultiLine active (A), false => SingleLine active (B)
+    // multiLine_usesA: true => MultiLine active (A), false => SingleLine (B)
     public virtual void SetWindowByTaskType(bool multiLine_usesA)
     {
         _desiredModeA = multiLine_usesA;
+        _isMulti = multiLine_usesA;
         ApplyWindowToggle();
     }
 

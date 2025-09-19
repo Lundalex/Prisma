@@ -84,7 +84,6 @@ public class UIManager : ScriptableObject
             _cachedHash = h;
             composedFontPreview = ComposeActiveFont();
 
-            // NEW: also push tooltip font + size into MUIP UIManager
             ApplyTooltipToMUIP(composedFontPreview);
 
             if (this) EditorUtility.SetDirty(this);

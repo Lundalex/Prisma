@@ -103,7 +103,7 @@ public class UIController : MonoBehaviour
         {
             s_sharedHash = ComputeManagerHash(uiManager);
             s_lastComputedFrame = frame;
-        }
+        } 
 
         int newHash = (s_lastComputedFrame == frame) ? s_sharedHash : 0;
 

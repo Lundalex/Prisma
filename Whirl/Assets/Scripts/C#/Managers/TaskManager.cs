@@ -62,7 +62,6 @@ public class TaskManager : MonoBehaviour
         if (fullscreenView != null && !fullscreenView.activeSelf) fullscreenView.SetActive(true);
     }
 
-    // Public navigation without parameters
     public void GoToPrevTask()
     {
         if (tasks == null || tasks.Count == 0) return;
@@ -87,11 +86,7 @@ public class TaskManager : MonoBehaviour
         ApplyProgressToAllIndicators();
         UpdatePrevNextForAllSelectors();
 
-        if (dualMultiContainer != null && tasks.Count > 0)
-        {
-            int idx = Mathf.Clamp(_currentIndex, 0, tasks.Count - 1);
-            dualMultiContainer.SetStretchTargetAlt(tasks[idx].taskType == TaskType.SingleLine);
-        }
+        // No global container flipping here (prevents cross-task layout bleed).
     }
 
     // ---------- Create windows (MAIN) ----------
@@ -455,7 +450,22 @@ public class TaskManager : MonoBehaviour
 
         dualMultiContainer.stretchTargets = defaults;
         dualMultiContainer.altStretchTargets = alts;
+
+        // --- IMPORTANT ---
+        // Editor: force the neutral (multiline) base layout to avoid accidental singleline stretch bleed.
+        // Runtime: let the container initialize normally.
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            dualMultiContainer.SetStretchTargetAlt(false); // base = multiline
+        }
+        else
+        {
+            dualMultiContainer.InitDisplay();
+        }
+#else
         dualMultiContainer.InitDisplay();
+#endif
     }
 
     void BuildTaskSelectorItems()
@@ -509,9 +519,7 @@ public class TaskManager : MonoBehaviour
         }
 
         UpdatePrevNextForAllSelectors();
-
-        if (dualMultiContainer != null && count > 0)
-            dualMultiContainer.SetStretchTargetAlt(tasks[prevIndex].taskType == TaskType.SingleLine);
+        // Still no global container flipping here.
     }
 
     void ClearSelectorIndicatorsImmediate(HorizontalSelector sel)
@@ -534,10 +542,8 @@ public class TaskManager : MonoBehaviour
 
         for (int i = 0; i < tasks.Count; i++)
         {
-            if (tasks[i].progress == Verdict.Success)
-                group.indicators.SetIndicatorMarked(i);
-            else
-                group.indicators.SetIndicatorUnmarked(i);
+            if (tasks[i].progress == Verdict.Success) group.indicators.SetIndicatorMarked(i);
+            else group.indicators.SetIndicatorUnmarked(i);
         }
     }
 
@@ -563,13 +569,15 @@ public class TaskManager : MonoBehaviour
         if (task == null) return;
 
         int idx = taskScripts.IndexOf(task);
+        bool isWorkspaceTask = idx >= 0;
         if (idx < 0 && task is SideTask st) idx = sideTaskScripts.IndexOf(st);
         if (idx >= 0) SetTaskProgress(idx, Verdict.Success);
 
         if (correctIconFeedback == CorrectIconFeedback.Never) return;
 
-        bool canPlay = correctIconFeedback == CorrectIconFeedback.Always
-            || (correctIconFeedback == CorrectIconFeedback.OnlyInWorkspaceView && task.gameObject.activeInHierarchy);
+        bool canPlay =
+            correctIconFeedback == CorrectIconFeedback.Always ||
+            (correctIconFeedback == CorrectIconFeedback.OnlyInWorkspaceView && isWorkspaceTask && task.gameObject.activeInHierarchy);
 
         if (canPlay) task.PlayCorrectMark();
     }
@@ -631,9 +639,7 @@ public class TaskManager : MonoBehaviour
 
         UpdatePrevNextForAllSelectors();
         ApplyProgressToAllIndicators();
-
-        if (dualMultiContainer != null)
-            dualMultiContainer.SetStretchTargetAlt(tasks[index].taskType == TaskType.SingleLine);
+        // No global container flip here either.
     }
 
     public void SendTip()
@@ -693,7 +699,7 @@ public class TaskManager : MonoBehaviour
     }
 
     void OnDestroy()
-    {
+    { 
         if (Application.isPlaying) SaveProgress();
     }
 

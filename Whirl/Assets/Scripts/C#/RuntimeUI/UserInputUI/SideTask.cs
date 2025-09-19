@@ -7,17 +7,11 @@ public class SideTask : Task
     public RectTransform singleLineStretchTarget;
     public RectTransform multiLineStretchTarget;
 
-    [Header("Correct Feedback (Side)")]
-    [SerializeField] private AnimatedPopupIcon singleLineCorrectIcon;
-    [SerializeField] private AnimatedPopupIcon multiLineCorrectIcon;
-
-    bool _isMulti;
-
     public override void SetWindowByTaskType(bool multiLine_usesA)
     {
         base.SetWindowByTaskType(multiLine_usesA);
 
-        _isMulti = !multiLine_usesA;
+        _isMulti = multiLine_usesA;
 
         if (singleLineStretchTarget != null) singleLineStretchTarget.gameObject.SetActive(!_isMulti);
         if (multiLineStretchTarget != null) multiLineStretchTarget.gameObject.SetActive(_isMulti);
