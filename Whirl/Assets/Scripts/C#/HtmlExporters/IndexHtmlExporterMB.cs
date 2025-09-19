@@ -32,7 +32,11 @@ namespace HtmlExporters
             if (!buildNow) return;
             buildNow = false;
 
-            if (Application.isPlaying) return;
+            if (Application.isPlaying)
+            {
+                Debug.LogWarning("Exit play mode before using Html exporters.");
+                return;
+            }
             BuildAndCopy();
         }
 
