@@ -8,11 +8,14 @@ public struct Mat
 
     // UV transform / tiling
     public float2 sampleOffset;
-    public float  colTexUpScaleFactor;
+    public float colTexUpScaleFactor;
 
     // Material params
     public float3 baseCol;
-    public float  opacity;
+    public float opacity;
     public float3 sampleColMul;
     public float3 edgeCol;
+
+    // Lighting
+    public float edgeRoundingMult;
 }

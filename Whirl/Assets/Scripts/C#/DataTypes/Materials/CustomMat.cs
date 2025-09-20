@@ -11,7 +11,7 @@ using System.IO;
 [CreateAssetMenu(fileName = "CustomMat", menuName = "Rendering/CustomMat")]
 public class CustomMat : ScriptableObject
 {
-    // Name (controls the asset file name; also used by TextureBaker for child name)
+    // Name
     public string matName;
 
     // Shader params
@@ -31,11 +31,19 @@ public class CustomMat : ScriptableObject
     public bool transparentEdges = false;
     public float3 edgeColor = new(1.0f, 1.0f, 1.0f);
 
+    // Lighting
+    [Header("Lighting Multipliers")]
+    [Min(0f)] public float edgeRoundingMultiplier = 1.0f;
+
+    // Background flag
     public bool isBackground = false;
 
-    // Exposed float3 conversions (linear RGB, multiplied)
+    // float3 conversions
     public float3 BaseColor => baseColorMultiplier * GetGlobalMatBrightness() * ToFloat3(baseColor);
     public float3 SampleColor => sampleColorMultiplier * GetGlobalMatBrightness() * ToFloat3(sampleColor);
+
+    // Convenience accessors
+    public float EdgeRoundMul      => Mathf.Max(0f, edgeRoundingMultiplier);
 
     // Persisted content hash to detect inspector changes
     [SerializeField, HideInInspector] private uint _lastHash;
@@ -51,6 +59,7 @@ public class CustomMat : ScriptableObject
     private float GetGlobalMatBrightness()
     {
 #if UNITY_EDITOR
+        // In edit-time previews, don't depend on scene lookups (avoids spam + inconsistent hashing)
         if (!Application.isPlaying) return 1f;
 #endif
         if (isBackground) return 1f;
@@ -105,17 +114,27 @@ public class CustomMat : ScriptableObject
         float3 bc = BaseColor;
         float3 sc = SampleColor;
 
+        // Core visual fields
         float4 a = new(bc, opacity);
         float4 b = new(sampleOffset, colorTextureUpScaleFactor, disableMirrorRepeat ? 1f : 0f);
         float4 c = new(sc, transparentEdges ? 1f : 0f);
-        float4 d = new(edgeColor, 0f);
+        float4 d = new(edgeColor, isBackground ? 1f : 0f);
 
         uint h1 = math.hash(a);
         uint h2 = math.hash(b);
         uint h3 = math.hash(c);
         uint h4 = math.hash(d);
 
-        return math.hash(new uint4(h1, h2, h3, h4));
+        float2 e = new(EdgeRoundMul);
+        uint  h5 = math.hash(e);
+        return math.hash(new uint3(
+            math.hash(new uint2(
+                math.hash(new uint2(h1, h2)),
+                math.hash(new uint2(h3, h4))
+            )),
+            h5,
+            0u
+        ));
     }
 
     private void OnEnable()

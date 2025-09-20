@@ -15,6 +15,9 @@ struct Mat
     float  opacity;
     float3 sampleColMul;
     float3 edgeCol;
+
+    // Lighting
+    float edgeRoundingMult;
 };
 struct PType 
 {

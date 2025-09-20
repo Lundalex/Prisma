@@ -161,13 +161,13 @@ public class SceneManager : MonoBehaviour
         return null;
     }
 
-    private Mat InitMat(CustomMat CustomMat,
+    private Mat InitMat(CustomMat customMat,
                         float3 baseCol,
                         int2 colTexLoc, int2 colTexDims,
                         float2 sampleOffset)
     {
-        float upScale = (CustomMat != null) ? CustomMat.colorTextureUpScaleFactor : 1.0f;
-        bool disableMirror = (CustomMat != null) && CustomMat.disableMirrorRepeat;
+        float upScale = (customMat != null) ? customMat.colorTextureUpScaleFactor : 1.0f;
+        bool disableMirror = (customMat != null) && customMat.disableMirrorRepeat;
 
         return new Mat
         {
@@ -178,9 +178,12 @@ public class SceneManager : MonoBehaviour
             colTexUpScaleFactor = disableMirror ? -upScale : upScale,
 
             baseCol = baseCol,
-            opacity = Mathf.Clamp(CustomMat != null ? CustomMat.opacity : 1.0f, 0.0f, 1.0f),
-            sampleColMul = CustomMat != null ? CustomMat.SampleColor : new float3(1,1,1),
-            edgeCol = (CustomMat != null && CustomMat.transparentEdges) ? new float3(-1, -1, -1) : (CustomMat != null ? CustomMat.edgeColor : new float3(0,0,0))
+            opacity = Mathf.Clamp(customMat != null ? customMat.opacity : 1.0f, 0.0f, 1.0f),
+            sampleColMul = customMat != null ? customMat.SampleColor : new float3(1, 1, 1),
+            edgeCol = (customMat != null && customMat.transparentEdges) ? new float3(-1, -1, -1)
+                                                                        : (customMat != null ? customMat.edgeColor : new float3(0, 0, 0)),
+
+            edgeRoundingMult = customMat != null ? customMat.edgeRoundingMultiplier : 1.0f
         };
     }
 
@@ -288,7 +291,7 @@ public class SceneManager : MonoBehaviour
                 allRBVectors.Add(new RBVector(v, i));
             }
             int endIndex = allRBVectors.Count - 1;
-            
+
             int matIndex = -1;
             int springMatIndex = -1;
             if (main != null && main.MatIndexMap != null)

@@ -412,6 +412,14 @@ float DstToRB(float2 pos, RigidBody rb)
     return (minDstSqr == 1.#INF) ? 1.#INF : sqrt(minDstSqr);
 }
 
+// ---- FIX: true signed distance so gradient points outward consistently ----
+float SignedDstToRB(float2 pos, RigidBody rb)
+{
+    float d = DstToRB(pos, rb);
+    // negative inside, positive outside
+    return IsPointInsideRB(pos, rb) ? -d : d;
+}
+
 float MetaballsDensity(float dst, float invRadius)
 {
     float dstR = dst * invRadius;
@@ -926,7 +934,7 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     float2 baseUV = scaleAbs * localPixelPos / minDim + mat.sampleOffset;
 
     float2 a = (1.0 / ScreenToViewFactor) * ViewScale;
-    float  dPos_per_pix = max(abs(a.x), abs(a.y));
+    float  dPos_per_pix = max(abs(a.x), abs(a.y)); // world-units per pixel (max axis)
 
     float avgTexDim = 0.5 * (float(mat.colTexDims.x) + float(mat.colTexDims.y));
     float T = (scaleAbs / max(minDim, 1e-4)) * dPos_per_pix * avgTexDim;
@@ -936,20 +944,23 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
     float dEdge = DstToRB(pixelPos, selRB);
 
     float bevelAA   = 1.0;
-    float roundBand = RBEdgeRoundDst;
+    float roundBand = RBEdgeRoundDst * mat.edgeRoundingMult;
     bool  inRound   = (dEdge < (roundBand + bevelAA));
 
     float3 finalColor;
 
     if (inRound)
     {
-        float  s0  = -dEdge;
-        float  eps = 1.0;
-        float  sdx = -DstToRB(pixelPos + float2(eps, 0.0), selRB);
-        float  sdy = -DstToRB(pixelPos + float2(0.0, eps), selRB);
-        float2 grad = float2(sdx - s0, sdy - s0) / max(eps, 1e-4);
-        float  lenG = max(length(grad), 1e-4);
-        float2 nWorld = grad / lenG;
+        // ---- FIX: robust outward normal from signed-distance, using pixel-sized central differences ----
+        float eps = max(dPos_per_pix, 1e-4);            // scale with pixel; avoid huge 1.0 step
+        float sxp = SignedDstToRB(pixelPos + float2( eps, 0.0), selRB);
+        float sxm = SignedDstToRB(pixelPos + float2(-eps, 0.0), selRB);
+        float syp = SignedDstToRB(pixelPos + float2(0.0,  eps), selRB);
+        float sym = SignedDstToRB(pixelPos + float2(0.0, -eps), selRB);
+
+        float2 grad = float2(sxp - sxm, syp - sym) / (2.0 * eps);
+        float  lenG = max(length(grad), 1e-6);
+        float2 nWorld = grad / lenG;                    // outward
         float2 nLocal = rotate2D(nWorld, -transformData.z);
 
         float tEdge = saturate(1.0 - (dEdge / max(roundBand, 1e-4)));
@@ -966,11 +977,12 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
             ? SampleTextureStableMinified_LODBlend(uvForSample, mat.colTexLoc, mat.colTexDims, Atlas, T) * mat.sampleColMul + mat.baseCol
             : mat.baseCol;
 
-        float2 L = -normalize(SunDir);
-        float  lambert = 0.5 + 0.5 * dot(nWorld, L);
-        float  lightFactor = lerp(1.0 - RBRoundShadowStrength,
-                                  1.0 + RBRoundLightStrength,
-                                  lambert);
+        // ---- FIX: one-sided light/shadow to prevent spurious dark line on lit edge ----
+        float2 L2 = -normalize(SunDir);            // 2D sun dir in world space
+        float  ndl = dot(nWorld, L2);
+        float  lightW  = saturate( ndl);           // brighten only when facing light
+        float  shadowW = saturate(-ndl);           // darken only when facing away
+        float  lightFactor = 1.0 + RBRoundLightStrength * lightW - RBRoundShadowStrength * shadowW;
 
         finalColor = lerp(texCol, texCol * lightFactor, bevelMask);
     }
