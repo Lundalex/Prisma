@@ -52,6 +52,4 @@ public struct RBInput
     public bool disableRender;
     public bool disableSpringRender;
     public int renderPriority;
-    public int matIndex;
-    public int springMatIndex;
 }

@@ -6,7 +6,7 @@ using UnityEngine;
 using PM = ProgramManager;
 
 #if UNITY_EDITOR
-    using UnityEditor;
+using UnityEditor;
 #endif
 
 [RequireComponent(typeof(PolygonCollider2D)), ExecuteAlways]
@@ -15,7 +15,7 @@ public class SceneRigidBody : Polygon
     public bool doCenterPosition = false;
     public bool doDrawBody = true;
     public float editorLineAnimationSpeed = 10;
-    
+
     [Header("Simulation Object Settings")]
     public bool doOverrideGridSpacing = false;
     [Range(0.1f, 10.0f)] public float defaultGridSpacing = 0.5f;
@@ -24,6 +24,10 @@ public class SceneRigidBody : Polygon
     [Range(0.5f, 10.0f)] public float minDstForSubDivision = 0;
     public SensorBase[] linkedSensors;
     public RBInput rbInput;
+
+    [Header("Material")]
+    public CustomMat material;
+    public CustomMat springMaterial;
 
     [Header("Approximated Starting Values")]
     public string approximatedVolume;
@@ -55,7 +59,7 @@ public class SceneRigidBody : Polygon
     {
         if (Application.isPlaying || this == null) return;
 
-        // Skip re‑assigning collider points if user is actively dragging handles
+        // Skip re-assigning collider points if user is actively dragging handles
         bool userIsModifying = Tools.current == Tool.Move || Tools.current == Tool.Rotate || Tools.current == Tool.Scale;
         if (userIsModifying) return;
 
@@ -145,7 +149,7 @@ public class SceneRigidBody : Polygon
             Vector2 thisCentroidRelative = thisCentroid - lastPosition;
             Vector2 localLinkPosOther = rbInput.localLinkPosOtherRB;
             Vector2 localLinkPosThis = rbInput.localLinkPosThisRB;
-            
+
             Vector2 newPos = otherCentroid - thisCentroidRelative + localLinkPosOther - localLinkPosThis;
             bool doUpdatePosition = (newPos.x < float.MaxValue) &&
                                     (newPos.y < float.MaxValue) &&

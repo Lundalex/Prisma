@@ -374,6 +374,8 @@ public class Main : MonoBehaviour
     [NonSerialized] public int BackgroundMatIndex = -1;
     private bool causticsLoaded = false;
 
+    [NonSerialized] public Dictionary<CustomMat, int> MatIndexMap = new();
+
     public void SubmitParticlesToSimulation(PData[] particlesToAdd) => NewPDatas.AddRange(particlesToAdd);
 
     public void StartScript()
@@ -388,18 +390,19 @@ public class Main : MonoBehaviour
         ChunksNum = BoundaryDims / MaxInfluenceRadius;
         ChunksNumAll = ChunksNum.x * ChunksNum.y;
 
+        BuildAtlasAndMats();
+
         // Particles
         PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
         ParticlesNum = PDatas.Length;
 
-        // Rigid bodies & sensor areas
+        // Rigid bodies & sensor areas (now can pick indices from MatIndexMap)
         (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
         NumRigidBodies = RBDatas.Length;
         NumRigidBodyVectors = RBVectors.Length;
         NumFluidSensors = SensorAreas.Length;
 
-        // Materials / atlas / gradients
-        BuildAtlasAndMats();
+        // Gradients
         TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
         TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 
@@ -1156,15 +1159,42 @@ public class Main : MonoBehaviour
 
     private void BuildAtlasAndMats()
     {
-        var list = new List<CustomMat>(materialInput.materialInputs ?? Array.Empty<CustomMat>());
+        var uniques = new List<CustomMat>();
+        var seen = new HashSet<CustomMat>();
+
+        void AddIf(CustomMat cm)
+        {
+            if (cm == null) return;
+            if (seen.Add(cm)) uniques.Add(cm);
+        }
+
+        // Collect from scene objects
+        foreach (var rb in SceneManager.GetAllSceneRigidBodies())
+        {
+            AddIf(rb.material);
+            AddIf(rb.springMaterial);
+        }
+        foreach (var fl in SceneManager.GetAllSceneFluids())
+        {
+            AddIf(fl.material);
+        }
+
+        // Background at the end
         BackgroundMatIndex = -1;
         if (BackgroundCustomMat != null)
         {
-            BackgroundMatIndex = list.Count;
-            list.Add(BackgroundCustomMat);
+            BackgroundMatIndex = uniques.Count;
+            AddIf(BackgroundCustomMat);
         }
 
-        (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(list.ToArray());
+        // Build atlas & Mats
+        (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(uniques.ToArray());
+
+        // Rebuild mapping
+        MatIndexMap.Clear();
+        for (int i = 0; i < uniques.Count; i++)
+            MatIndexMap[uniques[i]] = i;
+
         RecreateOrUpdateMaterialBuffer();
 
         if (PM.Instance.programStarted && renderTexture != null)

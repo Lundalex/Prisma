@@ -79,7 +79,7 @@ public class SceneManager : MonoBehaviour
     }
 
     // ===============================
-    // UPDATED: supports any CustomMat[]; uses only RenderMat.bakedTexture at runtime
+    // Unchanged: atlas construction (works with any CustomMat[])
     // ===============================
     public (Texture2D, Mat[]) ConstructTextureAtlas(CustomMat[] materials)
     {
@@ -146,11 +146,9 @@ public class SceneManager : MonoBehaviour
     {
         if (bm == null) return null;
 
-        // SimpleMat: author-provided color texture (intended for runtime use)
         if (bm is SimpleMat mi && mi.colTexture != null)
             return mi.colTexture;
 
-        // RenderMat: RUNTIME MUST USE THE BAKED TEXTURE ONLY
         if (bm is RenderMat rm)
         {
             if (rm.bakedTexture != null)
@@ -290,6 +288,19 @@ public class SceneManager : MonoBehaviour
                 allRBVectors.Add(new RBVector(v, i));
             }
             int endIndex = allRBVectors.Count - 1;
+            
+            int matIndex = -1;
+            int springMatIndex = -1;
+            if (main != null && main.MatIndexMap != null)
+            {
+                if (rigidBody.material != null && main.MatIndexMap.TryGetValue(rigidBody.material, out int _m))
+                    matIndex = _m;
+
+                if (!rbInput.disableSpringRender &&
+                    rigidBody.springMaterial != null &&
+                    main.MatIndexMap.TryGetValue(rigidBody.springMaterial, out int _sm))
+                    springMatIndex = _sm;
+            }
 
             allRBData.Add(InitRBData(
                 rbInput,
@@ -300,7 +311,9 @@ public class SceneManager : MonoBehaviour
                 startIndex,
                 endIndex,
                 transformedRBPos,
-                parentOffset
+                parentOffset,
+                matIndex,
+                springMatIndex
             ));
 
             foreach (SensorBase sensor in rigidBody.linkedSensors)
@@ -517,7 +530,9 @@ public class SceneManager : MonoBehaviour
                               int startIndex,
                               int endIndex,
                               Vector2 pos,
-                              Vector2 parentOffset)
+                              Vector2 parentOffset,
+                              int matIndex,
+                              int springMatIndex)
     {
         bool canMove = rbInput.canMove && rbInput.constraintType != ConstraintType.LinearMotor;
         bool isRBCollider = rbInput.colliderType == ColliderType.RigidBody || rbInput.colliderType == ColliderType.All;
@@ -578,8 +593,10 @@ public class SceneManager : MonoBehaviour
             recordedFrictionForce = 0,
 
             renderPriority = rbInput.disableRender ? -1 : rbInput.renderPriority,
-            matIndex = rbInput.matIndex,
-            springMatIndex = rbInput.disableSpringRender ? -1 : rbInput.springMatIndex,
+
+            matIndex = matIndex,
+            springMatIndex = rbInput.disableSpringRender ? -1 : springMatIndex,
+
             stateFlags = stateFlags
         };
     }

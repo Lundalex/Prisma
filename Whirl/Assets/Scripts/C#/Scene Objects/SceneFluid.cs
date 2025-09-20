@@ -22,6 +22,9 @@ public class SceneFluid : Polygon
     [SerializeField] private float particleTemperatureCelcius = 20.0f;
     [SerializeField] private int pTypeIndex = 0;
 
+    [Header("Material")]
+    public CustomMat material;
+
     [Header("Preview Values")]
     [NonSerialized] public Vector2[] Points;
     private SceneManager sceneManager;
@@ -37,7 +40,7 @@ public class SceneFluid : Polygon
     {
         if (Application.isPlaying) return;
 
-        // Skip re‑assigning collider points if user is actively dragging handles
+        // Skip re-assigning collider points if user is actively dragging handles
         bool userIsModifying = Tools.current == Tool.Move || Tools.current == Tool.Rotate || Tools.current == Tool.Scale;
         if (userIsModifying) return;
 
@@ -58,14 +61,14 @@ public class SceneFluid : Polygon
                 CenterPolygonPosition();
                 DoCenterPosition = false;
             }
-            
+
             if (snapPointToGrid) SnapPointsToGrid();
         }
     }
 #endif
 
     private void OnValidate() => PM.Instance.doOnSettingsChanged = true;
-    
+
     public PData[] GenerateParticles(Vector2 pointOffset, float gridSpacing = 0)
     {
         if (main == null) main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
