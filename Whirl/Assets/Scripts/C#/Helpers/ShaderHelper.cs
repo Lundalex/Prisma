@@ -100,6 +100,7 @@ public class ShaderHelper : MonoBehaviour
 
         renderShader.SetTexture(2, "Result", m.renderTexture);
         renderShader.SetTexture(2, "Atlas", m.AtlasTexture);
+        // Removed legacy: renderShader.SetTexture(2, "MetalReflection", m.metalReflectionTexture);
 
         renderShader.SetTexture(3, "Result", m.renderTexture);
         renderShader.SetTexture(3, "Atlas", m.AtlasTexture);
@@ -366,6 +367,7 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("Gamma", m.Gamma);
 
         renderShader.SetInt("BackgroundMatIndex", m.BackgroundMatIndex);
+        renderShader.SetInt("MetalHighlightsMatIndex", m.MetalHighlightsMatIndex);
         renderShader.SetVector("SunDir",
             new(-Mathf.Cos(Mathf.Deg2Rad * m.ShadowDirection),
                 -Mathf.Sin(Mathf.Deg2Rad * m.ShadowDirection)));
@@ -373,6 +375,8 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("RBRoundShadowStrength", m.RBRoundShadowStrength);
         renderShader.SetFloat("RBRoundSamplePush", m.RBRoundSamplePush);
         renderShader.SetFloat("RBFalloff", m.RBFalloff);
+
+        renderShader.SetFloat("MetalReflectionStrength", m.MetalReflectionStrength);
     }
 
     public void SetPostProcessorVariables(ComputeShader ppShader)
@@ -389,8 +393,6 @@ public class ShaderHelper : MonoBehaviour
 
         // ------------------------------------------------------------
         // ResolutionScale normalization (pixel-space → scale with s)
-        // If ResolutionScale = 0.25, a 4× larger pixel => shrink widths by *0.25
-        // to keep the same apparent size after upscaling.
         // ------------------------------------------------------------
         float s = Mathf.Max(0.01f, PM.GetScaleFactor(PM.Instance.main.ResolutionScaleSetting));
 
@@ -398,20 +400,19 @@ public class ShaderHelper : MonoBehaviour
         int   blurRadius = Mathf.Max(0, Mathf.RoundToInt(m.ShadowBlurRadius * s));
         float diffusion  = Mathf.Max(0f, m.ShadowDiffusion * s);
 
-        // Rim shading spreads in pixels: scale bleeds (thickness), and
-        // also scale strength by s to keep brightness roughly invariant at lower res.
+        // Rim shading thickness & strength scale with s
         float rimBleed         = m.RimShadingBleed * s;
         float rimOpaqueBleed   = m.RimShadingOpaqueBleed * s;
-        float rimStrength      = m.RimShadingStrength * s; // <<< key change
+        float rimStrength      = m.RimShadingStrength * s;
 
         ppShader.SetInt("ShadowBlurRadius", blurRadius);
         ppShader.SetFloat("ShadowDiffusion", diffusion);
 
-        ppShader.SetFloat("RimShadingStrength",    rimStrength);     // was m.RimShadingStrength
+        ppShader.SetFloat("RimShadingStrength",    rimStrength);
         ppShader.SetFloat("RimShadingBleed",       rimBleed);
         ppShader.SetFloat("RimShadingOpaqueBleed", rimOpaqueBleed);
 
-        // TAA/AA parameters are unitless thresholds
+        // TAA/AA parameters
         ppShader.SetFloat("AAThreshold", m.AAThreshold);
         ppShader.SetFloat("AAMaxBlend",  m.AAMaxBlend);
 

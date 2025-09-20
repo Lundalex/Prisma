@@ -16,6 +16,7 @@ public struct Mat
     public float3 sampleColMul;
     public float3 edgeCol;
 
-    // Lighting
+    // Special effects
     public float edgeRoundingMult;
+    public float metallicity;
 }

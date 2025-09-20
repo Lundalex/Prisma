@@ -1,4 +1,4 @@
-using UnityEngine;
+using UnityEngine; 
 using Unity.Mathematics;
 using System;
 using System.Collections;
@@ -240,6 +240,10 @@ public class Main : MonoBehaviour
     public float RBRoundSamplePush = 1.0f;
     public float RBFalloff = 0.6f;
 
+    // Global metal reflection strength
+    public float MetalReflectionStrength = 0.35f;
+    public float GlobalMatBrightnessMultiplier = 1.0f;
+
     // Sensor Areas
     public float FluidSensorEdgeWidth = 3.0f;
     public float SensorAreaAnimationSpeed = 2.0f;
@@ -250,6 +254,9 @@ public class Main : MonoBehaviour
 
     [Header("Background")]
     public CustomMat BackgroundCustomMat;
+
+    [Header("Metal Highlights")]
+    public CustomMat MetalHighlightsCustomMat;
 
     // Rigid body path flags
     public static readonly float PathFlagOffset = 100000.0f;
@@ -262,7 +269,6 @@ public class Main : MonoBehaviour
     public RenderTexture dynamicCausticsTexture;
     public Texture2DArray precomputedCausticsTexture;
 
-    public MaterialInput materialInput;
     public PTypeInput pTypeInput;
     public SceneManager sceneManager;
     public ShaderHelper shaderHelper;
@@ -372,6 +378,7 @@ public class Main : MonoBehaviour
     // Expose current material count to helper
     public int MaterialsCount => Mats != null ? Mats.Length : 0;
     [NonSerialized] public int BackgroundMatIndex = -1;
+    [NonSerialized] public int MetalHighlightsMatIndex = -1;
     private bool causticsLoaded = false;
 
     [NonSerialized] public Dictionary<CustomMat, int> MatIndexMap = new();
@@ -1174,9 +1181,13 @@ public class Main : MonoBehaviour
             AddIf(rb.material);
             AddIf(rb.springMaterial);
         }
-        foreach (var fl in SceneManager.GetAllSceneFluids())
+
+        // Metal highlights near the end (before background so background truly stays last)
+        MetalHighlightsMatIndex = -1;
+        if (MetalHighlightsCustomMat != null)
         {
-            AddIf(fl.material);
+            MetalHighlightsMatIndex = uniques.Count;
+            AddIf(MetalHighlightsCustomMat);
         }
 
         // Background at the end
@@ -1206,6 +1217,12 @@ public class Main : MonoBehaviour
     }
 
     public void OnBackgroundMatChanged()
+    {
+        BuildAtlasAndMats();
+        UpdateSettings();
+    }
+
+    public void OnMetalHighlightsMatChanged()
     {
         BuildAtlasAndMats();
         UpdateSettings();

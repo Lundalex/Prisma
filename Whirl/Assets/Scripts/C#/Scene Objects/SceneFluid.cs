@@ -22,9 +22,6 @@ public class SceneFluid : Polygon
     [SerializeField] private float particleTemperatureCelcius = 20.0f;
     [SerializeField] private int pTypeIndex = 0;
 
-    [Header("Material")]
-    public CustomMat material;
-
     [Header("Preview Values")]
     [NonSerialized] public Vector2[] Points;
     private SceneManager sceneManager;

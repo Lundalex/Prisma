@@ -199,7 +199,6 @@
         <uie:ObjectField label="Dynamic Caustics" binding-path="dynamicCausticsTexture" />
         <uie:ObjectField label="Precomputed Caustics" binding-path="precomputedCausticsTexture" />
         <ui:Label text="Managers" style="left: -10px;" />
-        <uie:ObjectField label="Material Input" binding-path="materialInput" />
         <uie:ObjectField label="Particle Type Input" binding-path="pTypeInput" />
         <uie:ObjectField label="Scene Manager" binding-path="sceneManager" />
         <uie:ObjectField label="Shader Helper" binding-path="shaderHelper" />
@@ -212,4 +211,7 @@
         <uie:ObjectField label="Spatial Sorting" binding-path="sortShader" />
         <uie:ObjectField label="Debug" binding-path="debugShader" />
     </ui:Foldout>
+    <uie:ObjectField label="MetalHighlightsCustomMat" binding-path="MetalHighlightsCustomMat" />
+    <ui:Slider label="MetalReflectionStrength" value="1" high-value="10" binding-path="MetalReflectionStrength" show-input-field="true" fill="true" name="Slider" />
+    <ui:Slider label="GlobalMatBrightnessMultiplier" value="1" high-value="2" binding-path="GlobalMatBrightnessMultiplier" show-input-field="true" fill="true" name="Slider" />
 </ui:UXML>

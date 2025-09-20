@@ -183,7 +183,8 @@ public class SceneManager : MonoBehaviour
             edgeCol = (customMat != null && customMat.transparentEdges) ? new float3(-1, -1, -1)
                                                                         : (customMat != null ? customMat.edgeColor : new float3(0, 0, 0)),
 
-            edgeRoundingMult = customMat != null ? customMat.edgeRoundingMultiplier : 1.0f
+            edgeRoundingMult = customMat != null ? customMat.edgeRoundingMultiplier : 1.0f,
+            metallicity = customMat.metallicity
         };
     }
 

@@ -16,8 +16,9 @@ struct Mat
     float3 sampleColMul;
     float3 edgeCol;
 
-    // Lighting
+    // Special effects
     float edgeRoundingMult;
+    float metallicity;
 };
 struct PType 
 {

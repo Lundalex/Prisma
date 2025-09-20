@@ -26,14 +26,15 @@ public class CustomMat : ScriptableObject
 
     // Tinting / edge color
     [FormerlySerializedAs("sampleColorMultiplier")]
-    [ColorUsage(false, true), SerializeField] private Color sampleColor = Color.white; // HDR color (no alpha in UI)
+    [ColorUsage(false, true), SerializeField] private Color sampleColor = Color.white;
     public float sampleColorMultiplier = 1.0f;
     public bool transparentEdges = false;
     public float3 edgeColor = new(1.0f, 1.0f, 1.0f);
 
-    // Lighting
-    [Header("Lighting Multipliers")]
-    [Min(0f)] public float edgeRoundingMultiplier = 1.0f;
+    // Special effects
+    [Header("Special effects")]
+    [Range(0f, 2f)] public float edgeRoundingMultiplier = 1.0f;
+    [Range(0f, 1f)] public float metallicity = 0.0f;
 
     // Background flag
     public bool isBackground = false;
@@ -43,7 +44,7 @@ public class CustomMat : ScriptableObject
     public float3 SampleColor => sampleColorMultiplier * GetGlobalMatBrightness() * ToFloat3(sampleColor);
 
     // Convenience accessors
-    public float EdgeRoundMul      => Mathf.Max(0f, edgeRoundingMultiplier);
+    public float EdgeRoundMul => Mathf.Max(0f, edgeRoundingMultiplier);
 
     // Persisted content hash to detect inspector changes
     [SerializeField, HideInInspector] private uint _lastHash;
@@ -63,11 +64,11 @@ public class CustomMat : ScriptableObject
         if (!Application.isPlaying) return 1f;
 #endif
         if (isBackground) return 1f;
-        var matInput = GameObject.FindGameObjectWithTag("MaterialInput");
-        if (!matInput) return 1f;
-        var matInputComp = matInput.GetComponent<MaterialInput>();
-        if (!matInputComp) return 1f;
-        else return matInputComp.globalMatBrightnessMultiplier;
+        var mainGO = GameObject.FindGameObjectWithTag("MainCamera");
+        if (!mainGO) return 1f;
+        Main main = mainGO.GetComponent<Main>();
+        if (!main) return 1f;
+        return main.GlobalMatBrightnessMultiplier;
     }
 
 #if UNITY_EDITOR
@@ -125,8 +126,10 @@ public class CustomMat : ScriptableObject
         uint h3 = math.hash(c);
         uint h4 = math.hash(d);
 
-        float2 e = new(EdgeRoundMul);
+        // Include edge rounding AND metallicity in the hash
+        float2 e = new(EdgeRoundMul, metallicity);
         uint  h5 = math.hash(e);
+
         return math.hash(new uint3(
             math.hash(new uint2(
                 math.hash(new uint2(h1, h2)),

@@ -52,6 +52,8 @@ const float GasNoiseDensityOpacityFactor;
 const float3 BackgroundBrightness;
 const int    BackgroundMatIndex;
 
+const int    MetalHighlightsMatIndex;
+
 // Other
 const float RBEdgeWidth;
 const float RBEdgeRoundDst;
@@ -108,11 +110,13 @@ const int   PrecomputedCausticsZ;
 // -------------------------
 // Beveled RB edge settings
 // -------------------------
-const float2 SunDir; // note: 2D direction in world space (x,y). We'll make a 3D light using +z.
+const float2 SunDir; // 2D direction in world space (x,y)
 const float  RBRoundLightStrength;
 const float  RBRoundShadowStrength;
 const float  RBRoundSamplePush;
 const float  RBFalloff;
+
+const float  MetalReflectionStrength;
 
 // -------------------------
 // Resources
@@ -133,6 +137,8 @@ Texture2D<unorm float4> UITexture;
 
 // Packed material atlas (all color textures)
 Texture2D<unorm float4> Atlas;
+
+// Removed legacy: global-space MetalReflection texture
 
 StructuredBuffer<int2> SpatialLookup; 
 StructuredBuffer<int>  StartIndices;
@@ -554,6 +560,48 @@ float3 SampleBackgroundColor(uint2 threadID)
     return SampleBackgroundColorAtPos(GetPixelPos(threadID));
 }
 
+float2 ComputeMatUVFromPixelPos(float2 pixelPos, Mat m)
+{
+    float2 pixelID = (pixelPos - ViewOffset) / ViewScale - 0.5;
+
+    float2 texDims = (float2)m.colTexDims;
+    float scaleX = (float)Resolution.x / texDims.x;
+    float scaleY = (float)Resolution.y / texDims.y;
+    float scale  = max(scaleX, scaleY);
+    float2 scaledTexDims = texDims * scale;
+
+    float2 offset = (scaledTexDims - (float2)Resolution) * 0.5;
+
+    float up = abs(m.colTexUpScaleFactor);
+    float2 uv = ((pixelID + offset) * up) / scaledTexDims + m.sampleOffset;
+
+    bool doMirror = (m.colTexUpScaleFactor > 0);
+    uv = doMirror ? MirrorRepeatUV(uv) : frac(uv);
+
+    return uv;
+}
+
+float3 SampleGlobalMatColorAtPos(float2 pixelPos, Mat m)
+{
+    if (m.colTexLoc.x == -1)
+        return m.baseCol;
+
+    float2 uv = ComputeMatUVFromPixelPos(pixelPos, m);
+
+    float2 texDims = (float2)m.colTexDims;
+    float scaleX = (float)Resolution.x / texDims.x;
+    float scaleY = (float)Resolution.y / texDims.y;
+    float scale  = max(scaleX, scaleY);
+    float2 scaledTexDims = texDims * scale;
+
+    float up = abs(m.colTexUpScaleFactor);
+    float2 dUV_per_pix = up / scaledTexDims;
+    float T = max(dUV_per_pix.x * texDims.x, dUV_per_pix.y * texDims.y);
+
+    float3 sampled = SampleTextureStableMinified_LODBlend(uv, m.colTexLoc, m.colTexDims, Atlas, T) * m.sampleColMul;
+    return sampled + m.baseCol;
+}
+
 // -------------------------
 // Kernels
 // -------------------------
@@ -669,7 +717,6 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                     totDensity      += MetaballsDensity(dst, InvMaxInfluenceRadius);
                     totNoiseDensity += NoiseDensity(dst, InvMaxInfluenceRadius, pIndex);
 
-                    // NEW: accumulate gradient for liquids -> surface normal
                     if (!isGas)
                     {
                         float invDst = rsqrt(max(dstSqr, 1e-6));
@@ -999,6 +1046,14 @@ void RenderRigidBodies(uint3 id : SV_DispatchThreadID)
         {
             finalColor = mat.baseCol;
         }
+    }
+
+    float totReflectionStrength = MetalReflectionStrength * mat.metallicity;
+    if (totReflectionStrength > 0.0 && MetalHighlightsMatIndex >= 0 && MetalHighlightsMatIndex < NumMaterials)
+    {
+        Mat mh = Materials[MetalHighlightsMatIndex];
+        float3 refl = SampleGlobalMatColorAtPos(pixelPos, mh);
+        finalColor += refl * totReflectionStrength;
     }
 
 #if DRAW_RB_OUTLINES
