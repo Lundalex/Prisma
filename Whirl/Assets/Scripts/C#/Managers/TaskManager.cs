@@ -15,6 +15,8 @@ public class TaskManager : MonoBehaviour
     [SerializeField] private CorrectIconFeedback correctIconFeedback;
     [SerializeField] private List<UserTask> tasks = new();
 
+    [Header("--- REFERENCES ---")]
+    
     [Header("Main (Workspace) Windows")]
     public WindowManager workspaceWindowManager;
     public GameObject taskWindowPrefab;
