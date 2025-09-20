@@ -581,7 +581,7 @@ public class Main : MonoBehaviour
     public void UpdateSettings()
     {
         // Set new pType and material data
-        PTypeBuffer.SetData(pTypeInput.GetParticleTypes());
+        PTypeBuffer.SetData(pTypeInput.GetParticleTypesData(MatIndexMap));
 
         if (MaterialBuffer != null && MaterialBuffer.count == MaterialsCount)
             MaterialBuffer.SetData(Mats);
@@ -779,7 +779,8 @@ public class Main : MonoBehaviour
     private void InitializeBuffers(PData[] PDatas, RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas)
     {
         ComputeHelper.CreateStructuredBuffer<PData>(ref PDataBuffer, MaxParticlesNum);
-        ComputeHelper.CreateStructuredBuffer<PType>(ref PTypeBuffer, pTypeInput.GetParticleTypes());
+        // PTypeBuffer now uses GPU-side PTypeData
+        ComputeHelper.CreateStructuredBuffer<PTypeData>(ref PTypeBuffer, pTypeInput.GetParticleTypesData(MatIndexMap));
         ComputeHelper.CreateStructuredBuffer<RecordedFluidData>(ref RecordedFluidDataBuffer, ChunksNumAll);
 
         ComputeHelper.CreateStructuredBuffer<int2>(ref SpatialLookupBuffer, ParticlesNum_NextPow2);
@@ -1175,14 +1176,26 @@ public class Main : MonoBehaviour
             if (seen.Add(cm)) uniques.Add(cm);
         }
 
-        // Collect from scene objects
+        // 1) Collect from scene rigid bodies
         foreach (var rb in SceneManager.GetAllSceneRigidBodies())
         {
             AddIf(rb.material);
             AddIf(rb.springMaterial);
         }
 
-        // Metal highlights near the end (before background so background truly stays last)
+        // 2) Collect from particle types (fluids) BEFORE special mats,
+        //    so that mat indices exist when we map PTypes -> GPU indices.
+        if (pTypeInput != null && pTypeInput.particleTypeStates != null)
+        {
+            foreach (var pts in pTypeInput.particleTypeStates)
+            {
+                AddIf(pts.solidState.material);
+                AddIf(pts.liquidState.material);
+                AddIf(pts.gasState.material);
+            }
+        }
+
+        // 3) Metal highlights near the end (before background so background stays last)
         MetalHighlightsMatIndex = -1;
         if (MetalHighlightsCustomMat != null)
         {
@@ -1190,7 +1203,7 @@ public class Main : MonoBehaviour
             AddIf(MetalHighlightsCustomMat);
         }
 
-        // Background at the end
+        // 4) Background at the very end
         BackgroundMatIndex = -1;
         if (BackgroundCustomMat != null)
         {
