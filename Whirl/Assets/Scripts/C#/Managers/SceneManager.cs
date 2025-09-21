@@ -19,6 +19,17 @@ public class SceneManager : MonoBehaviour
     private ArrowManager arrowManager;
     private SensorManager sensorManager;
 
+    // ======== NEW: single growing atlas cache ========
+    private struct CachedAtlas
+    {
+        public Texture2D atlas;
+        public Dictionary<int, Rect> rectByTexId; // instanceID -> rect
+        public List<Texture2D> sources;           // the Texture2D sources currently packed
+        public int maxDims;                       // MaxAtlasDims when packed
+    }
+
+    private static CachedAtlas _cachedAtlas;
+
     private void SetReferences()
     {
         sensorUIContainer = GameObject.FindGameObjectWithTag("SensorUIContainer").GetComponent<Transform>();
@@ -46,7 +57,7 @@ public class SceneManager : MonoBehaviour
         sceneMin.x = transform.position.x - transform.localScale.x * 0.5f + main.FluidPadding;
         sceneMin.y = transform.position.y - transform.localScale.y * 0.5f + main.FluidPadding;
         sceneMax.x = transform.position.x + transform.localScale.x * 0.5f - main.FluidPadding;
-        sceneMax.y = transform.position.y + transform.localScale.y * 0.5f - main.FluidPadding;
+        sceneMax.y = transform.position.y + main.FluidPadding + transform.localScale.y * 0.5f - main.FluidPadding;
 
         bool isInsideBounds = point.x > sceneMin.x
                               && point.y > sceneMin.y
@@ -79,57 +90,141 @@ public class SceneManager : MonoBehaviour
     }
 
     // ===============================
-    // Unchanged: atlas construction (works with any CustomMat[])
+    // Optimised: single growing atlas
     // ===============================
     public (Texture2D, Mat[]) ConstructTextureAtlas(CustomMat[] materials)
     {
-        // Collect the color textures (from either SimpleMat.coltex or RenderMat.bakedTexture)
-        List<Texture2D> textures = new();
-        List<int> mapping = new(); // rect index -> material index
+        // 1) Collect requested textures (dedupe) + remember per-material tex id
+        var requestedUnique = new List<Texture2D>();
+        var seenRequested = new HashSet<int>();
+        int[] matTexIds = new int[materials.Length];
 
         for (int i = 0; i < materials.Length; i++)
         {
             Texture2D colTex = GetColTexture(materials[i]);
             if (colTex != null)
             {
+                int id = colTex.GetInstanceID();
+                matTexIds[i] = id;
+                if (seenRequested.Add(id))
+                    requestedUnique.Add(colTex);
+
                 if (!colTex.isReadable)
-                    Debug.LogWarning("Texture " + colTex.name + " is not readable. Enable Read/Write.");
-                textures.Add(colTex);
-                mapping.Add(i);
+                    Debug.LogWarning("Texture " + colTex.name + " is not readable. Enable Read/Write for atlas packing.");
+            }
+            else
+            {
+                matTexIds[i] = 0;
             }
         }
 
-        // Build the atlas
-        Texture2D atlas = new(MaxAtlasDims, MaxAtlasDims, TextureFormat.RGBAHalf, false);
-        Rect[] rects = textures.Count > 0
-            ? atlas.PackTextures(textures.ToArray(), 1, MaxAtlasDims)
+        bool hasCached = _cachedAtlas.atlas != null;
+        bool dimsChanged = hasCached && _cachedAtlas.maxDims != MaxAtlasDims;
+
+        // 2) If we have a cache and dims didn't change, check if all requested textures are already present
+        if (hasCached && !dimsChanged)
+        {
+            var rects = _cachedAtlas.rectByTexId;
+            bool allPresent = true;
+            for (int i = 0; i < requestedUnique.Count; i++)
+            {
+                if (!rects.ContainsKey(requestedUnique[i].GetInstanceID()))
+                {
+                    allPresent = false;
+                    break;
+                }
+            }
+
+            if (allPresent)
+            {
+                // Reuse atlas, just rebuild Mat[]
+                var mats = BuildMats(materials, matTexIds, _cachedAtlas.atlas, _cachedAtlas.rectByTexId);
+                StringUtils.LogIfInEditor($"[Atlas] Reused cached atlas ({_cachedAtlas.atlas.width}x{_cachedAtlas.atlas.height}) with {_cachedAtlas.rectByTexId.Count} textures");
+                return (_cachedAtlas.atlas, mats);
+            }
+        }
+
+        // 3) Need to repack: union of cached sources (if any) + requested
+        var union = new List<Texture2D>();
+        var seenUnion = new HashSet<int>();
+
+        if (hasCached)
+        {
+            foreach (var t in _cachedAtlas.sources)
+            {
+                if (t == null) continue;
+                if (seenUnion.Add(t.GetInstanceID()))
+                    union.Add(t);
+            }
+        }
+
+        foreach (var t in requestedUnique)
+        {
+            if (t == null) continue;
+            if (seenUnion.Add(t.GetInstanceID()))
+                union.Add(t);
+        }
+
+        // If dims changed, we still repack from union into the new MaxAtlasDims.
+        var (newAtlas, rectByTexId) = PackUnionIntoNewAtlas(union, MaxAtlasDims);
+
+        // Replace cached atlas (clean old)
+        if (hasCached && _cachedAtlas.atlas != null && _cachedAtlas.atlas != newAtlas)
+        {
+            UnityEngine.Object.Destroy(_cachedAtlas.atlas);
+        }
+
+        _cachedAtlas = new CachedAtlas
+        {
+            atlas = newAtlas,
+            rectByTexId = rectByTexId,
+            sources = union,
+            maxDims = MaxAtlasDims
+        };
+
+        var newMats = BuildMats(materials, matTexIds, newAtlas, rectByTexId);
+        return (newAtlas, newMats);
+    }
+
+    private static (Texture2D atlas, Dictionary<int, Rect> rects) PackUnionIntoNewAtlas(List<Texture2D> textures, int maxDims)
+    {
+        // Sort by instanceID for stable packing order (not required, but helps determinism)
+        textures.Sort((a, b) => a.GetInstanceID().CompareTo(b.GetInstanceID()));
+
+        Texture2D atlas = new Texture2D(maxDims, maxDims, TextureFormat.RGBAHalf, false);
+        Rect[] rectsArr = textures.Count > 0
+            ? atlas.PackTextures(textures.ToArray(), 1, maxDims)
             : Array.Empty<Rect>();
 
-        float sizeMB = (atlas.width * atlas.height * 8f) / (1024f * 1024f);
-        StringUtils.LogIfInEditor($"Texture atlas (colTex) with a size of {sizeMB:0.00} MB ({rects.Length} sub-textures)");
+        // Make non-readable to reduce CPU memory + GC pressure
+        atlas.Apply(false, true);
 
-        // Helpers to convert rects to atlas-space int2 coords/dims
+        var dict = new Dictionary<int, Rect>(textures.Count);
+        for (int i = 0; i < textures.Count; i++)
+        {
+            dict[textures[i].GetInstanceID()] = rectsArr[i];
+        }
+
+        float sizeMB = (atlas.width * atlas.height * 8f) / (1024f * 1024f);
+        StringUtils.LogIfInEditor($"[Atlas] New atlas Packed ({atlas.width}x{atlas.height}) with {textures.Count} textures, ~{sizeMB:0.00} MB");
+        return (atlas, dict);
+    }
+
+    private Mat[] BuildMats(CustomMat[] materials, int[] matTexIds, Texture2D atlas, Dictionary<int, Rect> rectByTexId)
+    {
         int2 GetTexLoc(Rect rect)  => new((int)(rect.x * atlas.width), (int)(rect.y * atlas.height));
         int2 GetTexDims(Rect rect) => new((int)(rect.width * atlas.width), (int)(rect.height * atlas.height));
 
-        // For each material, record the colTex rect (or mark as missing)
-        Rect[] colRects = Enumerable.Repeat(new Rect(0, 0, 0, 0), materials.Length).ToArray();
-
-        for (int i = 0; i < mapping.Count; i++)
-        {
-            int matIndex = mapping[i];
-            colRects[matIndex] = rects[i];
-        }
-
-        // Build render materials (Mat) array
         Mat[] renderMats = new Mat[materials.Length];
         for (int i = 0; i < materials.Length; i++)
         {
             CustomMat bm = materials[i];
+            int texId = matTexIds[i];
 
-            bool hasCol = colRects[i].width > 0f;
-            int2 colLoc  = hasCol ? GetTexLoc(colRects[i])  : new int2(-1, -1);
-            int2 colDims = hasCol ? GetTexDims(colRects[i]) : new int2(-1, -1);
+            Rect r = new();
+            bool hasCol = texId != 0 && rectByTexId.TryGetValue(texId, out r);
+            int2 colLoc  = hasCol ? GetTexLoc(r)  : new int2(-1, -1);
+            int2 colDims = hasCol ? GetTexDims(r) : new int2(-1, -1);
 
             renderMats[i] = InitMat(
                 bm,
@@ -139,7 +234,7 @@ public class SceneManager : MonoBehaviour
             );
         }
 
-        return (atlas, renderMats);
+        return renderMats;
     }
 
     private static Texture2D GetColTexture(CustomMat bm)

@@ -21,6 +21,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
     [SerializeField] public GameObject uiCanvas;
     [SerializeField] private GameObject userUI;
     [SerializeField] private GameObject startConfirmationWindow;
+    [SerializeField] private GameObject fullscreenView; // <-- Added reference
 
     private void OnValidate()
     {
@@ -79,6 +80,25 @@ public class ProgramLifeCycleManager : MonoBehaviour
     private void Update() => PM.Instance.Update();
 
     public void ResetScene() => PM.Instance.ResetScene();
+
+    public void PrimeSceneReset()
+    {
+        if (!fullscreenView) fullscreenView = GameObject.FindGameObjectWithTag("FullscreenView");
+        if (!fullscreenView.activeInHierarchy)
+        {
+            ResetScene();
+        }
+        else
+        {
+            StartCoroutine(WaitForFullscreenInactiveThenReset());
+        }
+    }
+
+    private IEnumerator WaitForFullscreenInactiveThenReset()
+    {
+        yield return new WaitUntil(() => !fullscreenView.activeInHierarchy);
+        ResetScene();
+    }
 
     public void OnStartConfirmation()
     {

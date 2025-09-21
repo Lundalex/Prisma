@@ -205,14 +205,14 @@ public class Main : MonoBehaviour
     // Realistic rendering settings
     public float  LiquidF0                   = 0.02f;                // Fresnel reflectance at normal incidence
     public float  LiquidReflectionStrength   = 0.85f;                // 0..1
-    public float  LiquidRefractionStrength   = 1.5f;                // 0..1 (scales refractive tint)
+    public float  LiquidRefractionStrength   = 1.5f;                 // 0..1 (scales refractive tint)
     public float  LiquidSpecularStrength     = 1.0f;                 // 0..1
-    public float  LiquidShininess            = 100.0f;                // e.g. 64..128
-    public float2 LiquidDistortScales        = new(0.03f, 0.015f); // refraction, reflection distortion
+    public float  LiquidShininess            = 100.0f;               // e.g. 64..128
+    public float2 LiquidDistortScales        = new(0.03f, 0.015f);   // refraction, reflection distortion
     public float3 LiquidAbsorptionColor      = new(0.0f, 0.25f, 0.35f); // bluish tint
     public float  LiquidAbsorptionStrength   = 1.2f;                 // 0..2
-    public float  LiquidNormalZBias          = 2f;                // >1 flattens normals (calmer surface)
-    public float  LiquidSlopeThreshold      = 1f;
+    public float  LiquidNormalZBias          = 2f;                   // >1 flattens normals (calmer surface)
+    public float  LiquidSlopeThreshold       = 1f;
 
     // Liquid Velocity Gradient
     public Gradient LiquidVelocityGradient;
@@ -405,7 +405,7 @@ public class Main : MonoBehaviour
         PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
         ParticlesNum = PDatas.Length;
 
-        // Rigid bodies & sensor areas (now can pick indices from MatIndexMap)
+        // Rigid bodies & sensor areas
         (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
         NumRigidBodies = RBDatas.Length;
         NumRigidBodyVectors = RBVectors.Length;
@@ -781,7 +781,6 @@ public class Main : MonoBehaviour
     private void InitializeBuffers(PData[] PDatas, RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas)
     {
         ComputeHelper.CreateStructuredBuffer<PData>(ref PDataBuffer, MaxParticlesNum);
-        // PTypeBuffer now uses GPU-side PTypeData
         ComputeHelper.CreateStructuredBuffer<PTypeData>(ref PTypeBuffer, pTypeInput.GetParticleTypesData(MatIndexMap));
         ComputeHelper.CreateStructuredBuffer<RecordedFluidData>(ref RecordedFluidDataBuffer, ChunksNumAll);
 
@@ -817,10 +816,10 @@ public class Main : MonoBehaviour
 
         int basebBlockLen = 2;
         if (threadGroupsNumHalfCeil > 0)
-            while (basebBlockLen != 2 * len) // basebBlockLen == len is the last outer iteration
+            while (basebBlockLen != 2 * len)
             {
                 int blockLen = basebBlockLen;
-                while (blockLen != 1) // blockLen == 2 is the last inner iteration
+                while (blockLen != 1)
                 {
                     bool BrownPinkSort = blockLen == basebBlockLen;
 
@@ -1185,8 +1184,7 @@ public class Main : MonoBehaviour
             AddIf(rb.springMaterial);
         }
 
-        // 2) Collect from particle types (fluids) BEFORE special mats,
-        //    so that mat indices exist when we map PTypes -> GPU indices.
+        // 2) Collect from particle types (fluids)
         if (pTypeInput != null && pTypeInput.particleTypeStates != null)
         {
             foreach (var pts in pTypeInput.particleTypeStates)
@@ -1197,7 +1195,7 @@ public class Main : MonoBehaviour
             }
         }
 
-        // 3) Metal highlights near the end (before background so background stays last)
+        // 3) Metal highlights near the end
         MetalHighlightsMatIndex = -1;
         if (MetalHighlightsCustomMat != null)
         {
@@ -1213,7 +1211,7 @@ public class Main : MonoBehaviour
             AddIf(BackgroundCustomMat);
         }
 
-        // Build atlas & Mats
+        // Build atlas & Mats (single growing atlas)
         (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(uniques.ToArray());
 
         // Rebuild mapping

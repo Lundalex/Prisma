@@ -44,6 +44,9 @@ public class TaskManager : MonoBehaviour
     [Tooltip("Used to persist ONLY task progress between scene reloads during play (resets between plays).")]
     [SerializeField] private DataStorage progressStorage;
 
+    [Tooltip("Used to persist ONLY the CURRENT task index between scene reloads during play (resets between plays).")]
+    [SerializeField] private DataStorage selectedIndexStorage; // --- PERSIST SELECTED TASK ---
+
     [Header("Chat")]
     [SerializeField] private AssistantChatManager assistantChatManager;
 
@@ -656,7 +659,6 @@ public class TaskManager : MonoBehaviour
         if (string.IsNullOrEmpty(configName)) return;
 
         configHelper.SetActiveConfigByName(targetCollectionName, configName);
-        // if (lifeCycleManager) lifeCycleManager.ResetScene();
     }
 
     public void OpenTaskByIndex(int index)
@@ -705,6 +707,9 @@ public class TaskManager : MonoBehaviour
         // --- NEW: Activate matching config for current task ---
         ActivateConfigForTask(index);
         // --- END NEW ---
+
+        // --- PERSIST SELECTED TASK (Play Mode only) ---
+        if (Application.isPlaying) SaveCurrentIndex();
     }
 
     public void SendTip()
@@ -728,16 +733,20 @@ public class TaskManager : MonoBehaviour
         {
             _didRuntimeInit = true;
 
-            ForceSelectorsToZero();
             SetWorkspaceTaskWindows();
             SetSideTaskWindows();
             SyncDualMultiContainerTargets();
             ApplyTaskDataToScripts();
+
+            // --- PERSIST SELECTED TASK: load saved index before building selectors/UI ---
+            int startIndex = Mathf.Clamp(LoadSavedCurrentIndex(), 0, Mathf.Max(0, tasks.Count - 1));
+            _currentIndex = startIndex;
+
             BuildTaskSelectorItems();
 
-            // Ensure correct layout pointing only to the first task before opening it
-            UpdateDualMultiContainerForIndex(0);
-            OpenTaskByIndex(0);
+            // Ensure correct layout pointing only to the saved/desired task before opening it
+            UpdateDualMultiContainerForIndex(_currentIndex);
+            OpenTaskByIndex(_currentIndex);
 
             ApplyProgressToAllIndicators();
             ApplyProgressToAllAnswerFields();
@@ -768,7 +777,11 @@ public class TaskManager : MonoBehaviour
 
     void OnDestroy()
     { 
-        if (Application.isPlaying) SaveProgress();
+        if (Application.isPlaying)
+        {
+            SaveProgress();
+            SaveCurrentIndex(); // --- PERSIST SELECTED TASK ---
+        }
     }
 
     IEnumerator ConsistencyHeartbeat()
@@ -794,6 +807,10 @@ public class TaskManager : MonoBehaviour
             ApplyProgressToAllIndicators();
             ApplyProgressToAllAnswerFields();
             UpdatePrevNextForAllSelectors();
+
+            // --- PERSIST SELECTED TASK (Play Mode only) ---
+            if (Application.isPlaying) SaveCurrentIndex();
+
             SaveProgress();
             yield return wait;
         }
@@ -922,6 +939,22 @@ public class TaskManager : MonoBehaviour
             tasks[i] = t;
         }
     }
+
+    // ---------- Selected task persistence (session-only) ----------
+    void SaveCurrentIndex()
+    {
+        if (!Application.isPlaying || selectedIndexStorage == null) return;
+        selectedIndexStorage.SetValue(_currentIndex);
+    }
+
+    int LoadSavedCurrentIndex()
+    {
+        if (!Application.isPlaying || selectedIndexStorage == null) return 0;
+        // If nothing stored yet, GetValue<int>() should return default 0.
+        int saved = selectedIndexStorage.GetValue<int>();
+        return saved;
+    }
+    // -----------------------------------------------
 
     [System.Serializable]
     struct AnswerFieldColors
