@@ -50,6 +50,13 @@ public class TaskManager : MonoBehaviour
     [Header("Fullscreen")]
     [SerializeField] private GameObject fullscreenView;
 
+    [Header("Life Cycle")]
+    [SerializeField] private ProgramLifeCycleManager lifeCycleManager;
+
+    [Header("Config Activation")]
+    public ConfigHelper configHelper;
+    public string targetCollectionName = "Tasks";
+
     [SerializeField, HideInInspector] private List<GameObject> taskWindowGOs = new();
     [SerializeField, HideInInspector] private List<Task> taskScripts = new();
     [SerializeField, HideInInspector] private List<GameObject> sideTaskWindowGOs = new();
@@ -58,6 +65,10 @@ public class TaskManager : MonoBehaviour
     int _currentIndex;
     bool _didRuntimeInit;
     Coroutine _consistencyLoop;
+
+    // Buffers to avoid GC when swapping active stretch targets
+    RectTransform[] _activeDefaults;
+    RectTransform[] _activeAlts;
 
     public void OpenFullscreenView()
     {
@@ -87,8 +98,7 @@ public class TaskManager : MonoBehaviour
         BuildTaskSelectorItems();
         ApplyProgressToAllIndicators();
         UpdatePrevNextForAllSelectors();
-
-        // No global container flipping here (prevents cross-task layout bleed).
+        // Intentionally no global container flip here.
     }
 
     // ---------- Create windows (MAIN) ----------
@@ -294,7 +304,8 @@ public class TaskManager : MonoBehaviour
                 }
                 else
                 {
-                    grow.SetParentPadding(Mathf.Max(0f, t.singleLineSettings.parentPadding));
+                    // Use TASK padding for the main/workspace view
+                    grow.SetParentPadding(Mathf.Max(0f, t.singleLineSettings.parentPaddingTask));
                 }
                 grow.ForceRecomputeNow();
             }
@@ -378,7 +389,8 @@ public class TaskManager : MonoBehaviour
                 }
                 else
                 {
-                    grow.SetParentPadding(Mathf.Max(0f, t.singleLineSettings.parentPadding));
+                    // Use SIDE padding for the side task
+                    grow.SetParentPadding(Mathf.Max(0f, t.singleLineSettings.parentPaddingSide));
                 }
                 grow.ForceRecomputeNow();
             }
@@ -453,13 +465,11 @@ public class TaskManager : MonoBehaviour
         dualMultiContainer.stretchTargets = defaults;
         dualMultiContainer.altStretchTargets = alts;
 
-        // --- IMPORTANT ---
-        // Editor: force the neutral (multiline) base layout to avoid accidental singleline stretch bleed.
-        // Runtime: let the container initialize normally.
 #if UNITY_EDITOR
         if (!Application.isPlaying)
         {
-            dualMultiContainer.SetStretchTargetAlt(false); // base = multiline
+            // Base = multiline in Editor to avoid accidental bleed
+            dualMultiContainer.SetStretchTargetAlt(false);
         }
         else
         {
@@ -469,6 +479,42 @@ public class TaskManager : MonoBehaviour
         dualMultiContainer.InitDisplay();
 #endif
     }
+
+    // --- NEW: Only the active index has valid targets at runtime to prevent cross-fade bleed.
+    void SetActiveStretchTargets(int activeIndex)
+    {
+        if (dualMultiContainer == null) return;
+
+        int n = Mathf.Max(1, tasks.Count);
+        if (_activeDefaults == null || _activeDefaults.Length != n) _activeDefaults = new RectTransform[n];
+        if (_activeAlts == null || _activeAlts.Length != n) _activeAlts = new RectTransform[n];
+
+        for (int i = 0; i < n; i++) { _activeDefaults[i] = null; _activeAlts[i] = null; }
+
+        if (activeIndex >= 0 && activeIndex < sideTaskScripts.Count)
+        {
+            var st = sideTaskScripts[activeIndex];
+            if (st != null)
+            {
+                _activeDefaults[activeIndex] = st.multiLineStretchTarget;
+                _activeAlts[activeIndex] = st.singleLineStretchTarget;
+            }
+        }
+
+        dualMultiContainer.stretchTargets = _activeDefaults;
+        dualMultiContainer.altStretchTargets = _activeAlts;
+    }
+
+    void UpdateDualMultiContainerForIndex(int index)
+    {
+        if (!Application.isPlaying || dualMultiContainer == null) return;
+
+        SetActiveStretchTargets(index);
+        bool useAltForSingleLine = (index >= 0 && index < tasks.Count) &&
+                                   tasks[index].taskType == TaskType.SingleLine;
+        dualMultiContainer.SetStretchTargetAlt(useAltForSingleLine);
+    }
+    // --- END NEW
 
     void BuildTaskSelectorItems()
     {
@@ -521,7 +567,6 @@ public class TaskManager : MonoBehaviour
         }
 
         UpdatePrevNextForAllSelectors();
-        // Still no global container flipping here.
     }
 
     void ClearSelectorIndicatorsImmediate(HorizontalSelector sel)
@@ -602,10 +647,25 @@ public class TaskManager : MonoBehaviour
         OpenTaskByIndex(idx + 1);
     }
 
+    void ActivateConfigForTask(int index)
+    {
+        if (configHelper == null) return;
+        if (index < 0 || index >= tasks.Count) return;
+
+        string configName = tasks[index].header;
+        if (string.IsNullOrEmpty(configName)) return;
+
+        configHelper.SetActiveConfigByName(targetCollectionName, configName);
+        // if (lifeCycleManager) lifeCycleManager.ResetScene();
+    }
+
     public void OpenTaskByIndex(int index)
     {
         if (index < 0 || index >= tasks.Count) return;
         _currentIndex = index;
+
+        // IMPORTANT: Point the container ONLY at the new task and set its mode
+        UpdateDualMultiContainerForIndex(index);
 
         if (workspaceWindowManager != null) workspaceWindowManager.OpenWindowByIndex(index);
         if (sideWindowManager != null) sideWindowManager.OpenWindowByIndex(index);
@@ -641,7 +701,10 @@ public class TaskManager : MonoBehaviour
 
         UpdatePrevNextForAllSelectors();
         ApplyProgressToAllIndicators();
-        // No global container flip here either.
+
+        // --- NEW: Activate matching config for current task ---
+        ActivateConfigForTask(index);
+        // --- END NEW ---
     }
 
     public void SendTip()
@@ -672,7 +735,10 @@ public class TaskManager : MonoBehaviour
             ApplyTaskDataToScripts();
             BuildTaskSelectorItems();
 
+            // Ensure correct layout pointing only to the first task before opening it
+            UpdateDualMultiContainerForIndex(0);
             OpenTaskByIndex(0);
+
             ApplyProgressToAllIndicators();
             ApplyProgressToAllAnswerFields();
 
@@ -724,6 +790,7 @@ public class TaskManager : MonoBehaviour
                 }
             }
 
+            // Keep indicators/progress up to date; container flip happens only on OpenTaskByIndex
             ApplyProgressToAllIndicators();
             ApplyProgressToAllAnswerFields();
             UpdatePrevNextForAllSelectors();
@@ -887,7 +954,9 @@ public class TaskManager : MonoBehaviour
         public InputFitMode inputFitMode;
         public float minWidth;
         public float maxWidth;
-        public float parentPadding;
+
+        public float parentPaddingTask;   // used by main/workspace Task
+        public float parentPaddingSide;   // used by SideTask
     }
 
     [System.Serializable]
@@ -1006,7 +1075,9 @@ public class TaskManager : MonoBehaviour
             }
             else
             {
-                h += line("parentPadding") + v;
+                // show both paddings
+                h += line("parentPaddingTask") + v;
+                h += line("parentPaddingSide") + v;
             }
             return h;
         }
@@ -1040,8 +1111,10 @@ public class TaskManager : MonoBehaviour
             }
             else
             {
-                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("parentPadding"), true)),
-                    property.FindPropertyRelative("parentPadding"));
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("parentPaddingTask"), true)),
+                    property.FindPropertyRelative("parentPaddingTask"));
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(property.FindPropertyRelative("parentPaddingSide"), true)),
+                    property.FindPropertyRelative("parentPaddingSide"));
             }
 
             EditorGUI.indentLevel--;
@@ -1068,6 +1141,24 @@ public class TaskManager : MonoBehaviour
         }
     }
 
+    void HandleEditorPlayModeChanged(PlayModeStateChange change)
+    {
+        if (change == PlayModeStateChange.EnteredEditMode) ResetSelectorsToFirstInEditor();
+    }
+
+    void ResetSelectorsToFirstInEditor()
+    {
+        if (tasks == null || tasks.Count == 0) return;
+
+        EditorApplication.delayCall += () =>
+        {
+            if (this == null) return;
+            ForceSelectorsToZero();
+            OpenTaskByIndex(0);
+            ApplyProgressToAllIndicators();
+        };
+    }
+#endif
     int ComputeStateHash()
     {
         unchecked
@@ -1113,7 +1204,8 @@ public class TaskManager : MonoBehaviour
                 hash = hash * 23 + sl.inputFitMode.GetHashCode();
                 hash = hash * 23 + sl.minWidth.GetHashCode();
                 hash = hash * 23 + sl.maxWidth.GetHashCode();
-                hash = hash * 23 + sl.parentPadding.GetHashCode();
+                hash = hash * 23 + sl.parentPaddingTask.GetHashCode();
+                hash = hash * 23 + sl.parentPaddingSide.GetHashCode();
 
                 var ml = t.multiLineSettings;
                 hash = hash * 23 + ml.checkMode.GetHashCode();
@@ -1142,23 +1234,4 @@ public class TaskManager : MonoBehaviour
         _currentIndex = 0;
         UpdatePrevNextForAllSelectors();
     }
-
-    void HandleEditorPlayModeChanged(PlayModeStateChange change)
-    {
-        if (change == PlayModeStateChange.EnteredEditMode) ResetSelectorsToFirstInEditor();
-    }
-
-    void ResetSelectorsToFirstInEditor()
-    {
-        if (tasks == null || tasks.Count == 0) return;
-
-        EditorApplication.delayCall += () =>
-        {
-            if (this == null) return;
-            ForceSelectorsToZero();
-            OpenTaskByIndex(0);
-            ApplyProgressToAllIndicators();
-        };
-    }
-#endif
 }

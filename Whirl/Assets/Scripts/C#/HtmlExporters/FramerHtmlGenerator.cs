@@ -1,4 +1,5 @@
 using System.Globalization;
+using UnityEngine;
 
 namespace HtmlExporters
 {
@@ -29,6 +30,13 @@ namespace HtmlExporters
         public GoogleFontFamily googleFontFamily;
         public int googleFontWeight;
         public float fullscreenTopOffset;
+        public float buttonFontSize;    // px
+        public float iconScale;         // multiplier for SVG icon
+        public float buttonPadX;        // px
+        public float buttonPadY;        // px
+        public float buttonCornerRadius;// px
+        public Color buttonBgColor;     // HDR → CSS
+        public Color buttonOutlineColor; // HDR → CSS
     }
 
     public static class FramerHtmlGenerator
@@ -44,6 +52,19 @@ namespace HtmlExporters
             string radiusPx     = s.radius.ToString(inv) + "px";
             string fsTopPx      = s.fullscreenTopOffset.ToString(inv) + "px";
 
+            // Vars for button
+            string fsFontPx     = s.buttonFontSize.ToString(inv) + "px";
+            string fsIconScale  = s.iconScale.ToString(inv);
+            string fsPadX       = s.buttonPadX.ToString(inv) + "px";
+            string fsPadY       = s.buttonPadY.ToString(inv) + "px";
+            string fsBtnRadius  = s.buttonCornerRadius.ToString(inv) + "px";
+
+            // Colors (force fully opaque; lighten on hover/active)
+            string bgBase   = CssOpaqueColorFromUnity(s.buttonBgColor);
+            string bgHover  = CssLightenOpaque(s.buttonBgColor, 0.12f);  // slightly lighter, opaque
+            string bgActive = CssLightenOpaque(s.buttonBgColor, 0.20f);  // a bit more, opaque
+            string outline  = CssColorFromUnity(s.buttonOutlineColor);    // keep outline alpha
+
             string fullscreenAttrs = s.allowFullscreen
                 ? "allow=\"fullscreen\" allowfullscreen webkitallowfullscreen"
                 : "";
@@ -51,14 +72,16 @@ namespace HtmlExporters
             (string cssFamily, string gfParam) = GetGoogleFont(s.googleFontFamily);
 
             const string kGameWrapClass = "game-wrap";
-            const string kClipClass = "clip";
-            const string kIframeClass = "game-iframe";
+            const string kClipClass     = "clip";
+            const string kIframeClass   = "game-iframe";
             const string kControlsClass = "controls";
-            const string kFsBtnId = "fs-btn";
-            const string kFsBtnClass = "fs-btn";
+            const string kFsBtnId       = "fs-btn";
+            const string kFsBtnClass    = "fs-btn";
 
             string html = $@"
-<div class=""{kGameWrapClass}"" style=""--wrap-width:{wrapWidthPx}; --wrap-height:{wrapHeightPx}; --crop:{cropPx}; --edge-crop:{edgeCropPx}; --radius:{radiusPx}; --fs-top-offset:{fsTopPx};"">
+<div class=""{kGameWrapClass}"" style=""--wrap-width:{wrapWidthPx}; --wrap-height:{wrapHeightPx}; --crop:{cropPx}; --edge-crop:{edgeCropPx}; --radius:{radiusPx}; --fs-top-offset:{fsTopPx};
+  --fs-font-size:{fsFontPx}; --fs-icon-scale:{fsIconScale}; --fs-pad-x:{fsPadX}; --fs-pad-y:{fsPadY}; --fs-radius-btn:{fsBtnRadius};
+  --fs-bg:{bgBase}; --fs-bg-hover:{bgHover}; --fs-bg-active:{bgActive}; --fs-outline:{outline};"">
   <div class=""{kClipClass}"">
     <iframe
       src=""{s.iframeSrc}""
@@ -124,23 +147,28 @@ namespace HtmlExporters
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 14px;
+    padding: var(--fs-pad-y) var(--fs-pad-x);
     font-family: '{cssFamily}', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-weight: {s.googleFontWeight};
-    font-size: 16px;
+    font-size: var(--fs-font-size);
     line-height: 1;
-    border: 0;
-    border-radius: 10px;
-    background: rgba(0,0,0,.65);
+    border: 1px solid var(--fs-outline);
+    border-radius: var(--fs-radius-btn);
+    background: var(--fs-bg);      /* fully opaque */
     color: #fff;
     cursor: pointer;
-    transition: background .15s ease, transform .02s ease;
+    transition: background-color .15s ease, transform .02s ease, border-color .15s ease;
+  }}
+  .{kFsBtnClass} svg {{
+    width: calc(18px * var(--fs-icon-scale));
+    height: calc(18px * var(--fs-icon-scale));
+    flex: 0 0 auto;
   }}
   .{kFsBtnClass}:hover {{
-    background: rgba(0,0,0,.48);
+    background: var(--fs-bg-hover); /* lighter, still opaque */
   }}
   .{kFsBtnClass}:active {{
-    background: rgba(0,0,0,.40);
+    background: var(--fs-bg-active); /* still opaque */
     transform: translateY(1px);
   }}
   .{kFsBtnClass}:focus-visible {{
@@ -193,6 +221,54 @@ namespace HtmlExporters
                 case GoogleFontFamily.SourceSans3: return ("Source Sans 3", "Source+Sans+3");
                 default:                           return ("Assistant", "Assistant");
             }
+        }
+
+        // Keep for things like outline where alpha matters
+        static string CssColorFromUnity(Color c)
+        {
+            float r = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.r));
+            float g = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.g));
+            float b = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.b));
+            float a = Mathf.Clamp01(c.a);
+
+            int R = Mathf.RoundToInt(r * 255f);
+            int G = Mathf.RoundToInt(g * 255f);
+            int B = Mathf.RoundToInt(b * 255f);
+
+            return $"rgba({R},{G},{B},{a.ToString(CultureInfo.InvariantCulture)})";
+        }
+
+        // Force fully opaque rgba from Unity color (sRGB converted)
+        static string CssOpaqueColorFromUnity(Color c)
+        {
+            float r = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.r));
+            float g = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.g));
+            float b = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.b));
+
+            int R = Mathf.RoundToInt(r * 255f);
+            int G = Mathf.RoundToInt(g * 255f);
+            int B = Mathf.RoundToInt(b * 255f);
+
+            return $"rgba({R},{G},{B},1)";
+        }
+
+        // Lighten toward white by t (0..1), keep opaque
+        static string CssLightenOpaque(Color c, float t)
+        {
+            t = Mathf.Clamp01(t);
+            float r = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.r));
+            float g = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.g));
+            float b = Mathf.Clamp01(Mathf.LinearToGammaSpace(c.b));
+
+            r += (1f - r) * t;
+            g += (1f - g) * t;
+            b += (1f - b) * t;
+
+            int R = Mathf.RoundToInt(r * 255f);
+            int G = Mathf.RoundToInt(g * 255f);
+            int B = Mathf.RoundToInt(b * 255f);
+
+            return $"rgba({R},{G},{B},1)";
         }
     }
 }

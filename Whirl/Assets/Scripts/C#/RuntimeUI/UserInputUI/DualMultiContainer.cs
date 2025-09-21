@@ -20,7 +20,6 @@ public class DualMultiContainer : MultiContainer
     public void SetStretchTargetAlt(bool useAlt)
     {
         useAltStretchTarget = useAlt;
-        UpdateBucketsActive();          // <-- now runs in Editor & Play
         MatchAnchorsToOuterGlobal();
     }
 
@@ -45,9 +44,6 @@ public class DualMultiContainer : MultiContainer
 
     private void OnEnable()
     {
-        // Ensure correct active states both in Editor and Play mode
-        UpdateBucketsActive();
-
 #if UNITY_EDITOR
         if (!Application.isPlaying)
             EditorUpdateNow();
@@ -80,24 +76,7 @@ public class DualMultiContainer : MultiContainer
 
     private void EditorUpdateNow()
     {
-        UpdateBucketsActive();
         MatchAnchorsToOuterGlobal();
     }
 #endif
-
-    // Removed #if UNITY_EDITOR so this also executes at runtime
-    private void UpdateBucketsActive()
-    {
-        if (stretchTargets != null)
-        {
-            foreach (var rt in stretchTargets)
-                if (rt) rt.gameObject.SetActive(!useAltStretchTarget);
-        }
-
-        if (altStretchTargets != null)
-        {
-            foreach (var rt in altStretchTargets)
-                if (rt) rt.gameObject.SetActive(useAltStretchTarget);
-        }
-    }
 }

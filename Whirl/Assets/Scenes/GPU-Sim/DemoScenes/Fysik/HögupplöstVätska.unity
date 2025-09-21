@@ -425,6 +425,8 @@ MonoBehaviour:
   RBRoundShadowStrength: 1
   RBRoundSamplePush: 1
   RBFalloff: 0.6
+  MetalReflectionStrength: 0.35
+  GlobalMatBrightnessMultiplier: 1
   FluidSensorEdgeWidth: 1
   SensorAreaAnimationSpeed: 10
   GlobalSettingsViewChangeSpeed: 10
@@ -433,10 +435,10 @@ MonoBehaviour:
     y: 1
     z: 1
   BackgroundCustomMat: {fileID: 11400000, guid: 66e423cc6454dbe4da363722f24b4cdc, type: 2}
+  MetalHighlightsCustomMat: {fileID: 0}
   uiTexture: {fileID: 8400000, guid: 3f8f5277ec04f5048946bcec7a320ab1, type: 2}
   dynamicCausticsTexture: {fileID: 8400000, guid: c94d9a94a54ed7644930b02601923171, type: 2}
   precomputedCausticsTexture: {fileID: 18700000, guid: 5154f244166343546bf2f18327183f14, type: 2}
-  materialInput: {fileID: 1325691963}
   pTypeInput: {fileID: 1543420959}
   sceneManager: {fileID: 1751344381}
   shaderHelper: {fileID: 486544}
@@ -997,7 +999,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1093615694
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1352,14 +1354,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6219053cb0e554d1fba2890751e08a65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  globalMatBrightnessMultiplier: 1
-  materialInputs:
-  - {fileID: 11400000, guid: c2b8bfb2b42b949eeb83d407f0066ecb, type: 2}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
 --- !u!4 &1325691964
 Transform:
   m_ObjectHideFlags: 0
@@ -1420,6 +1414,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   pauseOnStart: 0
+  doShowControlsTip: 0
   darkMode: 0
   doHideUIInSceneView: 1
   showUserUI: 1
@@ -1623,7 +1618,7 @@ MonoBehaviour:
       targetDensity: 50
       damping: 0.7
       passiveDamping: 0
-      matIndex: 0
+      material: {fileID: 0}
       influenceRadius: 2
     liquidState:
       fluidSpringGroup: 1
@@ -1642,7 +1637,7 @@ MonoBehaviour:
       targetDensity: 2
       damping: 0.7
       passiveDamping: 0
-      matIndex: 0
+      material: {fileID: 11400000, guid: c2b8bfb2b42b949eeb83d407f0066ecb, type: 2}
       influenceRadius: 2
     gasState:
       fluidSpringGroup: 0
@@ -1661,7 +1656,7 @@ MonoBehaviour:
       targetDensity: 1
       damping: 0.7
       passiveDamping: 0
-      matIndex: 3
+      material: {fileID: 0}
       influenceRadius: 2
 --- !u!4 &1543420960
 Transform:

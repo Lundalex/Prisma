@@ -18,16 +18,18 @@ public class Main : MonoBehaviour
     private void SetDefaults()
     {
         // Realistic rendering settings
-        LiquidF0                   = 0.02f;
-        LiquidReflectionStrength   = 0.85f;
-        LiquidRefractionStrength   = 1.5f;
-        LiquidSpecularStrength     = 1.0f;
-        LiquidShininess            = 100.0f;
-        LiquidDistortScales        = new(0.03f, 0.015f);
-        LiquidAbsorptionColor      = new(0.0f, 0.25f, 0.35f);
-        LiquidAbsorptionStrength   = 1.2f;
-        LiquidNormalZBias          = 2f;
-        LiquidSlopeThreshold      = 1f;
+        LiquidF0 = 0.02f;
+        LiquidReflectionStrength = 0.85f;
+        LiquidRefractionStrength = 1.5f;
+        LiquidSpecularStrength = 1.0f;
+        LiquidShininess = 100.0f;
+        LiquidDistortScales = new(0.03f, 0.015f);
+        LiquidAbsorptionColor = new(0.0f, 0.25f, 0.35f);
+        LiquidAbsorptionStrength = 1.2f;
+        LiquidNormalZBias = 2f;
+        LiquidSlopeThreshold = 1f;
+
+        RBRoundLightStrength = 0.5f;
     }
 #endif
 

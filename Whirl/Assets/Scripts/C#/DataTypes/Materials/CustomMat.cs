@@ -33,7 +33,7 @@ public class CustomMat : ScriptableObject
 
     // Special effects
     [Header("Special effects")]
-    [Range(0f, 2f)] public float edgeRoundingMultiplier = 1.0f;
+    [Range(0f, 5f)] public float edgeRoundingMultiplier = 1.0f;
     [Range(0f, 1f)] public float metallicity = 0.0f;
 
     // Background flag

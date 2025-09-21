@@ -102,7 +102,7 @@
             <ui:Slider label="Rim Bleed" value="10" high-value="0.5" binding-path="RimShadingBleed" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
             <ui:Slider label="Opaque Bleed" value="10" high-value="10" binding-path="RimShadingOpaqueBleed" show-input-field="true" fill="true" name="Slider" low-value="0.01" />
             <ui:Label text="Optimisations" style="left: -10px;" />
-            <ui:SliderInt label="Downsampling" value="2" high-value="5" fill="true" show-input-field="true" binding-path="ShadowDownSampling" />
+            <ui:SliderInt label="Downsampling" value="1" high-value="2" fill="true" show-input-field="true" binding-path="ShadowDownSampling" />
         </ui:Foldout>
         <ui:Foldout text="Image Processing" value="true" name="ImageProcessing" tooltip="Image processing applied to final output image before rendering." toggle-on-label-click="false" style="-unity-font-style: bold;">
             <ui:Label text="Anti Aliasing" style="left: -10px;" />
@@ -122,6 +122,7 @@
         <ui:Slider label="Saturation" value="1" high-value="2" binding-path="Saturation" tooltip="Global render color saturation." show-input-field="true" fill="true" name="Slider" />
         <ui:Slider label="Gamma" value="1" high-value="2" binding-path="Gamma" tooltip="Global render color gamma." show-input-field="true" fill="true" name="Slider" />
         <ui:Slider label="Settings View Dark Tint" value="0.4" high-value="0.9" binding-path="SettingsViewDarkTintPercent" tooltip="Darkness modifier applied to the whole render texture whenever a sensor settings view is active." show-input-field="true" fill="true" name="Slider" />
+        <ui:Slider label="Material Brightness" value="1" high-value="2" binding-path="GlobalMatBrightnessMultiplier" show-input-field="true" fill="true" name="Slider" />
         <ui:Foldout text="Caustics" name="Caustics" value="false" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="PrecomputedCausticsFPS" label="Precomputed FPS" tooltip="Frames of the precomputed caustics texture scrolled through per second. This directly influences the scroll speed." />
             <uie:PropertyField binding-path="PrecomputedCausticsScaleFactor" label="Precomputed Scale" tooltip="Scale factor applied to each pixel&apos;s position value before sampling the precomputed caustics texture." enabled="true" />
@@ -192,6 +193,10 @@
         <ui:Foldout text="Background" name="Background" value="false" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="BackgroundCustomMat" label="Custom Material" />
         </ui:Foldout>
+        <ui:Foldout text="Metallic Highlights" name="MetallicHighlights" value="false" style="-unity-font-style: bold;">
+            <uie:PropertyField binding-path="MetalHighlightsCustomMat" label="Custom Material" />
+            <ui:Slider label="MetalReflectionStrength" value="1" high-value="2" binding-path="MetalReflectionStrength" show-input-field="true" fill="true" name="Slider" />
+        </ui:Foldout>
     </ui:Foldout>
     <ui:Foldout text="References" name="References" toggle-on-label-click="true" value="false" style="-unity-font-style: bold; padding-bottom: 4px; padding-top: 4px; padding-right: 4px; padding-left: 4px;">
         <ui:Label text="Textures" style="left: -10px;" />
@@ -211,7 +216,4 @@
         <uie:ObjectField label="Spatial Sorting" binding-path="sortShader" />
         <uie:ObjectField label="Debug" binding-path="debugShader" />
     </ui:Foldout>
-    <uie:ObjectField label="MetalHighlightsCustomMat" binding-path="MetalHighlightsCustomMat" />
-    <ui:Slider label="MetalReflectionStrength" value="1" high-value="10" binding-path="MetalReflectionStrength" show-input-field="true" fill="true" name="Slider" />
-    <ui:Slider label="GlobalMatBrightnessMultiplier" value="1" high-value="2" binding-path="GlobalMatBrightnessMultiplier" show-input-field="true" fill="true" name="Slider" />
 </ui:UXML>

@@ -14,6 +14,13 @@ using UnityEditor;
 using UnityEditor.Callbacks;
 #endif
 
+public enum BakedTextureCompressionQuality
+{
+    High,
+    Normal,
+    Low
+}
+
 [ExecuteAlways]
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Camera))]
@@ -28,6 +35,10 @@ public class TextureBaker : MonoBehaviour
     public GameObject childPrefab;
     public Transform texturesRoot;
     public int visibleTextureIndex = -1;
+
+    [Header("Baked Texture Compression")]
+    [Tooltip("Choose compression quality for baked textures (applied on import).")]
+    public BakedTextureCompressionQuality bakedCompressionQuality = BakedTextureCompressionQuality.High;
 
     int _lastVisibleIndex = int.MinValue;
     Transform _lastRoot;
@@ -571,9 +582,22 @@ public class TextureBaker : MonoBehaviour
             importer.spritesheet = Array.Empty<SpriteMetaData>();    // Clear leftover slices
             importer.isReadable = true;
             importer.mipmapEnabled = false;
-            importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.sRGBTexture = true;
             importer.alphaIsTransparency = true;
+
+            // Apply chosen compression mode
+            TextureImporterCompression comp = TextureImporterCompression.CompressedHQ;
+            switch (bakedCompressionQuality)
+            {
+                case BakedTextureCompressionQuality.High:
+                    comp = TextureImporterCompression.CompressedHQ; break;
+                case BakedTextureCompressionQuality.Normal:
+                    comp = TextureImporterCompression.Compressed;   break;
+                case BakedTextureCompressionQuality.Low:
+                    comp = TextureImporterCompression.CompressedLQ; break;
+            }
+            importer.textureCompression = comp;
+
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
         }

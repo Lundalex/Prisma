@@ -1,4 +1,4 @@
-// Create shadows 
+// Create shadows   
 #pragma kernel CreateShadowsVertical
 #pragma kernel CreateShadowsDiagonal
 #pragma kernel CreateShadowsDirectional
@@ -92,8 +92,8 @@ RWStructuredBuffer<float> RimLightMask;
 // Helpers & small constants
 // ---------------------------
 
-static const float SQRT2    = 1.41421356;
-static const float EPS_DIR2 = 1e-12; // for dir^2 check
+static const int RimEarlyOpaquePixels = 2;
+static const float RimEarlyOpaqueThreshold = 0.001;
 
 uint GetPixelKeyFull(uint2 p) { return p.y * Resolution.x + p.x; }
 uint GetPixelKeyLow (uint2 p) { return p.y * ShadowResolution.x + p.x; }
@@ -167,8 +167,7 @@ inline void ShadowStep(uint2 pLow,
     dst = outsideRB ? (dst + 1.0) : 0.0;
     ShadowDstMask[idx] = dst;
 
-    static const int RimEarlyOpaquePixels = 2;
-    bool opaqueHit = (!outsideRB);
+    bool opaqueHit = pixelShadow > RimEarlyOpaqueThreshold;
     if (stepsSinceReset < (uint)RimEarlyOpaquePixels && opaqueHit) suppressRim = true;
     if (!opaqueHit) suppressRim = false;
 
@@ -383,8 +382,7 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
             dst = outsideRB ? (dst + 1.0) : 0.0;
             ShadowDstMask[idx] = dst;
 
-            static const int RimEarlyOpaquePixels = 2;
-            bool opaqueHit = (!outsideRB);
+            bool opaqueHit = pixelShadow > RimEarlyOpaqueThreshold;
             if (stepCount < (uint)RimEarlyOpaquePixels && opaqueHit) suppressRim = true;
             if (!opaqueHit) suppressRim = false;
 
@@ -445,8 +443,7 @@ void CreateShadowsDirectional(uint3 id : SV_DispatchThreadID)
                 dst = outsideRBD ? (dst + 1.0) : 0.0;
                 ShadowDstMask[idxD] = dst;
 
-                static const int RimEarlyOpaquePixels = 2;
-                bool opaqueHitD = (!outsideRBD);
+                bool opaqueHitD = pixelShadowD > RimEarlyOpaqueThreshold;
                 if (stepCount < (uint)RimEarlyOpaquePixels && opaqueHitD) suppressRim = true;
                 if (!opaqueHitD) suppressRim = false;
 
@@ -643,6 +640,66 @@ float bilinearSampleLow(float2 lowPos, uint kind)
     return lerp(sx0, sx1, f.y);
 }
 
+// ---- FIX: RB-aware bilinear upsample (ignore low-res RB interior texels) ----
+float bilinearSampleLow_NoRB(float2 lowPos, uint kind)
+{
+    lowPos = ClampToLowGrid(lowPos);
+
+    int2 p0 = (int2)floor(lowPos);
+    float2 f = frac(lowPos);
+
+    int2 p1 = p0 + int2(1, 0);
+    int2 p2 = p0 + int2(0, 1);
+    int2 p3 = p0 + int2(1, 1);
+
+    p0 = ClampToLowCoord(p0);
+    p1 = ClampToLowCoord(p1);
+    p2 = ClampToLowCoord(p2);
+    p3 = ClampToLowCoord(p3);
+
+    uint i00 = GetPixelKeyLow((uint2)p0);
+    uint i10 = GetPixelKeyLow((uint2)p1);
+    uint i01 = GetPixelKeyLow((uint2)p2);
+    uint i11 = GetPixelKeyLow((uint2)p3);
+
+    // RB interior cells have ShadowDstMask == 0
+    float isRB00 = (ShadowDstMask[i00] <= 1e-6) ? 1.0 : 0.0;
+    float isRB10 = (ShadowDstMask[i10] <= 1e-6) ? 1.0 : 0.0;
+    float isRB01 = (ShadowDstMask[i01] <= 1e-6) ? 1.0 : 0.0;
+    float isRB11 = (ShadowDstMask[i11] <= 1e-6) ? 1.0 : 0.0;
+
+    float s00 = ReadLow((uint2)p0, kind);
+    float s10 = ReadLow((uint2)p1, kind);
+    float s01 = ReadLow((uint2)p2, kind);
+    float s11 = ReadLow((uint2)p3, kind);
+
+    // Standard bilinear weights
+    float w00 = (1.0 - f.x) * (1.0 - f.y);
+    float w10 = (       f.x) * (1.0 - f.y);
+    float w01 = (1.0 - f.x) * (       f.y);
+    float w11 = (       f.x) * (       f.y);
+
+    // Zero contributions from RB interior low-res texels, then renormalize
+    w00 *= (1.0 - isRB00);
+    w10 *= (1.0 - isRB10);
+    w01 *= (1.0 - isRB01);
+    w11 *= (1.0 - isRB11);
+
+    float wsum = w00 + w10 + w01 + w11;
+
+    if (wsum > 1e-6)
+    {
+        float num = s00 * w00 + s10 * w10 + s01 * w01 + s11 * w11;
+        return num / wsum;
+    }
+    else
+    {
+        // Fallback: all four are RB interior (we're sampling inside an RB)
+        // return 0 so no shadow is applied; caller also clamps for RB pixels.
+        return 0.0;
+    }
+}
+
 float2 fullPxToLowPos(uint2 pxFull)
 {
     float2 scale = (float2)ShadowResolution / (float2)Resolution;
@@ -655,12 +712,15 @@ float2 fullPxToLowPos(uint2 pxFull)
 
 inline void ApplyCommon(uint2 px, float2 lowPos, float shadow)
 {
-    float light = 1.0 - shadow;
-
+    // ---- FIX: never shade RB interior pixels ----
     float sFull = ShadowSrcFullRes[GetPixelKeyFull(px)];
     bool insideSpringFull   = (sFull < 0.0);
     bool insideFluidGasFull = (sFull > 0.0) && (sFull < 1.0 - 1e-6);
     bool insideRBFull       = (sFull >= 1.0 - 1e-6);
+    if (insideRBFull) shadow = 0.0;
+
+    float light = 1.0 - shadow;
+
     bool allowRimHere       = !insideSpringFull && (insideFluidGasFull || insideRBFull);
 
     float rim = 0.0;
@@ -686,7 +746,8 @@ void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
     if (IsOutsideFullDims(px)) return;
 
     float2 lowPos = fullPxToLowPos(px);
-    float shadow  = bilinearSampleLow(lowPos, BUF_SHARP);
+    // ---- FIX: RB-aware sampling to avoid seam next to RBs ----
+    float shadow  = bilinearSampleLow_NoRB(lowPos, BUF_SHARP);
     ApplyCommon(px, lowPos, shadow);
 }
 
@@ -698,7 +759,8 @@ void ApplyBlurredShadows(uint3 id : SV_DispatchThreadID)
 
     float2 lowPos = fullPxToLowPos(px);
     uint   buf    = StepBufferCycle ? BUF_B : BUF_A;
-    float  shadow = bilinearSampleLow(lowPos, buf);
+    // ---- FIX: RB-aware sampling to avoid seam next to RBs ----
+    float  shadow = bilinearSampleLow_NoRB(lowPos, buf);
     ApplyCommon(px, lowPos, shadow);
 }
 

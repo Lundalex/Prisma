@@ -2,6 +2,8 @@ static const float PI = 3.14159;
 static const float EPSILON = 0.00000001;
 static const float LARGE_FLOAT = 1000000000.0;
 static const float SmoothViscosityLaplacianFactor = 45 / PI;
+static const float SQRT2    = 1.41421356;
+static const float EPS_DIR2 = 1e-12;
 
 #include "RandGen.hlsl"
 #include "VariableStorage.hlsl"
