@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using System.Collections;
 using Resources2;
 using Michsky.MUIP;
+using Utilities.Extensions;
 
 [ExecuteInEditMode]
 public class MultiContainer : MonoBehaviour
@@ -33,6 +34,8 @@ public class MultiContainer : MonoBehaviour
     [Header("Tooltips")]
     [SerializeField] private TooltipContent minimizedTooltip;
     [SerializeField] private TooltipContent expandedTooltip;
+    [SerializeField] private GameObject minimizedTooltipR;
+    [SerializeField] private GameObject expandedTooltipR;
 
     [Header("Persist")]
     [SerializeField] DataStorage dataStorage;
@@ -323,10 +326,16 @@ public class MultiContainer : MonoBehaviour
     // ===== Tooltips =====
     private void UpdateTooltips()
     {
-        if (expandedTooltip != null)
+        if (expandedTooltip && expandedTooltipR)
+        {
+            expandedTooltipR.SetActive(viewMode == ViewMode.Expanded);
             expandedTooltip.enabled = viewMode == ViewMode.Expanded;
-        if (minimizedTooltip != null)
+        }
+        if (minimizedTooltip && minimizedTooltipR)
+        {
             minimizedTooltip.enabled = viewMode == ViewMode.Minimized;
+            minimizedTooltipR.SetActive(viewMode == ViewMode.Minimized);
+        }
     }
 
     // ===== Persist =====

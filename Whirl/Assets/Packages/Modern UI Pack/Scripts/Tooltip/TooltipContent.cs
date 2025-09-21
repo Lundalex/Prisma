@@ -53,6 +53,8 @@ namespace Michsky.MUIP
                 return;
 
             descriptionText.text = description;
+
+            if (!tpManager) return;
           
             tpManager.allowUpdate = true;
             tpManager.currentTooltip = this;
@@ -78,6 +80,8 @@ namespace Michsky.MUIP
             if (delay != 0)
             {
                 StopCoroutine("ShowTooltip");
+
+                if (!tooltipAnimator) return;
 
                 if (tooltipAnimator.GetCurrentAnimatorStateInfo(0).IsName("In"))
                     tooltipAnimator.Play("Out");

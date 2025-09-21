@@ -32,7 +32,6 @@ public class ConfigHelper : MonoBehaviour
         {
             if (configIndex >= collections[collectionIndex].configs.Length)
             {
-                Debug.LogWarning("configIndex cannot exceed chosen collection configs length");
                 configIndex = collections[collectionIndex].configs.Length - 1;
             }
         }
