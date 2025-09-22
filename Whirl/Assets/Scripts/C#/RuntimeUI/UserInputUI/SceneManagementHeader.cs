@@ -9,17 +9,23 @@ public class SceneManagementHeader : MonoBehaviour
 
     void Update()
     {
-        if (workspaceView && sceneResetButton && taskSelector)
-        {
-            bool isFullscreen = Screen.fullScreen; // DEOS NOT WORK IN WEBGL/WEBGPU BUILDS
-#if UNITY_EDITOR
-            isFullscreen = true;
-#endif
-            bool doEnableSceneReset = !workspaceView.activeSelf && isFullscreen;
-            bool doEnableTaskSelector = isFullscreen;
+        if (!sceneResetButton || !taskSelector || !workspaceView) return;
 
-            if (sceneResetButton.activeSelf != doEnableSceneReset) sceneResetButton.SetActive(doEnableSceneReset);
-            if (taskSelector.activeSelf != doEnableTaskSelector) taskSelector.SetActive(doEnableTaskSelector);
-        }
+        bool isFullscreen = IsFullscreenSafe();
+
+        bool doEnableSceneReset = !workspaceView.activeSelf && isFullscreen;
+        bool doEnableTaskSelector = isFullscreen;
+
+        if (sceneResetButton.activeSelf != doEnableSceneReset) sceneResetButton.SetActive(doEnableSceneReset);
+        if (taskSelector.activeSelf != doEnableTaskSelector) taskSelector.SetActive(doEnableTaskSelector);
+    }
+
+    private bool IsFullscreenSafe()
+    {
+#if UNITY_EDITOR
+        return true;
+#else
+        return WebFullscreen.IsViewportLikelyFullscreen();
+#endif
     }
 }

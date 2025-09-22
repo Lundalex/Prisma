@@ -92,7 +92,7 @@ RWStructuredBuffer<float> RimLightMask;
 // Helpers & small constants
 // ---------------------------
 
-static const int RimEarlyOpaquePixels = 2;
+static const int RimEarlyOpaquePixels = 5;
 static const float RimEarlyOpaqueThreshold = 0.001;
 
 uint GetPixelKeyFull(uint2 p) { return p.y * Resolution.x + p.x; }
