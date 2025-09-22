@@ -121,7 +121,8 @@
         <ui:Slider label="Contrast" value="1" high-value="2" binding-path="Contrast" tooltip="Global render color contrast." show-input-field="true" fill="true" name="Slider" />
         <ui:Slider label="Saturation" value="1" high-value="2" binding-path="Saturation" tooltip="Global render color saturation." show-input-field="true" fill="true" name="Slider" />
         <ui:Slider label="Gamma" value="1" high-value="2" binding-path="Gamma" tooltip="Global render color gamma." show-input-field="true" fill="true" name="Slider" />
-        <ui:Slider label="Settings View Dark Tint" value="0.4" high-value="0.9" binding-path="SettingsViewDarkTintPercent" tooltip="Darkness modifier applied to the whole render texture whenever a sensor settings view is active." show-input-field="true" fill="true" name="Slider" />
+        <ui:Slider label="Settings Dark Tint" value="0.4" high-value="0.9" binding-path="SettingsViewDarkTintPercent" tooltip="Darkness modifier applied to the whole render texture whenever a sensor settings view is active." show-input-field="true" fill="true" name="Slider" />
+        <ui:Slider label="Pause Dark Tint" value="0.4" high-value="0.9" binding-path="PauseDarkTintPercent" tooltip="Darkness modifier applied to the whole render texture when the program is paused." show-input-field="true" fill="true" name="Slider" />
         <ui:Slider label="Material Brightness" value="1" high-value="2" binding-path="GlobalMatBrightnessMultiplier" show-input-field="true" fill="true" name="Slider" />
         <ui:Foldout text="Caustics" name="Caustics" value="false" style="-unity-font-style: bold;">
             <uie:PropertyField binding-path="PrecomputedCausticsFPS" label="Precomputed FPS" tooltip="Frames of the precomputed caustics texture scrolled through per second. This directly influences the scroll speed." />

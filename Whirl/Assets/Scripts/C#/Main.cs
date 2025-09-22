@@ -182,6 +182,7 @@ public class Main : MonoBehaviour
     public float Saturation;
     public float Gamma;
     public float SettingsViewDarkTintPercent;
+    public float PauseDarkTintPercent;
     public float PrecomputedCausticsFPS;
     public float PrecomputedCausticsScaleFactor;
     public float DynamicCausticsScaleFactor;
@@ -722,7 +723,8 @@ public class Main : MonoBehaviour
         Contrast = 1.0f;
         Saturation = 1.0f;
         Gamma = 1.0f;
-        SettingsViewDarkTintPercent = 0.90f;
+        SettingsViewDarkTintPercent = 0.70f;
+        PauseDarkTintPercent = 0.7f;
     }
 
     private float GetDeltaTime(float totalFrameTime, bool doClamp)

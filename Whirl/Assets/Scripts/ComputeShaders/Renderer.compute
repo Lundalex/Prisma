@@ -95,7 +95,6 @@ const float  DynamicCausticsScaleFactor;
 const float  PrecomputedCausticsZBlurFactor;
 
 // Global rendering settings
-const float3 GlobalBrightness;
 const float  Contrast;
 const float  Saturation;
 const float  Gamma;
@@ -293,8 +292,6 @@ void SetResultColor(uint2 id, float3 color)
     AdjustContrast(color);
     AdjustSaturation(color);
     ApplyGammaCorrection(color);
-
-    color *= GlobalBrightness;
 
     color = saturate(color);
     Result[id] = float4(color, 1.0);
@@ -881,7 +878,6 @@ void RenderFluids(uint3 id : SV_DispatchThreadID)
                 float gradientFactor = avgVel * InvGasVelocityGradientMaxValue;
                 gradientCol = SampleGradient(gradientFactor, GasVelocityGradient);
 #endif
-                color *= GlobalBrightness;
                 result = BlendWithBackground(color, opacity, id.xy);
 
 #if DISPLAY_FLUID_VELOCITIES

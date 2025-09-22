@@ -57,6 +57,7 @@ const float AAMaxBlend;
 
 // Global brightness factor
 const float GlobalBrightnessFactor;
+const float4 GlobalBrightness;
 
 // static seetings
 static const bool DO_APPLY_SHADOWS_TO_SPRINGS = true;
@@ -840,5 +841,5 @@ void ApplyAA(uint3 id : SV_DispatchThreadID)
 void CopyResultToPP(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= (uint)Resolution.x || id.y >= (uint)Resolution.y) return;
-    PPResult[id.xy] = Result[id.xy] * GlobalBrightnessFactor; // Also apply global brightness factor
+    PPResult[id.xy] = saturate(Result[id.xy]) * GlobalBrightness * GlobalBrightnessFactor;
 }

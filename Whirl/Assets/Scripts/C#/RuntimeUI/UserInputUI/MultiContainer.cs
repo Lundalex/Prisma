@@ -42,7 +42,6 @@ public class MultiContainer : MonoBehaviour
 
     [Header("References")]
     [ColorUsage(true, true)] public Color primaryColor;
-    [SerializeField] private Image containerTrimImage;
     [SerializeField] private RectTransform maskTransform;
     [SerializeField] private RectTransform outerContainerTransform;
     [SerializeField] private Transform mainContainerTransform;

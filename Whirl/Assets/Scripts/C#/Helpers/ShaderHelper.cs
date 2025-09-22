@@ -1,6 +1,7 @@
 using Resources2;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.Assertions.Must;
 using PM = ProgramManager;
 
 [ExecuteAlways]
@@ -373,7 +374,6 @@ public class ShaderHelper : MonoBehaviour
         renderShader.SetFloat("DynamicCausticsScaleFactor", m.DynamicCausticsScaleFactor);
         renderShader.SetFloat("PrecomputedCausticsZBlurFactor", m.PrecomputedCausticsZBlurFactor);
 
-        renderShader.SetVector("GlobalBrightness", Utils.Float3ToVector3(m.GlobalBrightness));
         renderShader.SetFloat("Contrast", m.Contrast);
         renderShader.SetFloat("Saturation", m.Saturation);
         renderShader.SetFloat("Gamma", m.Gamma);
@@ -434,6 +434,9 @@ public class ShaderHelper : MonoBehaviour
         int h = Mathf.Max(1, m.renderTexture.height / factor);
         ppShader.SetVector("ShadowResolution", new Vector2(w, h));
         ppShader.SetInt("ShadowDownsampleFactor", factor);
+
+        Vector3 gb = Utils.Float3ToVector3(m.GlobalBrightness);
+        ppShader.SetVector("GlobalBrightness", new(gb.x, gb.y, gb.z, 1));
     }
 
     public void UpdateSortShaderVariables(ComputeShader sortShader)
@@ -445,7 +448,7 @@ public class ShaderHelper : MonoBehaviour
         sortShader.SetInt("ParticlesNum_NextPow2", m.ParticlesNum_NextPow2);
     }
 
-    // --- RB shader ---
+    // --- RB shader --- 
 
     public void SetRBSimShaderBuffers(ComputeShader rbSimShader)
     {

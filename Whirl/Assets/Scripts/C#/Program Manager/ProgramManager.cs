@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.Localization.Settings;
 using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
+using TMPro;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -90,6 +91,11 @@ public class ProgramManager : ScriptableObject
     private static readonly float SettingsMaterialScrollSpeed = 1.0f;
     private float offset;
 
+    // Private - Pause UI
+    [NonSerialized] private TMP_Text pauseText;
+    [NonSerialized] private float pauseTextAlpha = -1f;
+
+
     // Key inputs
     private Timer rapidFrameSteppingTimer;
     private static readonly float rapidFrameSteppingDelay = 0.1f;
@@ -152,7 +158,7 @@ public class ProgramManager : ScriptableObject
         {
             bool scaleChanged = main.ResolutionScaleSetting != _appliedResolutionScale;
             bool baseChanged = main.DefaultResolution.x != _appliedDefaultResolution.x ||
-                               main.DefaultResolution.y != _appliedDefaultResolution.y;
+                            main.DefaultResolution.y != _appliedDefaultResolution.y;
 
             if (scaleChanged || baseChanged || !hasBeenReset)
             {
@@ -180,6 +186,7 @@ public class ProgramManager : ScriptableObject
         LerpGlobalBrightness(clampedDeltaTime);
         LerpTimeScale(clampedDeltaTime);
         LerpSensorUIScale(clampedDeltaTime);
+        UpdatePauseTextAlpha(clampedDeltaTime); // NEW: fade PauseText alpha while pausing/unpausing
 
         if (doOnSettingsChanged && programStarted)
         {
@@ -524,8 +531,12 @@ public class ProgramManager : ScriptableObject
 
     private void LerpGlobalBrightness(float deltaTime)
     {
-        bool applyDarkening = isAnySensorSettingsViewActive;
-        float target = 1f - main.SettingsViewDarkTintPercent * (applyDarkening ? 1f : 0f);
+        float settingsTint = main.SettingsViewDarkTintPercent * (isAnySensorSettingsViewActive ? 1f : 0f);
+        bool allowPauseLerp = CheckAllowRestart();
+        float pauseTint = allowPauseLerp ? main.PauseDarkTintPercent * (programPaused ? 1f : 0f) : 0f;
+
+        float appliedTint = Mathf.Max(settingsTint, pauseTint);
+        float target = 1f - appliedTint;
 
         if (globalBrightnessFactor == -1) globalBrightnessFactor = target;
         else globalBrightnessFactor = Mathf.Lerp(globalBrightnessFactor, target, deltaTime * main.GlobalSettingsViewChangeSpeed);
@@ -547,6 +558,39 @@ public class ProgramManager : ScriptableObject
             Vector3 newScale = Vector3.Lerp(currentScale, targetScale, deltaTime * main.GlobalSettingsViewChangeSpeed);
             sensorData.sensorUIObject.transform.localScale = newScale;
         }
+    }
+
+    private void UpdatePauseTextAlpha(float deltaTime)
+    {
+        bool allowPauseLerp = CheckAllowRestart();
+        float target = (allowPauseLerp && programPaused) ? 1f : 0f;
+
+        if (pauseText == null && allowPauseLerp &&
+            (programPaused || (pauseTextAlpha >= 0f && !Mathf.Approximately(pauseTextAlpha, target))))
+        {
+            var go = GameObject.FindGameObjectWithTag("PauseText");
+            if (go != null)
+            {
+                pauseText = go.GetComponent<TMP_Text>();
+                if (pauseText != null && pauseTextAlpha < 0f)
+                {
+                    // Initialize from current color
+                    pauseTextAlpha = pauseText.color.a;
+                }
+            }
+        }
+
+        if (pauseText == null) return;
+
+        if (pauseTextAlpha < 0f) pauseTextAlpha = pauseText.color.a;
+        pauseTextAlpha = Mathf.Lerp(pauseTextAlpha, target, deltaTime * main.GlobalSettingsViewChangeSpeed);
+
+        // Snap when close
+        if (Mathf.Abs(pauseTextAlpha - target) < 0.001f) pauseTextAlpha = target;
+
+        var c = pauseText.color;
+        c.a = pauseTextAlpha;
+        pauseText.color = c;
     }
 
     public Vector2 GetScreenToViewFactor(float resolutionAspect)
@@ -669,8 +713,11 @@ public class ProgramManager : ScriptableObject
 
     private void OnNewSlowMotionState(bool state)
     {
+        if (slowMotionActive == state) return;
+
         slowMotionActive = state;
         Debug.Log(slowMotionActive ? "Slow motion activated" : "Slow motion deactivated");
+
         if (slowMotionActive)
         {
             main.ProgramSpeed /= SlowMotionFactor;

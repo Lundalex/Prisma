@@ -28,4 +28,9 @@ public class SceneManagementHeader : MonoBehaviour
         return WebFullscreen.IsViewportLikelyFullscreen();
 #endif
     }
+
+    public void SetFullscreenState(bool state)
+    {
+        workspaceView.SetActive(state);
+    }
 }
