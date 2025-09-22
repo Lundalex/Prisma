@@ -80,6 +80,34 @@ public class ConfigHelper : MonoBehaviour
         }
     }
 
+    public void SetActiveConfigByNameAndIndex(string collectionName, int configIndex)
+    {
+        if (onlyRunWhilePlaying && !Application.isPlaying) return;
+        if (collections == null || collections.Length == 0) return;
+
+        int collectionIndex = -1;
+        for (int i = 0; i < collections.Length; i++)
+        {
+            if (collections[i].name == collectionName)
+            {
+                collectionIndex = i;
+                break;
+            }
+        }
+
+        if (collectionIndex == -1)
+        {
+            Debug.LogWarning("ConfigCollection with name '" + collectionName + "' not found. ConfigHelper: " + this.name);
+            return;
+        }
+
+        // Delay execution in editor if not playing
+        if (Application.isPlaying) SetActiveConfigByIndex(collectionIndex, configIndex);
+    #if UNITY_EDITOR
+        else EditorApplication.delayCall += () => SetActiveConfigByIndex(collectionIndex, configIndex);
+    #endif
+    }
+
     public void SetActiveConfigByName(string collectionName, string configName)
     {
         int collectionIndex = -1;
@@ -119,8 +147,9 @@ public class ConfigHelper : MonoBehaviour
 
         // Delay the execution when not playing to avoid SendMessage warnings
         if (Application.isPlaying) SetActiveConfigByIndex(collectionIndex, configIndex);
-        #if UNITY_EDITOR
-            else EditorApplication.delayCall += () => SetActiveConfigByIndex(collectionIndex, configIndex);
-        #endif
+    #if UNITY_EDITOR
+        else EditorApplication.delayCall += () => SetActiveConfigByIndex(collectionIndex, configIndex);
+    #endif
     }
+    
 }

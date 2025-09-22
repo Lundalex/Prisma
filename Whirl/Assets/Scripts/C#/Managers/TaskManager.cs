@@ -45,7 +45,7 @@ public class TaskManager : MonoBehaviour
     [SerializeField] private DataStorage progressStorage;
 
     [Tooltip("Used to persist ONLY the CURRENT task index between scene reloads during play (resets between plays).")]
-    [SerializeField] private DataStorage selectedIndexStorage; // --- PERSIST SELECTED TASK ---
+    [SerializeField] private DataStorage selectedIndexStorage;
 
     [Header("Chat")]
     [SerializeField] private AssistantChatManager assistantChatManager;

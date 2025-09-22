@@ -18,9 +18,15 @@ public class UserSelectorInput : UserUIElement
     [SerializeField] private bool doUseDataStorage;
     [SerializeField] private DataStorage dataStorage;
 
-    [Header("References")]
+    [Header("Internal")]
     [SerializeField] private HorizontalSelector selector;
+
+    [Header("Field Modifier")]
     [SerializeField] private FieldModifier fieldModifier;
+
+    [Header("Config Activation")]
+    public ConfigHelper configHelper;
+    public string targetCollectionName = "TargetCollection";
 
     // Private
     private int lastValue = -1;
@@ -37,6 +43,9 @@ public class UserSelectorInput : UserUIElement
 
         if (Application.isPlaying && selector.gameObject.activeInHierarchy)
             selector.UpdateUI();
+
+        // Activate matching config by collection+index
+        ActivateConfigForIndex(selector.index);
 
         SaveSelectorValue();
     }
@@ -70,6 +79,9 @@ public class UserSelectorInput : UserUIElement
 
             if (doUseDataStorage && dataStorage != null && !disallowAutoModifyField)
                 ModifyField();
+
+            // Ensure config reflects the (possibly restored) current index
+            ActivateConfigForIndex(selector.index);
         }
         else
         {
@@ -107,6 +119,9 @@ public class UserSelectorInput : UserUIElement
 
                 if (PM.Instance != null) PM.Instance.doOnSettingsChanged = true;
 
+                // Activate config for the new selection index
+                ActivateConfigForIndex(selector.index);
+
                 lastValue = selector.index;
                 onValueChanged.Invoke();
 
@@ -122,11 +137,7 @@ public class UserSelectorInput : UserUIElement
     {
         if (selector == null) return;
 
-        if (fieldModifier == null)
-        {
-            Debug.LogWarning("FieldModifier not set. UserSelectorInput: " + this.name);
-            return;
-        }
+        if (fieldModifier == null) return;
 
         if (useInnerField) fieldModifier.ModifyClassField(innerFieldName, selector.index);
         else               fieldModifier.ModifyField(selector.index);
@@ -141,5 +152,12 @@ public class UserSelectorInput : UserUIElement
     {
         if (!Application.isPlaying || !doUseDataStorage || dataStorage == null || selector == null) return;
         dataStorage.SetValue(selector.index);
+    }
+
+    // --- Activate collection config BY INDEX using ConfigHelper API ---
+    private void ActivateConfigForIndex(int index)
+    {
+        if (configHelper == null) return;
+        configHelper.SetActiveConfigByNameAndIndex(targetCollectionName, index);
     }
 }

@@ -25,6 +25,7 @@ public class UserButtonInput : UserUIElement
 
     public override void InitDisplay()
     {
+        if (!button) return;
         button.textSize = textSize;
         button.SetText(text);
     }

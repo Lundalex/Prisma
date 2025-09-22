@@ -15,7 +15,7 @@ public class Main : MonoBehaviour
 {
 #if UNITY_EDITOR
     [ContextMenu("Reset Defaults")]
-    private void SetDefaults()
+    public void ResetDefaults()
     {
         // Realistic rendering settings
         LiquidF0 = 0.02f;
@@ -29,7 +29,7 @@ public class Main : MonoBehaviour
         LiquidNormalZBias = 2f;
         LiquidSlopeThreshold = 1f;
 
-        RBRoundLightStrength = 0.5f;
+        RBRoundLightStrength = 2f;
     }
 #endif
 
@@ -237,7 +237,7 @@ public class Main : MonoBehaviour
     // Rigid Bodies
     public float RBEdgeWidth = 0.0f;
     public float RBEdgeRoundDst = 2.0f;
-    public float RBRoundLightStrength = 1.5f;
+    public float RBRoundLightStrength = 2.0f;
     public float RBRoundShadowStrength = 1.0f;
     public float RBRoundSamplePush = 1.0f;
     public float RBFalloff = 0.6f;

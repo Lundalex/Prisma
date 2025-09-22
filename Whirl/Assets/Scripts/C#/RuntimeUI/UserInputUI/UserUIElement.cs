@@ -22,6 +22,7 @@ public class UserUIElement : EditorLifeCycle
         if (!Application.isPlaying)
         {
             if (title != null) title.text = titleText;
+            if (containerTrimImage) containerTrimImage.color = primaryColor;
             InitDisplay();
         }
     }
@@ -31,6 +32,7 @@ public class UserUIElement : EditorLifeCycle
     {
         PM.Instance.AddUserInput(this);
         if (title != null) title.text = titleText;
+        if (containerTrimImage) containerTrimImage.color = primaryColor;
         InitDisplay();
     }
 

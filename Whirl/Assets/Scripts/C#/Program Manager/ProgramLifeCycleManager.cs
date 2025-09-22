@@ -81,7 +81,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
 
     public void ResetScene() => PM.Instance.ResetScene();
 
-    public void PrimeSceneReset()
+    public void PrimeSceneReset_OnSimulationView()
     {
         if (!fullscreenView) fullscreenView = GameObject.FindGameObjectWithTag("FullscreenView");
         if (!fullscreenView.activeInHierarchy)
@@ -91,6 +91,36 @@ public class ProgramLifeCycleManager : MonoBehaviour
         else
         {
             StartCoroutine(WaitForFullscreenInactiveThenReset());
+        }
+    }
+
+    public void PrimeSceneReset_OnInteraction()
+    {
+        if (!fullscreenView) fullscreenView = GameObject.FindGameObjectWithTag("FullscreenView");
+
+        StartCoroutine(WaitForFirstInteractionThenReset());
+
+        IEnumerator WaitForFirstInteractionThenReset()
+        {
+            // Wait until the app allows restarting (i.e., start confirmation is done)
+            yield return new WaitUntil(() => PM.Instance.CheckAllowRestart());
+
+            // If a fullscreen overlay is up, wait for it to close first
+            if (fullscreenView && fullscreenView.activeInHierarchy)
+                yield return new WaitUntil(() => !fullscreenView.activeInHierarchy);
+
+            // Wait for the first valid scene interaction (not on UI / not while editing inputs)
+            bool AllowedSceneClick()
+            {
+                if (PM.Instance.CheckAnyUIElementHovered()) return false;
+                if (PM.Instance.CheckAnySensorBeingMoved()) return false;
+                if (PM.Instance.isAnySensorSettingsViewActive) return false;
+                if (TMPInputChecker.UserIsUsingInputField()) return false;
+                return Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1);
+            }
+
+            yield return new WaitUntil(AllowedSceneClick);
+            ResetScene();
         }
     }
 
