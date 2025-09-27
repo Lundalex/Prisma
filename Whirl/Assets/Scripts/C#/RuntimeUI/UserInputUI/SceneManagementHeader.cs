@@ -6,6 +6,8 @@ public class SceneManagementHeader : MonoBehaviour
     public GameObject sceneResetButton;
     public GameObject taskSelector;
     public GameObject workspaceView;
+    public WindowToggle workspaceWindowToggle;
+    public GameObject simSpeedButtons;
 
     void Update()
     {
@@ -32,5 +34,7 @@ public class SceneManagementHeader : MonoBehaviour
     public void SetFullscreenState(bool state)
     {
         workspaceView.SetActive(state);
+        workspaceWindowToggle.SetModeA(!state);
+        simSpeedButtons.SetActive(!state);
     }
 }
