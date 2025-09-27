@@ -95,7 +95,6 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] private TMP_Text pauseText;
     [NonSerialized] private float pauseTextAlpha = -1f;
 
-
     // Key inputs
     private Timer rapidFrameSteppingTimer;
     private static readonly float rapidFrameSteppingDelay = 0.1f;
@@ -106,6 +105,11 @@ public class ProgramManager : ScriptableObject
     // Track last applied scale and default resolution to detect changes
     private Main.ResolutionScale _appliedResolutionScale = Main.ResolutionScale.Scale_1_1;
     private int2 _appliedDefaultResolution = int2.zero;
+
+    // ─────────────────────────────────────────────────────────────
+    // NEW: Drag-lock and Hover-arbiter (single owner at a time)
+    // ─────────────────────────────────────────────────────────────
+    [NonSerialized] private SensorUI _dragOwner;     // only one sensor may drag at a time
 
     // Singleton
     private static ProgramManager _instance;
@@ -232,6 +236,7 @@ public class ProgramManager : ScriptableObject
             main.RunGPUSorting();
             main.RunRenderShader();
             UpdateArrowScripts();
+            UpdateSensorScripts();
             TriggerProgramUpdate(false);
         }
     }
@@ -410,6 +415,9 @@ public class ProgramManager : ScriptableObject
 
         InterpolatedFPS = 120.0f;
         InterpolatedSimSpeed = 2.0f;
+
+        // Clear interaction owners on reset
+        _dragOwner = null;
     }
 
     public void AddSensor(SensorUI sensorUI, Sensor sensor)
@@ -499,6 +507,69 @@ public class ProgramManager : ScriptableObject
             if (sensorUI.isBeingMoved) return true;
         }
         return false;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Single-drag lock API
+    // ─────────────────────────────────────────────────────────────
+    public bool TryBeginSensorDrag(SensorUI requester)
+    {
+        if (_dragOwner == null || _dragOwner == requester)
+        {
+            _dragOwner = requester;
+            return true;
+        }
+        return false;
+    }
+
+    public void EndSensorDrag(SensorUI requester)
+    {
+        if (_dragOwner == requester)
+            _dragOwner = null;
+    }
+
+    public bool IsAnotherSensorDragging(SensorUI requester = null)
+    {
+        return _dragOwner != null && _dragOwner != requester;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Single-hover arbiter: only the top-most hovered sensor may react
+    // (Recomputed fresh on every query to avoid order/caching issues)
+    // When dragging, only the drag owner may react to hover.
+    // ─────────────────────────────────────────────────────────────
+    public bool HoverMayReact(SensorUI candidate)
+    {
+        // If we're dragging a different sensor, nobody else may react to hover.
+        if (_dragOwner != null && _dragOwner != candidate)
+            return false;
+
+        var owner = ComputeHoverOwner();
+        return owner == candidate;
+    }
+
+    private SensorUI ComputeHoverOwner()
+    {
+        SensorUI top = null;
+        int topIndex = int.MinValue;
+
+        foreach (var sd in sensorDatas)
+        {
+            var ui = sd.sensorUI;
+            if (ui == null || ui.pointerHoverArea == null) continue;
+            if (!ui.gameObject.activeInHierarchy) continue;
+
+            if (ui.pointerHoverArea.CheckIfHovering())
+            {
+                int idx = ui.gameObject.transform.GetSiblingIndex();
+                if (idx > topIndex)
+                {
+                    topIndex = idx;
+                    top = ui;
+                }
+            }
+        }
+        return top;
     }
 
     public (Vector2, Vector2) GetUIBoundaries()

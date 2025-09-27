@@ -520,7 +520,7 @@ Output policy:
 
         for (int i = 0; i < shakeCycles; i++)
         {
-            float d = Mathf.Max(0.0001f, shakeCycleDuration);
+            float d = Mathf.Max(0.1f, shakeCycleDuration);
             float t = 0f;
 
             while (t < d)

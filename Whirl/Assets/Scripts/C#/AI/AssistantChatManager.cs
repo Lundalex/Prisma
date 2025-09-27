@@ -70,8 +70,8 @@ public class AssistantChatManager : MonoBehaviour
 
     [Header("Special Message Presets")]
     [SerializeField] private SpecialMessagePreset[] specialMessagePresets;
-    [SerializeField] private GameObject fullscreenView;
 
+    private SceneManagementHeader sceneManagementHeader;
     private SmartAssistant assistant;
     private CancellationTokenSource streamCts;
     private Coroutine _scrollbarResetRoutine;
@@ -469,8 +469,8 @@ public class AssistantChatManager : MonoBehaviour
 
     private void EnsureFullscreenAndExpanded()
     {
-        if (fullscreenView != null && !fullscreenView.activeSelf)
-            fullscreenView.SetActive(true);
+        if (!sceneManagementHeader) sceneManagementHeader = GameObject.FindGameObjectWithTag("SceneManagementHeader").GetComponent<SceneManagementHeader>();
+        sceneManagementHeader.SetFullscreenState(true);
 
         if (expandMinimizeController == null) return;
 

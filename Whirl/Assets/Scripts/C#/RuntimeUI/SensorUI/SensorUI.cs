@@ -68,7 +68,7 @@ public class SensorUI : MonoBehaviour
     private Timer pointerMoveTimer;
     private const float PointerMoveDelay = 0.15f; // delay from press/arm -> drag starts
 
-    // NEW: track if this LMB press is “owned/armed” by this sensor
+    // Track if this LMB press is “owned/armed” by this sensor
     private bool dragArmed = false;
 
     private bool settingsPanelIsClosing = false;
@@ -92,8 +92,9 @@ public class SensorUI : MonoBehaviour
 
     public void Initialize()
     {
-        pointerHoverTimer = new Timer(PointerHoverCooldown, TimeType.Clamped, true, PointerHoverCooldown);
-        pointerMoveTimer = new Timer(PointerMoveDelay, TimeType.Clamped, true, 0);
+        pointerHoverTimer = new Timer(PointerHoverCooldown, TimeType.NonClamped, true, PointerHoverCooldown);
+        pointerMoveTimer = new Timer(PointerMoveDelay, TimeType.NonClamped, true, 0);
+
         SetDisplayValue(0, sensor.numDecimals);
     }
 
@@ -102,10 +103,12 @@ public class SensorUI : MonoBehaviour
         if (PM.Instance.isAnySensorSettingsViewActive) return;
         if (PM.Instance.fullscreenView != null && PM.Instance.fullscreenView.activeSelf) return;
 
-        // Arm drag when the press STARTS on this sensor
+        // Arm drag when the press STARTS on this sensor (front-most hover wins)
         if (Main.MousePressed.x)
         {
-            if (pointerHoverArea.CheckIfHovering() && !PM.Instance.CheckAnySensorBeingMoved(this))
+            if (pointerHoverArea.CheckIfHovering()
+                && PM.Instance.HoverMayReact(this)
+                && PM.Instance.TryBeginSensorDrag(this))
             {
                 dragArmed = true;
                 isBeingMoved = false;
@@ -117,8 +120,11 @@ public class SensorUI : MonoBehaviour
             }
         }
 
-        // Also allow arming mid-hold when moving onto the sensor
-        if (!dragArmed && Input.GetMouseButton(0) && pointerHoverArea.CheckIfHovering() && !PM.Instance.CheckAnySensorBeingMoved(this))
+        // Allow arming mid-hold when cursor enters this sensor (still must be top-hover & win drag lock)
+        if (!dragArmed && Input.GetMouseButton(0)
+            && pointerHoverArea.CheckIfHovering()
+            && PM.Instance.HoverMayReact(this)
+            && PM.Instance.TryBeginSensorDrag(this))
         {
             dragArmed = true;
             isBeingMoved = false;
@@ -128,15 +134,26 @@ public class SensorUI : MonoBehaviour
         // Release -> clear state
         if (Input.GetMouseButtonUp(0))
         {
+            // Commit the final dropped position back to sensor space
+            Vector2 simPos = sensor.CanvasSpaceToSimSpace(rectTransform.localPosition);
+            if (sensor.positionType == PositionType.Relative)
+                sensor.localTargetPos = simPos - sensor.lastJointPos;
+            else
+                sensor.localTargetPos = simPos;
+
             dragArmed = false;
             isBeingMoved = false;
             pointerMoveTimer.Reset();
+            PM.Instance.EndSensorDrag(this);
             if (dashedRectangle != null) dashedRectangle.SetActive(false);
             return;
         }
 
-        // Dragging (after delay) even if no longer hovering
-        bool canMove = Input.GetMouseButton(0) && dragArmed && pointerMoveTimer.Check(false);
+        // Dragging (after delay) even if no longer hovering; must still own the drag
+        bool canMove = Input.GetMouseButton(0)
+                       && dragArmed
+                       && pointerMoveTimer.Check(false)
+                       && !PM.Instance.IsAnotherSensorDragging(this);
 
         if (canMove)
         {
@@ -167,9 +184,19 @@ public class SensorUI : MonoBehaviour
         else
         {
             isBeingMoved = false;
-            // Do NOT reset pointerMoveTimer here; we reset it on press/arm/release.
             if (dashedRectangle != null) dashedRectangle.SetActive(false);
         }
+    }
+
+    private void OnDisable()
+    {
+        // ensure drag lock is released if this sensor gets disabled while dragging
+        if (dragArmed || isBeingMoved)
+            PM.Instance.EndSensorDrag(this);
+
+        dragArmed = false;
+        isBeingMoved = false;
+        isPointerHovering = false;
     }
 
 #region User-triggered functions
@@ -339,11 +366,15 @@ public class SensorUI : MonoBehaviour
     {
         // IMPORTANT: while drag is armed/active, don't let programmatic SetPosition override the manual drag.
         bool freezeDueToDrag = isBeingMoved || (dragArmed && Input.GetMouseButton(0));
+
+        // Only the front-most hovered sensor gets hover-freeze and hover-grow
+        bool topHover = pointerHoverArea.CheckIfHovering() && PM.Instance.HoverMayReact(this);
+
         if (freezeDueToDrag)
         {
             uiPos = rectTransform.localPosition;
         }
-        else if (((pointerHoverArea.CheckIfHovering() && pointerHoverTimer.Check(false)) || PM.Instance.isAnySensorSettingsViewActive) && !settingsPanelIsClosing)
+        else if (((topHover && pointerHoverTimer.Check(false)) || PM.Instance.isAnySensorSettingsViewActive) && !settingsPanelIsClosing)
         {
             uiPos = rectTransform.localPosition;
             isPointerHovering = true;

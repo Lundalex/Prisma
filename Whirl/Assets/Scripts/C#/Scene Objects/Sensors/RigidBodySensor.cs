@@ -27,13 +27,26 @@ public class RigidBodySensor : Sensor
 
     public override void UpdatePosition()
     {
-        if (firstDataRecieved)
-        {
-            Vector2 canvasTargetPosition = SimSpaceToCanvasSpace(currentTargetPosition);
-            
-            // Interpolate between the current position and the target position
-            sensorUI.SetPosition((doInterpolation && positionType == PositionType.Relative) ? Vector2.Lerp(sensorUI.rectTransform.localPosition, canvasTargetPosition, Time.deltaTime * moveSpeed) : canvasTargetPosition);
-        }
+        if (positionType == PositionType.Relative && !firstDataRecieved)
+            return;
+
+        Vector2 targetSim =
+            (positionType == PositionType.Relative)
+                ? lastJointPos + localTargetPos
+                : localTargetPos;
+
+        Vector2 canvasTarget = SimSpaceToCanvasSpace(targetSim);
+
+        bool shouldLerp = doInterpolation
+                        && positionType == PositionType.Relative
+                        && sensorUI != null
+                        && !sensorUI.isBeingMoved;
+
+        Vector2 next = shouldLerp
+            ? Vector2.Lerp(sensorUI.rectTransform.localPosition, canvasTarget, Time.deltaTime * moveSpeed)
+            : canvasTarget;
+
+        sensorUI.SetPosition(next);
     }
 
     public override void UpdateSensor()

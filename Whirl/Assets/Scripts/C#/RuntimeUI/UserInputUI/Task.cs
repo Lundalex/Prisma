@@ -1,6 +1,5 @@
 using TMPro;
 using UnityEngine;
-using Michsky.MUIP;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -91,6 +90,7 @@ public class Task : MonoBehaviour
     }
 
     public void SendTip() { EnsureTaskManagerLinked(); taskManager?.SendTip(); }
+    public void OpenSolutionViewer() { EnsureTaskManagerLinked(); taskManager?.OpenSolutionViewerFor(this); }
 
     public void SetData(string header, string body, string answerKey)
     {
@@ -111,7 +111,6 @@ public class Task : MonoBehaviour
         if (singleLineAutoGrow != null) singleLineAutoGrow.SetPlaceholder(placeholder);
     }
 
-    // multiLine_usesA: true => MultiLine active (A), false => SingleLine (B)
     public virtual void SetWindowByTaskType(bool multiLine_usesA)
     {
         _desiredModeA = multiLine_usesA;

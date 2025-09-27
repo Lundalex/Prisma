@@ -79,7 +79,7 @@ namespace Michsky.MUIP
 
         public void Close()
         {
-            if (!isOn)
+            if (!isOn || !gameObject.activeInHierarchy)
                 return;
 
             isOn = false;

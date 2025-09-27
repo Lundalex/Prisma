@@ -77,6 +77,11 @@ namespace Michsky.MUIP
             ClampToArea();
         }
 
+        public void Reclamp()
+        {
+            ClampToArea();
+        }
+
         private void ClampToArea()
         {
             Vector3 pos = DragObjectInternal.localPosition;
