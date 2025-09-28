@@ -1,4 +1,4 @@
-using System.Collections;
+using System.Collections; 
 using System.Collections.Generic;
 using UnityEngine;
 using Michsky.MUIP;
@@ -13,10 +13,17 @@ public class TaskManager : MonoBehaviour
     [SerializeField] private AnswerFieldColors answerFieldColors;
     [SerializeField] private FeedbackAnimations feedbackAnimations;
     [SerializeField] private CorrectIconFeedback correctIconFeedback;
+    [SerializeField] private AIConditionDescriptions aiConditionDescriptions;
+
+    [Header("Layout")]
+    [Tooltip("Workspace padding = Global single-line parent padding + this extra value.")]
+    public float workspacePaddingExtra = 145f;
+    [Tooltip("Global base padding used for single-line inputs. Single-part tasks and parts may override this with their own setting.")]
+    public float parentPaddingSideGlobal = 0f;
     [SerializeField] private List<UserTask> tasks = new();
 
     [Header("--- REFERENCES ---")]
-    
+
     [Header("Main (Workspace) Windows")]
     public WindowManager workspaceWindowManager;
     public GameObject taskWindowPrefab;
@@ -30,10 +37,6 @@ public class TaskManager : MonoBehaviour
 
     [Header("Viewers")]
     public PngViewer pngViewer;
-
-    [Header("Layout")]
-    [Tooltip("Workspace padding = Side padding + this extra value.")]
-    public float workspacePaddingExtra = 145f;
 
     [System.Serializable]
     public struct SelectorGroup
@@ -54,6 +57,9 @@ public class TaskManager : MonoBehaviour
     [Tooltip("Used to persist ONLY the CURRENT task index between scene reloads during play (resets between plays).")]
     [SerializeField] private DataStorage selectedIndexStorage;
 
+    [Tooltip("Used to persist ONLY the TIP/ASK state (\"Tip\"/solution visibility flags) between scene reloads during play (resets between plays).")]
+    [SerializeField] private DataStorage tipShownStorage;
+
     [Header("Chat")]
     [SerializeField] private AssistantChatManager assistantChatManager;
 
@@ -67,6 +73,9 @@ public class TaskManager : MonoBehaviour
     public ConfigHelper configHelper;
     public string targetCollectionName = "Tasks";
 
+    // Runtime-set references
+    private SceneManagementHeader sceneManagementHeader;
+
     [SerializeField, HideInInspector] private List<GameObject> taskWindowGOs = new();
     [SerializeField, HideInInspector] private List<Task> taskScripts = new();
     [SerializeField, HideInInspector] private List<GameObject> sideTaskWindowGOs = new();
@@ -75,6 +84,9 @@ public class TaskManager : MonoBehaviour
     struct FlatRef { public int task; public int part; }
     [SerializeField, HideInInspector] private List<FlatRef> _flat = new();
     int FlatCount => _flat.Count;
+
+    // Tip state: when true for a flat index, show Solution UI even if not solved
+    [SerializeField, HideInInspector] private List<bool> _tipShown = new();
 
     int _currentIndex;
     bool _didRuntimeInit;
@@ -122,6 +134,13 @@ public class TaskManager : MonoBehaviour
 
     public void OpenSolutionViewerFor(Task task)
     {
+        if (!sceneManagementHeader)
+        {
+            var hdrGO = GameObject.FindGameObjectWithTag("SceneManagementHeader");
+            if (hdrGO != null) sceneManagementHeader = hdrGO.GetComponent<SceneManagementHeader>();
+        }
+        if (sceneManagementHeader != null) sceneManagementHeader.SetFullscreenState(true);
+
         if (pngViewer == null || task == null) return;
         int idx = taskScripts.IndexOf(task);
         if (idx < 0 && task is SideTask st) idx = sideTaskScripts.IndexOf(st);
@@ -130,6 +149,37 @@ public class TaskManager : MonoBehaviour
         int parentTaskIndex = _flat[idx].task;
         var sprites = tasks[parentTaskIndex].solutionSprites;
         pngViewer.EnableAndSetViewedImages(sprites);
+    }
+
+    // Ask/Solution control for both main & side
+    public void OpenAskWindowsFor(Task task)
+    {
+        if (task == null) return;
+
+        int idx = taskScripts.IndexOf(task);
+        if (idx < 0 && task is SideTask st) idx = sideTaskScripts.IndexOf(st);
+        if (idx < 0) return;
+
+        var main = (idx >= 0 && idx < taskScripts.Count) ? taskScripts[idx] : null;
+        var side = (idx >= 0 && idx < sideTaskScripts.Count) ? sideTaskScripts[idx] : null;
+
+        main?.OpenAskWindowLocal();
+        side?.OpenAskWindowLocal();
+    }
+
+    public void OpenSolutionWindowsFor(Task task)
+    {
+        if (task == null) return;
+
+        int idx = taskScripts.IndexOf(task);
+        if (idx < 0 && task is SideTask st) idx = sideTaskScripts.IndexOf(st);
+        if (idx < 0) return;
+
+        var main = (idx >= 0 && idx < taskScripts.Count) ? taskScripts[idx] : null;
+        var side = (idx >= 0 && idx < sideTaskScripts.Count) ? sideTaskScripts[idx] : null;
+
+        main?.OpenSolutionWindowLocal();
+        side?.OpenSolutionWindowLocal();
     }
 
     int GetCurrentPartIndexForTask(int taskIndex)
@@ -274,7 +324,7 @@ public class TaskManager : MonoBehaviour
         }
 
         grading = t.gradingSettings;
-        aic = t.aiConditionDescriptions;
+        aic = this.aiConditionDescriptions;
     }
 
     void RebuildFlatMap()
@@ -292,6 +342,48 @@ public class TaskManager : MonoBehaviour
             {
                 _flat.Add(new FlatRef { task = i, part = -1 });
             }
+        }
+    }
+
+    void EnsureTipListSize()
+    {
+        int n = Mathf.Max(0, FlatCount);
+        if (_tipShown == null) _tipShown = new List<bool>(n);
+        if (_tipShown.Count != n)
+        {
+            _tipShown = new List<bool>(new bool[n]);
+        }
+    }
+
+    int GetFlatIndexFromTask(Task task)
+    {
+        int idx = taskScripts.IndexOf(task);
+        if (idx < 0 && task is SideTask st) idx = sideTaskScripts.IndexOf(st);
+        return idx;
+    }
+
+    bool TipFlagForIndex(int i) => (i >= 0 && i < _tipShown.Count) && _tipShown[i];
+
+    public bool ShouldShowSolutionFor(Task task, Verdict v)
+    {
+        int idx = GetFlatIndexFromTask(task);
+        if (idx < 0) return v == Verdict.Success;
+        return v == Verdict.Success || TipFlagForIndex(idx);
+    }
+
+    public void HandleTipForTask(Task task)
+    {
+        // still post the chat “Tip” preset
+        SendTip();
+
+        int idx = GetFlatIndexFromTask(task);
+        if (idx >= 0)
+        {
+            EnsureTipListSize();
+            _tipShown[idx] = true;
+            SaveTipShown();
+            OpenSolutionWindowsFor(task);
+            ApplyProgressToFlatIndex(idx);
         }
     }
 
@@ -317,6 +409,7 @@ public class TaskManager : MonoBehaviour
     void OnChanged()
     {
         RebuildFlatMap();
+        EnsureTipListSize();
 
         SetWorkspaceTaskWindows();
         SetSideTaskWindows();
@@ -484,11 +577,38 @@ public class TaskManager : MonoBehaviour
 
         sideWindowManager.windows.Clear();
         sideTaskWindowGOs.Clear();
-        sideTaskScripts.Clear();
+        sideTaskWindowGOs.Clear();
         sideTaskWindowGOs.Capacity = FlatCount;
         sideTaskScripts.Capacity = FlatCount;
 
         for (int i = 0; i < FlatCount; i++) CreateSideTaskWindow(i, existingByIndex);
+    }
+
+    // Return the effective base parent padding for a given flat item (before adding workspace extra).
+    float GetEffectiveParentPaddingBase(int flatIndex)
+    {
+        float globalPad = Mathf.Max(0f, parentPaddingSideGlobal);
+
+        if (flatIndex < 0 || flatIndex >= FlatCount) return globalPad;
+
+        var r = _flat[flatIndex];
+        var t = tasks[r.task];
+
+        if (IsPart(r) && t.parts != null && r.part >= 0 && r.part < t.parts.Count)
+        {
+            var p = t.parts[r.part];
+            if (p.doOverrideParentPadding)
+                return Mathf.Max(0f, p.singleLineSettings.parentPaddingSide);
+        }
+        else
+        {
+            // Single-part task (no parts)
+            if (!t.useParts && t.doOverrideParentPadding)
+                return Mathf.Max(0f, t.singleLineSettings.parentPaddingSide);
+        }
+
+        // Fallback to global
+        return globalPad;
     }
 
     void ApplyTaskDataToScripts()
@@ -530,8 +650,9 @@ public class TaskManager : MonoBehaviour
                 }
                 else
                 {
-                    // Workspace padding = side padding + extra (single source of truth)
-                    float pad = Mathf.Max(0f, sl.parentPaddingSide + workspacePaddingExtra);
+                    // Use global or override, then add workspace extra
+                    float basePad = GetEffectiveParentPaddingBase(i);
+                    float pad = Mathf.Max(0f, basePad + workspacePaddingExtra);
                     grow.SetParentPadding(pad);
                 }
                 grow.ForceRecomputeNow();
@@ -617,8 +738,8 @@ public class TaskManager : MonoBehaviour
                 }
                 else
                 {
-                    // Side uses the single padding value directly
-                    float pad = Mathf.Max(0f, sl.parentPaddingSide);
+                    // Use global or override (no workspace extra on side)
+                    float pad = Mathf.Max(0f, GetEffectiveParentPaddingBase(i));
                     grow.SetParentPadding(pad);
                 }
                 grow.ForceRecomputeNow();
@@ -875,7 +996,13 @@ public class TaskManager : MonoBehaviour
         if (idx < 0 && task is SideTask st) idx = sideTaskScripts.IndexOf(st);
         if (idx >= 0)
         {
+            // mark solved
             SetItemProgress(idx, Verdict.Success);
+            // clear any tip flag since it's solved now
+            EnsureTipListSize();
+            if (idx < _tipShown.Count) _tipShown[idx] = false;
+            SaveTipShown();
+
             UpdateTaskSelectorLabels();
             int parentTask = _flat[Mathf.Clamp(idx, 0, _flat.Count - 1)].task;
             UpdateIndicatorsForTask(parentTask);
@@ -964,7 +1091,7 @@ public class TaskManager : MonoBehaviour
         ApplyProgressToAllIndicators();
         UpdateTaskSelectorLabels();
         ActivateConfigForTask(index);
-        pngViewer.Disable();
+        if (pngViewer != null) pngViewer.Disable();
 
         if (Application.isPlaying) SaveCurrentIndex();
     }
@@ -979,8 +1106,10 @@ public class TaskManager : MonoBehaviour
     void OnEnable()
     {
         RebuildFlatMap();
+        EnsureTipListSize();
 
         if (Application.isPlaying) LoadProgressIfAvailable();
+        if (Application.isPlaying) LoadTipShownIfAvailable();
         UpdateNeighbors();
 
 #if UNITY_EDITOR
@@ -1038,6 +1167,7 @@ public class TaskManager : MonoBehaviour
         if (Application.isPlaying)
         {
             SaveProgress();
+            SaveTipShown();
             SaveCurrentIndex();
         }
     }
@@ -1070,6 +1200,7 @@ public class TaskManager : MonoBehaviour
             if (Application.isPlaying) SaveCurrentIndex();
 
             SaveProgress();
+            SaveTipShown();
             yield return wait;
         }
     }
@@ -1092,6 +1223,14 @@ public class TaskManager : MonoBehaviour
 
         SetItemProgressInternal(flatIndex, progress);
         UpdateIndicatorsForTask(r.task);
+
+        // If user solved it, clear any previous tip flag for this item
+        if (progress == Verdict.Success)
+        {
+            EnsureTipListSize();
+            if (flatIndex < _tipShown.Count) _tipShown[flatIndex] = false;
+            SaveTipShown();
+        }
 
         ApplyProgressToFlatIndex(flatIndex);
         if (Application.isPlaying) SaveProgress();
@@ -1172,6 +1311,51 @@ public class TaskManager : MonoBehaviour
         }
     }
 
+    void ClearPerPlayStorages()
+    {
+        RebuildFlatMap();
+
+        if (progressStorage != null)
+        {
+            var arr = new int[FlatCount];
+            progressStorage.SetValue(arr);
+        }
+
+        if (tipShownStorage != null)
+        {
+            var arr = new int[FlatCount];
+            tipShownStorage.SetValue(arr);
+        }
+
+        if (selectedIndexStorage != null)
+        {
+            selectedIndexStorage.SetValue(0);
+        }
+    }
+
+    void SaveTipShown()
+    {
+        if (tipShownStorage == null) return;
+        EnsureTipListSize();
+        var arr = new int[_tipShown.Count];
+        for (int i = 0; i < _tipShown.Count; i++) arr[i] = _tipShown[i] ? 1 : 0;
+        tipShownStorage.SetValue(arr);
+    }
+
+    void LoadTipShownIfAvailable()
+    {
+        if (tipShownStorage == null) return;
+        var loaded = tipShownStorage.GetValue<int[]>();
+        if (loaded == null || loaded.Length == 0) return;
+
+        EnsureTipListSize();
+        int n = Mathf.Min(_tipShown.Count, loaded.Length);
+        for (int i = 0; i < n; i++)
+        {
+            _tipShown[i] = loaded[i] != 0;
+        }
+    }
+
     void SaveCurrentIndex()
     {
         if (!Application.isPlaying || selectedIndexStorage == null) return;
@@ -1217,7 +1401,6 @@ public class TaskManager : MonoBehaviour
         public float minWidth;
         public float maxWidth;
 
-        // Single source of truth for padding inside tasks
         public float parentPaddingSide;
     }
 
@@ -1242,6 +1425,9 @@ public class TaskManager : MonoBehaviour
         public SingleLineSettings singleLineSettings;
         public MultiLineSettings multiLineSettings;
 
+        [Tooltip("If true, this part will use its own SingleLineSettings.parentPaddingSide instead of the global value in TaskManager (when fit is relative).")]
+        public bool doOverrideParentPadding;
+
         [HideInInspector] public Verdict progress;
     }
 
@@ -1255,7 +1441,6 @@ public class TaskManager : MonoBehaviour
         [TextArea(2, 40)] public string answerKey;
 
         public CommunicationSettings gradingSettings;
-        public AIConditionDescriptions aiConditionDescriptions;
 
         public TaskType taskType;
         public SingleLineSettings singleLineSettings;
@@ -1263,6 +1448,9 @@ public class TaskManager : MonoBehaviour
 
         public bool useParts;
         public List<UserTaskPart> parts;
+
+        [Tooltip("If true (and not using parts), this task will use its own SingleLineSettings.parentPaddingSide instead of the global value (when fit is relative).")]
+        public bool doOverrideParentPadding;
 
         public Sprite[] solutionSprites;
 
@@ -1286,21 +1474,22 @@ public class TaskManager : MonoBehaviour
 
             float v = EditorGUIUtility.standardVerticalSpacing;
 
-            float GetH(string rel)
+            float GetH(string rel, bool includeChildren = true)
             {
                 var p = property.FindPropertyRelative(rel);
-                return p == null ? EditorGUIUtility.singleLineHeight : EditorGUI.GetPropertyHeight(p, true);
+                return p == null ? 0f : EditorGUI.GetPropertyHeight(p, includeChildren);
             }
 
+            // header
             h += GetH("header") + v;
 
-            var useParts = property.FindPropertyRelative("useParts");
+            // useParts toggle
             h += EditorGUIUtility.singleLineHeight + v;
 
+            var useParts = property.FindPropertyRelative("useParts");
             if (useParts.boolValue)
             {
                 h += GetH("gradingSettings") + v;
-                h += GetH("aiConditionDescriptions") + v;
                 h += GetH("solutionSprites") + v;
                 h += GetH("parts") + v;
             }
@@ -1310,12 +1499,45 @@ public class TaskManager : MonoBehaviour
                 h += GetH("placeholder") + v;
                 h += GetH("answerKey") + v;
                 h += GetH("gradingSettings") + v;
-                h += GetH("aiConditionDescriptions") + v;
                 h += GetH("solutionSprites") + v;
                 h += GetH("taskType") + v;
 
+                // override toggle (single line tasks feature; show line height always to keep UI stable)
+                h += EditorGUIUtility.singleLineHeight + v;
+
+                // settings block depends on task type
                 var tt = property.FindPropertyRelative("taskType");
-                h += GetH(tt != null && (TaskType)tt.enumValueIndex == TaskType.SingleLine ? "singleLineSettings" : "multiLineSettings") + v;
+                if ((TaskType)tt.enumValueIndex == TaskType.SingleLine)
+                {
+                    var sl = property.FindPropertyRelative("singleLineSettings");
+
+                    h += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("caseSensitive"), true) + v;
+                    h += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("checkMode"), true) + v;
+                    h += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("leftText"), true) + v;
+                    h += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("rightText"), true) + v;
+
+                    // inputFitMode
+                    var fit = sl.FindPropertyRelative("inputFitMode");
+                    h += EditorGUIUtility.singleLineHeight + v;
+
+                    if ((InputFitMode)fit.enumValueIndex == InputFitMode.Absolute)
+                    {
+                        h += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("minWidth"), true) + v;
+                        h += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("maxWidth"), true) + v;
+                    }
+                    else
+                    {
+                        var doOverride = property.FindPropertyRelative("doOverrideParentPadding");
+                        if (doOverride.boolValue)
+                        {
+                            h += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("parentPaddingSide"), true) + v;
+                        }
+                    }
+                }
+                else
+                {
+                    h += GetH("multiLineSettings") + v;
+                }
             }
 
             return h;
@@ -1324,8 +1546,8 @@ public class TaskManager : MonoBehaviour
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
             EditorGUI.BeginProperty(position, label, property);
-            float line = EditorGUIUtility.singleLineHeight, v = EditorGUIUtility.standardVerticalSpacing;
 
+            float line = EditorGUIUtility.singleLineHeight, v = EditorGUIUtility.standardVerticalSpacing;
             Rect r = new(position.x, position.y, position.width, line);
             property.isExpanded = EditorGUI.Foldout(r, property.isExpanded, label, true);
             if (!property.isExpanded) { EditorGUI.EndProperty(); return; }
@@ -1333,41 +1555,78 @@ public class TaskManager : MonoBehaviour
             EditorGUI.indentLevel++;
             float y = r.y + line + v;
 
-            float Draw(string rel)
+            Rect Row(float height) { var rr = new Rect(position.x, y, position.width, height); y += height + v; return rr; }
+
+            void DrawRel(string rel, bool includeChildren = true)
             {
                 var p = property.FindPropertyRelative(rel);
-                if (p == null) return y;
-                float h = EditorGUI.GetPropertyHeight(p, true);
-                EditorGUI.PropertyField(new Rect(position.x, y, position.width, h), p, true);
-                return y + h + v;
+                if (p == null) return;
+                float h = EditorGUI.GetPropertyHeight(p, includeChildren);
+                EditorGUI.PropertyField(Row(h), p, includeChildren);
             }
 
-            y = Draw("header");
+            DrawRel("header");
 
+            // useParts toggle
             var useParts = property.FindPropertyRelative("useParts");
-            Rect usePartsRect = new(position.x, y, position.width, line);
-            useParts.boolValue = EditorGUI.ToggleLeft(usePartsRect, "Use Parts (1a, 1b, 1c ...)", useParts.boolValue);
-            y += line + v;
+            useParts.boolValue = EditorGUI.ToggleLeft(Row(line), "Use Parts (1a, 1b, 1c ...)", useParts.boolValue);
 
             if (useParts.boolValue)
             {
-                y = Draw("gradingSettings");
-                y = Draw("aiConditionDescriptions");
-                y = Draw("solutionSprites");
-                y = Draw("parts");
+                DrawRel("gradingSettings");
+                DrawRel("solutionSprites");
+                DrawRel("parts");
             }
             else
             {
-                y = Draw("body");
-                y = Draw("placeholder");
-                y = Draw("answerKey");
-                y = Draw("gradingSettings");
-                y = Draw("aiConditionDescriptions");
-                y = Draw("solutionSprites");
-                y = Draw("taskType");
+                DrawRel("body");
+                DrawRel("placeholder");
+                DrawRel("answerKey");
+                DrawRel("gradingSettings");
+                DrawRel("solutionSprites");
+                DrawRel("taskType");
+
+                // Override toggle (task-level)
+                var doOverride = property.FindPropertyRelative("doOverrideParentPadding");
+                doOverride.boolValue = EditorGUI.ToggleLeft(Row(line), "Override Parent Padding (single-line, relative fit)", doOverride.boolValue);
 
                 var tt = property.FindPropertyRelative("taskType");
-                y = Draw(tt != null && (TaskType)tt.enumValueIndex == TaskType.SingleLine ? "singleLineSettings" : "multiLineSettings");
+                if ((TaskType)tt.enumValueIndex == TaskType.SingleLine)
+                {
+                    var sl = property.FindPropertyRelative("singleLineSettings");
+
+                    EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("caseSensitive"), true)),
+                        sl.FindPropertyRelative("caseSensitive"));
+                    EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("checkMode"), true)),
+                        sl.FindPropertyRelative("checkMode"));
+                    EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("leftText"), true)),
+                        sl.FindPropertyRelative("leftText"));
+                    EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("rightText"), true)),
+                        sl.FindPropertyRelative("rightText"));
+
+                    var fitProp = sl.FindPropertyRelative("inputFitMode");
+                    EditorGUI.PropertyField(Row(EditorGUIUtility.singleLineHeight), fitProp);
+
+                    if ((InputFitMode)fitProp.enumValueIndex == InputFitMode.Absolute)
+                    {
+                        EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("minWidth"), true)),
+                            sl.FindPropertyRelative("minWidth"));
+                        EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("maxWidth"), true)),
+                            sl.FindPropertyRelative("maxWidth"));
+                    }
+                    else
+                    {
+                        if (doOverride.boolValue)
+                        {
+                            EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("parentPaddingSide"), true)),
+                                sl.FindPropertyRelative("parentPaddingSide"));
+                        }
+                    }
+                }
+                else
+                {
+                    DrawRel("multiLineSettings");
+                }
             }
 
             EditorGUI.indentLevel--;
@@ -1380,6 +1639,8 @@ public class TaskManager : MonoBehaviour
     {
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
+            // This drawer is used when SingleLineSettings is shown standalone (e.g., arrays).
+            // The task/part drawers handle the conditional visibility of parentPaddingSide themselves.
             float h = 0f, v = EditorGUIUtility.standardVerticalSpacing;
             float line(string rel) => EditorGUI.GetPropertyHeight(property.FindPropertyRelative(rel), true);
 
@@ -1440,6 +1701,146 @@ public class TaskManager : MonoBehaviour
         }
     }
 
+    // Custom drawer for UserTaskPart to hide parentPaddingSide unless doOverrideParentPadding == true
+    [CustomPropertyDrawer(typeof(UserTaskPart))]
+    class UserTaskPartDrawer : PropertyDrawer
+    {
+        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+        {
+            float h = EditorGUIUtility.singleLineHeight;
+            if (!property.isExpanded) return h;
+
+            float v = EditorGUIUtility.standardVerticalSpacing;
+
+            float Add(string rel, bool includeChildren = true)
+            {
+                var p = property.FindPropertyRelative(rel);
+                if (p == null) return 0f;
+                return EditorGUI.GetPropertyHeight(p, includeChildren) + v;
+            }
+
+            float singleLineBlockHeight()
+            {
+                var sl = property.FindPropertyRelative("singleLineSettings");
+                float total = 0f;
+
+                total += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("caseSensitive"), true) + v;
+                total += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("checkMode"), true) + v;
+                total += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("leftText"), true) + v;
+                total += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("rightText"), true) + v;
+
+                var fit = sl.FindPropertyRelative("inputFitMode");
+                total += EditorGUIUtility.singleLineHeight + v;
+
+                if ((InputFitMode)fit.enumValueIndex == InputFitMode.Absolute)
+                {
+                    total += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("minWidth"), true) + v;
+                    total += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("maxWidth"), true) + v;
+                }
+                else
+                {
+                    var doOverride = property.FindPropertyRelative("doOverrideParentPadding");
+                    if (doOverride.boolValue)
+                    {
+                        total += EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("parentPaddingSide"), true) + v;
+                    }
+                }
+
+                return total;
+            }
+
+            h += Add("label");
+            h += Add("body");
+            h += Add("placeholder");
+            h += Add("answerKey");
+            h += Add("taskType");
+
+            // override toggle
+            h += EditorGUIUtility.singleLineHeight + v;
+
+            var tt = property.FindPropertyRelative("taskType");
+            if ((TaskType)tt.enumValueIndex == TaskType.SingleLine)
+                h += singleLineBlockHeight();
+            else
+                h += Add("multiLineSettings");
+
+            return h;
+        }
+
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            EditorGUI.BeginProperty(position, label, property);
+
+            float line = EditorGUIUtility.singleLineHeight, v = EditorGUIUtility.standardVerticalSpacing;
+            Rect r = new(position.x, position.y, position.width, line);
+            property.isExpanded = EditorGUI.Foldout(r, property.isExpanded, label, true);
+            if (!property.isExpanded) { EditorGUI.EndProperty(); return; }
+
+            EditorGUI.indentLevel++;
+            float y = r.y + line + v;
+
+            Rect Row(float height) { var rr = new Rect(position.x, y, position.width, height); y += height + v; return rr; }
+
+            void DrawProp(string rel, bool includeChildren = true)
+            {
+                var p = property.FindPropertyRelative(rel);
+                if (p == null) return;
+                float h = EditorGUI.GetPropertyHeight(p, includeChildren);
+                EditorGUI.PropertyField(Row(h), p, includeChildren);
+            }
+
+            DrawProp("label");
+            DrawProp("body");
+            DrawProp("placeholder");
+            DrawProp("answerKey");
+            DrawProp("taskType");
+
+            var doOverride = property.FindPropertyRelative("doOverrideParentPadding");
+            doOverride.boolValue = EditorGUI.ToggleLeft(Row(line), "Override Parent Padding (single-line, relative fit)", doOverride.boolValue);
+
+            var tt = property.FindPropertyRelative("taskType");
+            if ((TaskType)tt.enumValueIndex == TaskType.SingleLine)
+            {
+                var sl = property.FindPropertyRelative("singleLineSettings");
+
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("caseSensitive"), true)),
+                    sl.FindPropertyRelative("caseSensitive"));
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("checkMode"), true)),
+                    sl.FindPropertyRelative("checkMode"));
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("leftText"), true)),
+                    sl.FindPropertyRelative("leftText"));
+                EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("rightText"), true)),
+                    sl.FindPropertyRelative("rightText"));
+
+                var fitProp = sl.FindPropertyRelative("inputFitMode");
+                EditorGUI.PropertyField(Row(EditorGUIUtility.singleLineHeight), fitProp);
+
+                if ((InputFitMode)fitProp.enumValueIndex == InputFitMode.Absolute)
+                {
+                    EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("minWidth"), true)),
+                        sl.FindPropertyRelative("minWidth"));
+                    EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("maxWidth"), true)),
+                        sl.FindPropertyRelative("maxWidth"));
+                }
+                else
+                {
+                    if (doOverride.boolValue)
+                    {
+                        EditorGUI.PropertyField(Row(EditorGUI.GetPropertyHeight(sl.FindPropertyRelative("parentPaddingSide"), true)),
+                            sl.FindPropertyRelative("parentPaddingSide"));
+                    }
+                }
+            }
+            else
+            {
+                DrawProp("multiLineSettings");
+            }
+
+            EditorGUI.indentLevel--;
+            EditorGUI.EndProperty();
+        }
+    }
+
     int _lastHash;
     double _nextCheckTime;
 
@@ -1464,6 +1865,7 @@ public class TaskManager : MonoBehaviour
     void HandleEditorPlayModeChanged(PlayModeStateChange change)
     {
         if (change == PlayModeStateChange.EnteredEditMode) ResetSelectorsToFirstInEditor();
+        if (change == PlayModeStateChange.ExitingEditMode) ClearPerPlayStorages();
     }
 
     void ResetSelectorsToFirstInEditor()
@@ -1500,8 +1902,14 @@ public class TaskManager : MonoBehaviour
             hash = hash * 23 + (int)correctIconFeedback;
             hash = hash * 23 + tasks.Count;
 
-            // include global padding extra in hash
             hash = hash * 23 + workspacePaddingExtra.GetHashCode();
+            hash = hash * 23 + parentPaddingSideGlobal.GetHashCode();
+
+            // Global AI condition descriptions
+            hash = hash * 23 + (aiConditionDescriptions.isCorrect != null ? aiConditionDescriptions.isCorrect.GetHashCode() : 0);
+            hash = hash * 23 + (aiConditionDescriptions.isAlmost != null ? aiConditionDescriptions.isAlmost.GetHashCode() : 0);
+            hash = hash * 23 + (aiConditionDescriptions.isAlmostFeedback != null ? aiConditionDescriptions.isAlmostFeedback.GetHashCode() : 0);
+            hash = hash * 23 + aiConditionDescriptions.doGiveAlmostFeedback.GetHashCode();
 
             for (int i = 0; i < tasks.Count; i++)
             {
@@ -1511,12 +1919,6 @@ public class TaskManager : MonoBehaviour
                 hash = hash * 23 + (t.placeholder != null ? t.placeholder.GetHashCode() : 0);
                 hash = hash * 23 + (t.answerKey != null ? t.answerKey.GetHashCode() : 0);
                 hash = hash * 23 + t.gradingSettings.GetHashCode();
-
-                var aic = t.aiConditionDescriptions;
-                hash = hash * 23 + (aic.isCorrect != null ? aic.isCorrect.GetHashCode() : 0);
-                hash = hash * 23 + (aic.isAlmost != null ? aic.isAlmost.GetHashCode() : 0);
-                hash = hash * 23 + (aic.isAlmostFeedback != null ? aic.isAlmostFeedback.GetHashCode() : 0);
-                hash = hash * 23 + aic.doGiveAlmostFeedback.GetHashCode();
 
                 hash = hash * 23 + (int)t.taskType;
 
@@ -1561,9 +1963,12 @@ public class TaskManager : MonoBehaviour
                         hash = hash * 23 + pml.checkMode.GetHashCode();
                         hash = hash * 23 + pml.allowAIThinking.GetHashCode();
 
+                        hash = hash * 23 + part.doOverrideParentPadding.GetHashCode();
                         hash = hash * 23 + part.progress.GetHashCode();
                     }
                 }
+
+                hash = hash * 23 + t.doOverrideParentPadding.GetHashCode();
 
                 hash = hash * 23 + (t.solutionSprites != null ? t.solutionSprites.Length : 0);
 

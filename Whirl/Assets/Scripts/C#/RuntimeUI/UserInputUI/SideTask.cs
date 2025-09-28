@@ -7,6 +7,9 @@ public class SideTask : Task
     public RectTransform singleLineStretchTarget;
     public RectTransform multiLineStretchTarget;
 
+    [Header("Alt Body Text")]
+    [SerializeField] private TMPBulletListFormatter altBodyTextFormatter;
+
     public override void SetWindowByTaskType(bool multiLine_usesA)
     {
         base.SetWindowByTaskType(multiLine_usesA);
@@ -28,5 +31,15 @@ public class SideTask : Task
     public void OpenFullscreenView()
     {
         TaskManager?.OpenFullscreenView();
+    }
+
+    protected override void RefreshUI()
+    {
+        base.RefreshUI();
+        if (altBodyTextFormatter != null)
+        {
+            // Use the same body text that Task sets on the main formatter.
+            altBodyTextFormatter.ApplyText(BodyTextValue);
+        }
     }
 }

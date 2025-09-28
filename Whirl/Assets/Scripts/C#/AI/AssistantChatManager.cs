@@ -106,7 +106,6 @@ public class AssistantChatManager : MonoBehaviour
         msg.SetStretchOrigin(assistantStretchOrigin);
         msg.SetStreamOptions(false);
 
-        // Always pin initial message to the top
         msg.transform.SetAsFirstSibling();
 
         onMessageTextSet?.Invoke();
@@ -124,7 +123,6 @@ public class AssistantChatManager : MonoBehaviour
         HandleUserMessage(userMessage);
     }
 
-    // Kept for compatibility
     public void OnUserMessageRecieved(string userMessage)
     {
         EnsureFullscreenAndExpanded();
@@ -184,7 +182,6 @@ public class AssistantChatManager : MonoBehaviour
         if (streamAlmostAssistantMessage) msg.SetText(combined);
         else msg.SetTextImmediate(combined);
 
-        // Ensure special assistant messages append below existing content
         msg.transform.SetAsLastSibling();
 
         onMessageTextSet?.Invoke();
@@ -280,7 +277,7 @@ public class AssistantChatManager : MonoBehaviour
             return;
         }
 
-        var promptToSend = assistant.BuildPrompt(communicationSettings, sendText);
+        assistant.RefreshSystemPreamble(communicationSettings);
 
         var userPrefab = ResolveUserPrefab(specialMessageRequested);
         var userMsg = Instantiate(userPrefab, messageList);
@@ -328,7 +325,7 @@ public class AssistantChatManager : MonoBehaviour
                         });
 
                         string finalAnswer = await assistant.SendMessageStreamToCallbackAsync(
-                            promptToSend,
+                            sendText,
                             onPartialText: (partial) =>
                             {
                                 beganStreaming = true;
@@ -348,7 +345,7 @@ public class AssistantChatManager : MonoBehaviour
                     {
                         int ms = Mathf.Max(500, Mathf.RoundToInt(firstResponseTimeoutSeconds * 2000f));
                         var answerTask = assistant.SendMessageAsync(
-                            promptToSend,
+                            sendText,
                             model: openAIModel,
                             allowThinking: false,
                             ct: attemptCts.Token

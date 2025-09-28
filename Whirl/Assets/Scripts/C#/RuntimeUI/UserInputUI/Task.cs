@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using Michsky.MUIP;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -16,9 +17,15 @@ public class Task : MonoBehaviour
 
     [Header("Refs")]
     [SerializeField] private TMP_Text headerTextObj;
-    [SerializeField] private TMPBulletListFormatter bodyTextFormatter;
+    [SerializeField] protected TMPBulletListFormatter bodyTextFormatter;
     [SerializeField] private UserMultiLineAnswerField answerField;
     [SerializeField] private WindowToggle windowToggle;
+
+    [Header("Ask / Solution UI")]
+    [SerializeField] private WindowManager askSolutionWindowManagerSL;
+    [SerializeField] private WindowManager askSolutionWindowManagerML;
+    [SerializeField] private string askWindowName = "Ask";
+    [SerializeField] private string solutionWindowName = "Solution";
 
     [Header("Single-Line UI")]
     [SerializeField] private AutoGrowToText singleLineAutoGrow;
@@ -39,6 +46,9 @@ public class Task : MonoBehaviour
 
     public bool _isMulti;
     bool _hasRightTaskCache;
+
+    // Expose body text to subclasses
+    protected string BodyTextValue => bodyText;
 
     void OnEnable()
     {
@@ -87,10 +97,23 @@ public class Task : MonoBehaviour
         bool showNext = v == Verdict.Success && _hasRightTaskCache;
         if (singleLineNextToggle != null) singleLineNextToggle.SetModeA(showNext);
         if (multiLineNextToggle != null)  multiLineNextToggle.SetModeA(showNext);
+
+        bool showSolution = taskManager != null ? taskManager.ShouldShowSolutionFor(this, v) : (v == Verdict.Success);
+        if (showSolution) OpenSolutionWindowLocal();
+        else OpenAskWindowLocal();
     }
 
-    public void SendTip() { EnsureTaskManagerLinked(); taskManager?.SendTip(); }
-    public void OpenSolutionViewer() { EnsureTaskManagerLinked(); taskManager?.OpenSolutionViewerFor(this); }
+    public void SendTip()
+    {
+        EnsureTaskManagerLinked();
+        taskManager?.HandleTipForTask(this);
+    }
+
+    public void OpenSolutionViewer()
+    {
+        EnsureTaskManagerLinked();
+        taskManager?.OpenSolutionViewerFor(this);
+    }
 
     public void SetData(string header, string body, string answerKey)
     {
@@ -124,6 +147,18 @@ public class Task : MonoBehaviour
         windowToggle.SetModeA(_desiredModeA);
     }
 
+    public void OpenAskWindowLocal()
+    {
+        if (askSolutionWindowManagerSL != null) askSolutionWindowManagerSL.OpenWindow(askWindowName);
+        if (askSolutionWindowManagerML != null) askSolutionWindowManagerML.OpenWindow(askWindowName);
+    }
+
+    public void OpenSolutionWindowLocal()
+    {
+        if (askSolutionWindowManagerSL != null) askSolutionWindowManagerSL.OpenWindow(solutionWindowName);
+        if (askSolutionWindowManagerML != null) askSolutionWindowManagerML.OpenWindow(solutionWindowName);
+    }
+
     void EnsureTaskManagerLinked()
     {
         if (taskManager != null) return;
@@ -131,10 +166,10 @@ public class Task : MonoBehaviour
         if (go != null) taskManager = go.GetComponent<TaskManager>();
     }
 
-    void RefreshUI()
+    protected virtual void RefreshUI()
     {
         if (headerTextObj != null) headerTextObj.text = headerText ?? string.Empty;
-        if (bodyTextFormatter != null) bodyTextFormatter.sourceText = bodyText ?? string.Empty;
+        if (bodyTextFormatter != null) bodyTextFormatter.ApplyText(BodyTextValue);
         if (answerField != null) answerField.answerKey = answerKey ?? string.Empty;
     }
 

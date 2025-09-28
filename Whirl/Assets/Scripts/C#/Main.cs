@@ -17,7 +17,6 @@ public class Main : MonoBehaviour
     [ContextMenu("Reset Defaults")]
     public void ResetDefaults()
     {
-        // Realistic rendering settings
         LiquidF0 = 0.02f;
         LiquidReflectionStrength = 0.85f;
         LiquidRefractionStrength = 1.5f;
@@ -66,15 +65,13 @@ public class Main : MonoBehaviour
     #endregion
 
     #region Engine Optimisations
-    // Fluids
     public bool DoSimulateParticleViscosity = true;
     public bool DoSimulateParticleSprings = true;
     public bool DoSimulateParticleTemperature = true;
 
-    // Variable storage precision
-    public float FloatIntPrecisionRB = 50000.0f; // Rigid Body Simulation
-    public float FloatIntPrecisionRBRot = 500000.0f; // Rigid Body Simulation
-    public float FloatIntPrecisionP = 1000.0f; // Particle Simulation
+    public float FloatIntPrecisionRB = 50000.0f;
+    public float FloatIntPrecisionRBRot = 500000.0f;
+    public float FloatIntPrecisionP = 1000.0f;
     #endregion
 
     #region Rigid Body Simulation
@@ -95,7 +92,6 @@ public class Main : MonoBehaviour
     #endregion
 
     #region Mouse Interaction
-    // Particles
     public float MaxInteractionRadius = 40.0f;
     public float InteractionAttractionPower = 3.5f;
     public float InteractionRepulsionPower = 3.5f;
@@ -103,7 +99,6 @@ public class Main : MonoBehaviour
     public float InteractionTemperaturePower = 1.0f;
     public float InteractionDampening = 1.0f;
 
-    // Rigid Bodies
     public float RB_MaxInteractionRadius = 40.0f;
     public float RB_InteractionAttractionPower = 3.5f;
     public float RB_InteractionRepulsionPower = 3.5f;
@@ -122,7 +117,6 @@ public class Main : MonoBehaviour
     public bool DoDrawRBCentroids;
     public bool DoUseFastShaderCompilation;
 
-    // The list that defines the order of render steps
     public List<RenderStep> RenderOrder = new()
     {
         RenderStep.Background,
@@ -145,18 +139,15 @@ public class Main : MonoBehaviour
     public int ShadowBlurIterations = 1;
     public float ShadowDiffusion = 20.0f;
 
-    // Rim Lighting
     public bool DoUseRimLighting = true;
     public float RimShadingStrength = 2.0f;
     public float RimShadingBleed = 0.2f;
     public float RimShadingOpaqueBleed = 3.0f;
 
-    // Anti-aliasing
     public bool DoUseAntiAliasing = true;
     public float AAThreshold = 0.08f;
     public float AAMaxBlend = 0.75f;
 
-    // Optimisations
     public int ShadowDownSampling = 1;
     #endregion
 
@@ -188,7 +179,6 @@ public class Main : MonoBehaviour
     public float DynamicCausticsScaleFactor;
     public float PrecomputedCausticsZBlurFactor;
 
-    // Rigid Body Springs
     public float SpringRenderWidth;
     public float SpringRenderMatWidth;
     public float SpringRenderRodLength;
@@ -196,31 +186,26 @@ public class Main : MonoBehaviour
     public float TaperThresoldNormalised = 0.2f;
     public float2 SpringTextureUVFactor = new(10.0f, 1.0f);
 
-    // Fluids
-    // Liquids
     public float LiquidMetaballsThreshold = 1.0f;
     public float LiquidMetaballsEdgeDensityWidth = 0.0f;
     public float VisualLiquidParticleRadius = 0.4f;
     public float LiquidEdgeWidth = 0.0f;
 
-    // Realistic rendering settings
-    public float  LiquidF0                   = 0.02f;                // Fresnel reflectance at normal incidence
-    public float  LiquidReflectionStrength   = 0.85f;                // 0..1
-    public float  LiquidRefractionStrength   = 1.5f;                 // 0..1 (scales refractive tint)
-    public float  LiquidSpecularStrength     = 1.0f;                 // 0..1
-    public float  LiquidShininess            = 100.0f;               // e.g. 64..128
-    public float2 LiquidDistortScales        = new(0.03f, 0.015f);   // refraction, reflection distortion
-    public float3 LiquidAbsorptionColor      = new(0.0f, 0.25f, 0.35f); // bluish tint
-    public float  LiquidAbsorptionStrength   = 1.2f;                 // 0..2
-    public float  LiquidNormalZBias          = 2f;                   // >1 flattens normals (calmer surface)
+    public float  LiquidF0                   = 0.02f;
+    public float  LiquidReflectionStrength   = 0.85f;
+    public float  LiquidRefractionStrength   = 1.5f;
+    public float  LiquidSpecularStrength     = 1.0f;
+    public float  LiquidShininess            = 100.0f;
+    public float2 LiquidDistortScales        = new(0.03f, 0.015f);
+    public float3 LiquidAbsorptionColor      = new(0.0f, 0.25f, 0.35f);
+    public float  LiquidAbsorptionStrength   = 1.2f;
+    public float  LiquidNormalZBias          = 2f;
     public float  LiquidSlopeThreshold       = 1f;
 
-    // Liquid Velocity Gradient
     public Gradient LiquidVelocityGradient;
     public int LiquidVelocityGradientResolution = 256;
     public float LiquidVelocityGradientMaxValue = 60;
 
-    // Gasses
     public float GasMetaballsThreshold = 1.0f;
     public float GasMetaballsEdgeDensityWidth = 0.0f;
     public float VisualGasParticleRadius = 0.4f;
@@ -230,12 +215,10 @@ public class Main : MonoBehaviour
     public float GasNoiseDensityOpacityFactor;
     public float TimeSetRandInterval = 0.5f;
 
-    // Gas Velocity Gradient
     public Gradient GasVelocityGradient;
     public int GasVelocityGradientResolution;
     public float GasVelocityGradientMaxValue;
 
-    // Rigid Bodies
     public float RBEdgeWidth = 0.0f;
     public float RBEdgeRoundDst = 2.0f;
     public float RBRoundLightStrength = 2.0f;
@@ -243,15 +226,12 @@ public class Main : MonoBehaviour
     public float RBRoundSamplePush = 1.0f;
     public float RBFalloff = 0.6f;
 
-    // Global metal reflection strength
     public float MetalReflectionStrength = 0.35f;
     public float GlobalMatBrightnessMultiplier = 1.0f;
 
-    // Sensor Areas
     public float FluidSensorEdgeWidth = 3.0f;
     public float SensorAreaAnimationSpeed = 2.0f;
 
-    // Background
     public float GlobalSettingsViewChangeSpeed;
     public float3 BackgroundBrightness;
 
@@ -261,13 +241,11 @@ public class Main : MonoBehaviour
     [Header("Metal Highlights")]
     public CustomMat MetalHighlightsCustomMat;
 
-    // Rigid body path flags
     public static readonly float PathFlagOffset = 100000.0f;
     public static readonly float PathFlagThreshold = PathFlagOffset / 2.0f;
     #endregion
 
     #region References
-    // Textures
     public RenderTexture uiTexture;
     public RenderTexture dynamicCausticsTexture;
     public Texture2DArray precomputedCausticsTexture;
@@ -277,7 +255,6 @@ public class Main : MonoBehaviour
     public ShaderHelper shaderHelper;
     public Transform fragmentTransform;
 
-    // Compute Shaders
     public ComputeShader renderShader;
     public ComputeShader ppShader;
     public ComputeShader pSimShader;
@@ -286,34 +263,27 @@ public class Main : MonoBehaviour
     public ComputeShader debugShader;
     #endregion
 
-    // Bitonic mergesort
     public ComputeBuffer SpatialLookupBuffer;
     public ComputeBuffer StartIndicesBuffer;
 
-    // Inter-particle springs
     public ComputeBuffer SpringCapacitiesBuffer;
     private bool FrameBufferCycle = true;
-    public ComputeBuffer SpringStartIndicesBuffer_dbA; // Result A
-    public ComputeBuffer SpringStartIndicesBuffer_dbB; // Result B
-    public ComputeBuffer SpringStartIndicesBuffer_dbC; // Support
-    public ComputeBuffer ParticleSpringsCombinedBuffer; // [[Last frame springs], [New frame springs]]
+    public ComputeBuffer SpringStartIndicesBuffer_dbA;
+    public ComputeBuffer SpringStartIndicesBuffer_dbB;
+    public ComputeBuffer SpringStartIndicesBuffer_dbC;
+    public ComputeBuffer ParticleSpringsCombinedBuffer;
 
-    // Particle data
     public ComputeBuffer PDataBuffer;
     public ComputeBuffer PTypeBuffer;
     public ComputeBuffer RecordedFluidDataBuffer;
 
-    // Rigid bodies
     public ComputeBuffer RBVectorBuffer;
     public ComputeBuffer RBDataBuffer;
     public ComputeBuffer RBAdjustmentBuffer;
 
-    // Fluid Sensors
     public ComputeBuffer SensorAreaBuffer;
-    // Materials
     public ComputeBuffer MaterialBuffer;
 
-    // Shadows
     public ComputeBuffer ShadowSrcFullRes;
     public ComputeBuffer ShadowMask_dbA;
     public ComputeBuffer ShadowMask_dbB;
@@ -321,7 +291,6 @@ public class Main : MonoBehaviour
     public ComputeBuffer ShadowDstMask;
     public ComputeBuffer RimLightMask;
 
-    // Constants
     [NonSerialized] public int ParticlesNum;
     [NonSerialized] public int MaxInfluenceRadiusSqr;
     [NonSerialized] public float InvMaxInfluenceRadius;
@@ -337,18 +306,16 @@ public class Main : MonoBehaviour
     [NonSerialized] public CausticsType CausticsType;
     [NonSerialized] public int3 PrecomputedCausticsDims;
 
-    // Shader Thread Group Sizes
-    public const int renderShaderThreadSize = 16; // /32, AxA thread groups
-    public const int ppShaderThreadSize1 = 32; // /1024
-    public const int ppShaderThreadSize2 = 16; // /32
-    public const int pSimShaderThreadSize1 = 512; // /1024
-    public const int pSimShaderThreadSize2 = 512; // /1024
-    public const int sortShaderThreadSize = 512; // /1024
-    public const int rbSimShaderThreadSize1 = 64; // Rigid Body Simulation
-    public const int rbSimShaderThreadSize2 = 32; // Rigid Body Simulation
-    public const int rbSimShaderThreadSize3 = 512; // Rigid Body Simulation
+    public const int renderShaderThreadSize = 16;
+    public const int ppShaderThreadSize1 = 32;
+    public const int ppShaderThreadSize2 = 16;
+    public const int pSimShaderThreadSize1 = 512;
+    public const int pSimShaderThreadSize2 = 512;
+    public const int sortShaderThreadSize = 512;
+    public const int rbSimShaderThreadSize1 = 64;
+    public const int rbSimShaderThreadSize2 = 32;
+    public const int rbSimShaderThreadSize3 = 512;
 
-    // Private references
     [NonSerialized] public RenderTexture renderTexture;
     [NonSerialized] public RenderTexture ppRenderTexture;
     [NonSerialized] public Texture2D AtlasTexture;
@@ -356,29 +323,24 @@ public class Main : MonoBehaviour
     [NonSerialized] public Texture2D GasVelocityGradientTexture;
     [NonSerialized] public GameObject causticsGen;
 
-    // New particles data
     private List<PData> NewPDatas = new();
 
-    // Materials
     private Mat[] Mats;
+    private List<CustomMat> _stableMatOrder = new();
 
-    // Other
     private float DeltaTime;
     private float RLDeltaTime;
     private float SimTimeElapsed;
     private int StepCount = 0;
     private int timeSetRand;
     private bool gpuDataSorted = false;
-    [NonSerialized] public static bool2 MousePressed = false; // (left, right)
+    [NonSerialized] public static bool2 MousePressed = false;
 
-    // Addressables (caustics) state
     private AsyncOperationHandle<Texture2DArray> _causticsHandle;
     private bool _causticsLoadStarted;
 
-    // Cache for current shadow working resolution (to handle runtime ShadowDownSampling changes)
     private int2 _cachedShadowRes = int2.zero;
 
-    // Expose current material count to helper
     public int MaterialsCount => Mats != null ? Mats.Length : 0;
     [NonSerialized] public int BackgroundMatIndex = -1;
     [NonSerialized] public int MetalHighlightsMatIndex = -1;
@@ -395,24 +357,20 @@ public class Main : MonoBehaviour
         ValidateHardwareCompatibility();
         RenderSetup();
 
-        // Boundary
         BoundaryDims = sceneManager.GetBounds(MaxInfluenceRadius);
         ChunksNum = BoundaryDims / MaxInfluenceRadius;
         ChunksNumAll = ChunksNum.x * ChunksNum.y;
 
         BuildAtlasAndMats();
 
-        // Particles
         PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
         ParticlesNum = PDatas.Length;
 
-        // Rigid bodies & sensor areas
         (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
         NumRigidBodies = RBDatas.Length;
         NumRigidBodyVectors = RBVectors.Length;
         NumFluidSensors = SensorAreas.Length;
 
-        // Gradients
         TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
         TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 
@@ -420,18 +378,14 @@ public class Main : MonoBehaviour
         InitTimeSetRand();
         SetLightingSettings();
 
-        // Initialize buffers
         InitializeBuffers(PDatas, RBDatas, RBVectors, SensorAreas);
         renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
         ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
 
-        // Full-res source written by renderShader
         ComputeHelper.CreateStructuredBuffer<float>(ref ShadowSrcFullRes, renderTexture.width * renderTexture.height);
 
-        // Downsampled working buffers
         AllocateOrResizeShadowWorkingBuffers();
 
-        // Shader buffers/textures
         shaderHelper.SetPSimShaderBuffers(pSimShader);
         shaderHelper.SetRBSimShaderBuffers(rbSimShader);
         shaderHelper.SetRenderShaderBuffers(renderShader);
@@ -440,7 +394,6 @@ public class Main : MonoBehaviour
         shaderHelper.SetPostProcessorTextures(ppShader);
         shaderHelper.SetSortShaderBuffers(sortShader);
 
-        // Shader variables
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
         shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
         shaderHelper.UpdateRenderShaderVariables(renderShader);
@@ -454,7 +407,6 @@ public class Main : MonoBehaviour
         ComputeShaderDebugger.CheckShaderConstants(this, debugShader, pTypeInput);
 #endif
 
-        // Initialize the shader pipeline
         UpdateShaderTimeStep();
         GPUSortChunkLookUp();
         GPUSortSpringLookUp();
@@ -463,7 +415,6 @@ public class Main : MonoBehaviour
 
         StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
 
-        // If an addressable caustics texture is assigned, load it and set precomputedCausticsTexture.
         TryLoadAddressableCaustics();
     }
 
@@ -531,7 +482,6 @@ public class Main : MonoBehaviour
                 SetConstants();
                 UpdateSettings();
 
-                // Transfer the new particle data to the GPU
                 PDataBuffer.SetData(NewPDatas.ToArray(), 0, ParticlesNum - particlesToAdd, particlesToAdd);
             }
 
@@ -548,25 +498,20 @@ public class Main : MonoBehaviour
         SetLightingSettings();
         SetConstants();
 
-        // Rebuild materials/atlas and gradients when inspector inputs change
         if (Application.isPlaying && PM.Instance.programStarted) BuildAtlasAndMats();
         TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
         TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 
-        // Ensure Material buffer fits current material count
         RecreateOrUpdateMaterialBuffer();
 
-        // Rebind changed textures/buffers
         shaderHelper.SetRenderShaderTextures(renderShader);
         shaderHelper.SetRenderShaderBuffers(renderShader);
 
-        // Push all uniforms again
         UpdateSettings();
 
         SetShaderKeywords();
         InitCausticsGen();
 
-        // Handle runtime changes to shadow working resolution
         if (AllocateOrResizeShadowWorkingBuffers())
         {
             shaderHelper.SetRenderShaderBuffers(renderShader);
@@ -583,7 +528,6 @@ public class Main : MonoBehaviour
 
     public void UpdateSettings()
     {
-        // Set new pType and material data
         PTypeBuffer.SetData(pTypeInput.GetParticleTypesData(MatIndexMap));
 
         if (MaterialBuffer != null && MaterialBuffer.count == MaterialsCount)
@@ -598,10 +542,8 @@ public class Main : MonoBehaviour
 
     public void UpdateShaderTimeStep()
     {
-        // Mouse position
         Vector2 mouseSimPos = GetMousePosInSimSpace(false);
 
-        // Mouse button input handling
         bool2 currentMouseInputs = Utils.GetMousePressed();
         bool skipUpdatingMouseInputs = (currentMouseInputs.x && MousePressed.x) || (currentMouseInputs.y && MousePressed.y);
         if (!skipUpdatingMouseInputs)
@@ -610,14 +552,12 @@ public class Main : MonoBehaviour
             MousePressed = disallowMouseInputs ? false : currentMouseInputs;
         }
 
-        // Per-timestep-set variables - pSimShader
         pSimShader.SetFloat("DeltaTime", DeltaTime);
         pSimShader.SetFloat("RLDeltaTime", RLDeltaTime);
         pSimShader.SetVector("MousePos", mouseSimPos);
         pSimShader.SetBool("LMousePressed", MousePressed.x);
         pSimShader.SetBool("RMousePressed", MousePressed.y);
 
-        // Per-timestep-set variables - rbSimShader
         rbSimShader.SetFloat("SimTimeElapsed", SimTimeElapsed);
         rbSimShader.SetVector("MousePos", mouseSimPos);
         rbSimShader.SetBool("LMousePressed", MousePressed.x);
@@ -659,7 +599,6 @@ public class Main : MonoBehaviour
 #endif
         }
 
-        // Render shader
         if (DoDrawRBCentroids) renderShader.EnableKeyword("DRAW_RB_CENTROIDS");
         else renderShader.DisableKeyword("DRAW_RB_CENTROIDS");
         if (DoDrawFluidOutlines) renderShader.EnableKeyword("DRAW_FLUID_OUTLINES");
@@ -681,7 +620,6 @@ public class Main : MonoBehaviour
         if (DoUseFastShaderCompilation) renderShader.EnableKeyword("DO_USE_FAST_COMPILATION");
         else renderShader.DisableKeyword("DO_USE_FAST_COMPILATION");
 
-        // Particle simulation shader
         if (DoSimulateParticleViscosity) pSimShader.EnableKeyword("SIMULATE_PARTICLE_VISCOSITY");
         else pSimShader.DisableKeyword("SIMULATE_PARTICLE_VISCOSITY");
         if (DoSimulateParticleSprings) pSimShader.EnableKeyword("SIMULATE_PARTICLE_SPRINGS");
@@ -689,7 +627,6 @@ public class Main : MonoBehaviour
         if (DoSimulateParticleTemperature) pSimShader.EnableKeyword("SIMULATE_PARTICLE_TEMPERATURE");
         else pSimShader.DisableKeyword("SIMULATE_PARTICLE_TEMPERATURE");
 
-        // Rigid body simulation shader
         if (DoUseFastShaderCompilation) rbSimShader.EnableKeyword("DO_USE_FAST_COMPILATION");
         else rbSimShader.DisableKeyword("DO_USE_FAST_COMPILATION");
 
@@ -699,7 +636,6 @@ public class Main : MonoBehaviour
 
     private void ValidateHardwareCompatibility()
     {
-        // Determine whether the current simulation device settings are compatible with the user's computer.
     }
 
     private void RenderSetup()
@@ -738,7 +674,7 @@ public class Main : MonoBehaviour
             deltaTime *= PM.Instance.timeScale * ProgramSpeed;
 
         }
-        else // Dynamic
+        else
         {
             deltaTime = totalFrameTime / stepsPerFrame;
             deltaTime *= PM.Instance.timeScale * ProgramSpeed;
@@ -916,7 +852,6 @@ public class Main : MonoBehaviour
 
     public void RunRenderShader()
     {
-        // TimeSetRand
         PM.Instance.timeSetRandTimer += PM.Instance.clampedDeltaTime;
         if (TimeSetRandInterval == 0) TimeSetRandInterval = 0.01f;
         if (PM.Instance.timeSetRandTimer > TimeSetRandInterval)
@@ -929,10 +864,8 @@ public class Main : MonoBehaviour
         renderShader.SetFloat("TimeSetLerpFactor", PM.Instance.timeSetRandTimer / TimeSetRandInterval);
         renderShader.SetInt("PrecomputedCausticsZ", Mathf.FloorToInt(PM.Instance.totalScaledTimeElapsed * PrecomputedCausticsFPS));
 
-        // Global brightness
         ppShader.SetFloat("GlobalBrightnessFactor", PM.Instance.globalBrightnessFactor);
 
-        // Dispatch render steps
         int2 threadsNum = new(renderTexture.width, renderTexture.height);
         foreach (RenderStep step in RenderOrder)
         {
@@ -945,7 +878,6 @@ public class Main : MonoBehaviour
 
     public void RunPPShader()
     {
-        // Ensure shadow buffers match current downsampling
         if (AllocateOrResizeShadowWorkingBuffers())
         {
             shaderHelper.SetRenderShaderBuffers(renderShader);
@@ -1054,7 +986,6 @@ public class Main : MonoBehaviour
 
     private IEnumerator LoadAddressableCaustics_Coroutine()
     {
-        // Wait 2s to let other processes run before loading the addressable.
         if (!PM.hasBeenReset) yield return new WaitForSecondsRealtime(2f);
 
         var init = Addressables.InitializeAsync();
@@ -1112,7 +1043,6 @@ public class Main : MonoBehaviour
             SensorAreaBuffer,
             RBVectorBuffer,
             MaterialBuffer,
-            // Shadows
             ShadowSrcFullRes,
             ShadowMask_dbA,
             ShadowMask_dbB,
@@ -1155,7 +1085,6 @@ public class Main : MonoBehaviour
         return true;
     }
 
-    // --- Helpers for dynamic material updates ---
     private void RecreateOrUpdateMaterialBuffer()
     {
         if (MaterialBuffer == null || MaterialBuffer.count != MaterialsCount)
@@ -1172,21 +1101,14 @@ public class Main : MonoBehaviour
     {
         var uniques = new List<CustomMat>();
         var seen = new HashSet<CustomMat>();
+        void AddIf(CustomMat cm) { if (cm == null) return; if (seen.Add(cm)) uniques.Add(cm); }
 
-        void AddIf(CustomMat cm)
-        {
-            if (cm == null) return;
-            if (seen.Add(cm)) uniques.Add(cm);
-        }
-
-        // 1) Collect from scene rigid bodies
         foreach (var rb in SceneManager.GetAllSceneRigidBodies())
         {
             AddIf(rb.material);
             AddIf(rb.springMaterial);
         }
 
-        // 2) Collect from particle types (fluids)
         if (pTypeInput != null && pTypeInput.particleTypeStates != null)
         {
             foreach (var pts in pTypeInput.particleTypeStates)
@@ -1197,29 +1119,32 @@ public class Main : MonoBehaviour
             }
         }
 
-        // 3) Metal highlights near the end
-        MetalHighlightsMatIndex = -1;
-        if (MetalHighlightsCustomMat != null)
-        {
-            MetalHighlightsMatIndex = uniques.Count;
-            AddIf(MetalHighlightsCustomMat);
-        }
+        AddIf(MetalHighlightsCustomMat);
+        AddIf(BackgroundCustomMat);
 
-        // 4) Background at the very end
-        BackgroundMatIndex = -1;
-        if (BackgroundCustomMat != null)
-        {
-            BackgroundMatIndex = uniques.Count;
-            AddIf(BackgroundCustomMat);
-        }
+        var ordered = new List<CustomMat>(_stableMatOrder.Count + uniques.Count);
+        var known = new HashSet<CustomMat>(_stableMatOrder);
 
-        // Build atlas & Mats (single growing atlas)
-        (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(uniques.ToArray());
+        foreach (var cm in _stableMatOrder)
+            if (uniques.Contains(cm))
+                ordered.Add(cm);
 
-        // Rebuild mapping
+        uniques.Sort((a, b) => a.GetInstanceID().CompareTo(b.GetInstanceID()));
+        foreach (var cm in uniques)
+            if (!known.Contains(cm))
+                ordered.Add(cm);
+
+        _stableMatOrder.Clear();
+        _stableMatOrder.AddRange(ordered);
+
+        (AtlasTexture, Mats) = sceneManager.ConstructTextureAtlas(ordered.ToArray());
+
         MatIndexMap.Clear();
-        for (int i = 0; i < uniques.Count; i++)
-            MatIndexMap[uniques[i]] = i;
+        for (int i = 0; i < ordered.Count; i++)
+            MatIndexMap[ordered[i]] = i;
+
+        BackgroundMatIndex = (BackgroundCustomMat != null && MatIndexMap.TryGetValue(BackgroundCustomMat, out var bi)) ? bi : -1;
+        MetalHighlightsMatIndex = (MetalHighlightsCustomMat != null && MatIndexMap.TryGetValue(MetalHighlightsCustomMat, out var mi)) ? mi : -1;
 
         RecreateOrUpdateMaterialBuffer();
 

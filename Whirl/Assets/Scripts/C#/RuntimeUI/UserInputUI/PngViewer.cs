@@ -235,7 +235,7 @@ public class PngViewer : MonoBehaviour
         float overflow = Mathf.Max(0f, contentH - fullH);
         var pos = outerRect.anchoredPosition;
         pos.x = 0f;
-        pos.y = -overflow;            // safe "top" instead of a huge magic number
+        pos.y = -overflow;            // safe "top"
         if (!IsFinite(pos.y)) pos.y = 0f;
 
         outerRect.anchoredPosition = pos;

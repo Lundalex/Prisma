@@ -25,20 +25,31 @@ public class DualMultiContainer : MultiContainer
 
     protected override void MatchAnchorsToOuterGlobal()
     {
-        // Choose which list to update
-        if (useAltStretchTarget)
+        // In Play Mode: only update the selected set (preserves old behavior)
+        if (Application.isPlaying)
         {
-            if (altStretchTargets == null) return;
-            for (int i = 0; i < altStretchTargets.Length; i++)
-            {
-                var t = altStretchTargets[i];
-                if (t == null) continue;
-                UpdateAnchorForTarget(t, altLeftOffset, altRightOffset, altTopOffset, altBottomOffset);
-            }
+            if (useAltStretchTarget)
+                UpdateAltTargets();
+            else
+                base.MatchAnchorsToOuterGlobal();
+
+            return;
         }
-        else
+
+        // In Edit Mode (Inspector changes): update BOTH sets
+        base.MatchAnchorsToOuterGlobal();
+        UpdateAltTargets();
+    }
+
+    private void UpdateAltTargets()
+    {
+        if (altStretchTargets == null) return;
+
+        for (int i = 0; i < altStretchTargets.Length; i++)
         {
-            base.MatchAnchorsToOuterGlobal();
+            var t = altStretchTargets[i];
+            if (t == null) continue;
+            UpdateAnchorForTarget(t, altLeftOffset, altRightOffset, altTopOffset, altBottomOffset);
         }
     }
 

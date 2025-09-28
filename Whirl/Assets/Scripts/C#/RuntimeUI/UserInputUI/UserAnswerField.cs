@@ -56,8 +56,12 @@ public class UserAnswerField : MonoBehaviour
 
     [Header("Submit / Next UI")]
     [SerializeField] private WindowManager submitNextWindowManager;
-    [SerializeField] private string submitWindowName;
-    [SerializeField] private string nextWindowName;
+    [SerializeField] private string submitWindowName = "Submit";
+    [SerializeField] private string nextWindowName = "Next";
+
+    [Header("Ask / Solution UI")]
+    [SerializeField] private WindowManager askSolutionWindowManager;
+    [SerializeField] private string askWindowName = "Ask";
 
     [Header("Fail / Almost Feedback")]
     [SerializeField] private float shakePixels = 8f;
@@ -89,6 +93,10 @@ public class UserAnswerField : MonoBehaviour
     [Header("Correct Color Targets")]
     [SerializeField] private Image[] correctColorImages;
 
+    [Header("Answer Info")]
+    [SerializeField] private GameObject answerInfo;
+    CanvasGroup _answerInfoCg;
+
     public bool IsAnimating => _shakeCo != null || _flashCo != null;
 
     void Awake()
@@ -100,10 +108,13 @@ public class UserAnswerField : MonoBehaviour
             outlineImage.color = defaultColor;
         }
         if (submitNextWindowManager != null) submitNextWindowManager.OpenWindow(submitWindowName);
+        if (askSolutionWindowManager != null) askSolutionWindowManager.OpenWindow(askWindowName);
 
         ResolveTaskAndManager();
         ResolveSmartAssistant();
         ResolveChatManager();
+
+        UpdateAnswerInfoByPlaceholderAlpha();
     }
 
     void OnDisable()
@@ -172,6 +183,9 @@ public class UserAnswerField : MonoBehaviour
 
         if (_verdict != Verdict.None && _prevEditing && !editing) _lostFocusAfterSubmit = true;
         _prevEditing = editing;
+
+        // Drive answerInfo alpha from placeholder vertex alpha instantly
+        UpdateAnswerInfoByPlaceholderAlpha();
     }
 
     public async void ProcessAnswer()
@@ -226,8 +240,10 @@ public class UserAnswerField : MonoBehaviour
                 ApplySubmitNextAndToggle(_verdict);
                 NotifyTaskManagerCorrect();
 
-                if (submitNextWindowManager != null)
-                    submitNextWindowManager.OpenWindow(nextWindowName);
+                if (taskManager == null || task == null) ResolveTaskAndManager();
+                taskManager?.OpenSolutionWindowsFor(task);
+
+                if (submitNextWindowManager != null) submitNextWindowManager.OpenWindow(nextWindowName);
             }
             else if (answerIsAlmost)
             {
@@ -278,6 +294,7 @@ public class UserAnswerField : MonoBehaviour
         finally
         {
             _isEvaluating = false;
+            UpdateAnswerInfoByPlaceholderAlpha();
         }
     }
 
@@ -309,6 +326,8 @@ public class UserAnswerField : MonoBehaviour
 
         if (outlineImage != null && _verdict == Verdict.None && !_editingOverride)
             outlineImage.color = defaultColor;
+
+        UpdateAnswerInfoByPlaceholderAlpha();
     }
 
     public void ApplyFeedback(float shakePixels, float shakeCycleDuration, int shakeCycles, float outlineLerp)
@@ -365,6 +384,8 @@ public class UserAnswerField : MonoBehaviour
         }
 
         ApplySubmitNextAndToggle(v);
+
+        UpdateAnswerInfoByPlaceholderAlpha();
     }
 
     void ApplySubmitNextAndToggle(Verdict v)
@@ -504,7 +525,8 @@ Output policy:
         while (t < outlineLerp)
         {
             t += Time.unscaledDeltaTime;
-            outlineImage.color = Color.Lerp(from, target, t / Mathf.Max(0.0001f, outlineLerp));
+            float p = Mathf.Clamp01(t / Mathf.Max(0.0001f, outlineLerp));
+            outlineImage.color = Color.Lerp(from, target, p);
             yield return null;
         }
 
@@ -540,6 +562,50 @@ Output policy:
 
         _rt.anchoredPosition = basePos;
         _shakeCo = null;
+    }
+
+    // ===== Instant answerInfo alpha from placeholder vertex alpha =====
+
+    void UpdateAnswerInfoByPlaceholderAlpha()
+    {
+        if (answerInfo == null) return;
+
+        float a = 0f;
+        if (placeholder != null)
+        {
+            Color32 c32 = (Color32)placeholder.color;
+            float alpha255 = c32.a; // 0..255
+            // Map 0..175 -> 0..1 (clamped)
+            a = Mathf.Clamp01(alpha255 / 175f);
+        }
+
+        SetAnswerInfoAlpha(a);
+    }
+
+    void SetAnswerInfoAlpha(float a)
+    {
+        a = Mathf.Clamp01(a);
+        var cg = GetAnswerInfoCanvasGroup();
+        if (cg != null)
+        {
+            cg.alpha = a;
+            bool interact = a >= 1f;
+            cg.interactable = interact;
+            cg.blocksRaycasts = interact;
+        }
+
+        bool shouldBeActive = a > 0f;
+        if (answerInfo.activeSelf != shouldBeActive)
+        {
+            answerInfo.SetActive(shouldBeActive);
+        }
+    }
+
+    CanvasGroup GetAnswerInfoCanvasGroup()
+    {
+        if (answerInfo == null) return null;
+        if (_answerInfoCg == null) _answerInfoCg = answerInfo.GetComponent<CanvasGroup>();
+        return _answerInfoCg;
     }
 }
 

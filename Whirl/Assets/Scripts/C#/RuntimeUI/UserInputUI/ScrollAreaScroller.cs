@@ -23,6 +23,8 @@ public class ScrollAreaScroller : MonoBehaviour
         if (!scrollRect) return;
         normalized01 = Mathf.Clamp01(normalized01);
 
+        if (!gameObject.activeInHierarchy) return;
+
         if (useDeferredScroll)
             StartCoroutine(ScrollDeferred(normalized01));
         else

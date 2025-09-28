@@ -25,16 +25,16 @@ public class AiConditionSpec
 
 public class SmartAssistant : MonoBehaviour
 {
-    // Built-in hard fallback used only if no CommunicationSettings or its instructions are empty.
     private const string DEFAULT_SYS = "You are a helpful assistant.";
 
     [Header("Model")]
-    [Tooltip("Default chat model to use.")]
     [SerializeField] private string defaultModel = "gpt-4o";
 
     [Header("Default communication settings (replaces defaultInstructions)")]
-    [Tooltip("If assigned, its 'instructions' become the initial system message and it is used as the default bundle for building prompts.")]
     [SerializeField] private CommunicationSettings defaultComSettings;
+
+    [Header("Context Provider")]
+    [SerializeField] private ContextProvider contextProvider;
 
     private OpenAIClient api;
     private readonly List<Message> conversation = new();
@@ -46,37 +46,19 @@ public class SmartAssistant : MonoBehaviour
         var settings = new OpenAISettings(ScriptableObject.CreateInstance<OpenAIConfiguration>());
         api = new OpenAIClient(auth, settings);
 
-        // Seed a SINGLE, structured system preamble derived from communication settings.
-        var sys = BuildSystemPreamble(defaultComSettings, DEFAULT_SYS);
-        EnsureFreshConversationWithSystem(sys);
+        RefreshSystemPreamble(defaultComSettings);
     }
 
-    /// <summary>Helper to locate the SmartAssistant in the scene via tag.</summary>
     public static SmartAssistant FindByTagOrNull()
     {
         var go = GameObject.FindGameObjectWithTag("SmartAssistant");
         return go ? go.GetComponent<SmartAssistant>() : null;
     }
 
-    /// <summary>
-    /// Build a combined "one-shot" prompt string for legacy callers that still want it inline.
-    /// Prefer using the chat message APIs which already seed the system preamble.
-    /// </summary>
-    public string BuildPrompt(CommunicationSettings settings, string userPrompt)
-    {
-        var active = settings ?? defaultComSettings;
-        var sys = BuildSystemPreamble(active, DEFAULT_SYS);
-        return $"{sys}\n\n# User\n{userPrompt}";
-    }
-
-    // =========================
-    // Non-streaming (baseline) — commit-on-success
-    // =========================
     public async Task<string> SendMessageAsync(string userPrompt, string model = null, bool allowThinking = false, CancellationToken ct = default)
     {
         model ??= defaultModel;
 
-        // Build a temporary context seeded from the live conversation (commit only on success)
         var ctx = new List<Message>(conversation)
         {
             new Message(Role.User, userPrompt)
@@ -88,15 +70,11 @@ public class SmartAssistant : MonoBehaviour
         var res = await api.ChatEndpoint.GetCompletionAsync(request, ct);
         string ai = res.FirstChoice ?? string.Empty;
 
-        // Commit only after success
         conversation.Add(new Message(Role.User, userPrompt));
         conversation.Add(new Message(Role.Assistant, ai));
         return ai;
     }
 
-    // ====================================
-    // Streaming (modern) — commit-on-success
-    // ====================================
     public async Task<string> SendMessageStreamAsync(string userPrompt, string model = null, bool allowThinking = false, CancellationToken ct = default)
     {
         model ??= defaultModel;
@@ -128,16 +106,12 @@ public class SmartAssistant : MonoBehaviour
 
         var finalAnswer = sb.ToString();
 
-        // Commit on success
         conversation.Add(new Message(Role.User, userPrompt));
         conversation.Add(new Message(Role.Assistant, finalAnswer));
 
         return finalAnswer;
     }
 
-    // ==========================================================
-    // Streaming to a callback target (for external UI) — commit-on-success
-    // ==========================================================
     public async Task<string> SendMessageStreamToCallbackAsync(
         string userPrompt,
         Action<string> onPartialText,
@@ -176,16 +150,12 @@ public class SmartAssistant : MonoBehaviour
 
         var finalAnswer = sb.ToString();
 
-        // Commit on success
         conversation.Add(new Message(Role.User, userPrompt));
         conversation.Add(new Message(Role.Assistant, finalAnswer));
 
         return finalAnswer;
     }
 
-    // ==========================================================
-    // NEW: Ask the AI to decide conditions and return them in JSON alongside the answer
-    // ==========================================================
     public async Task<(string answer, Dictionary<string, object> conditionsResult)>
         SendMessageWithAiConditionsAsync(string userPrompt,
                                          IList<AiConditionSpec> conditions,
@@ -196,10 +166,10 @@ public class SmartAssistant : MonoBehaviour
     {
         model ??= defaultModel;
 
-        // Build a SINGLE, structured system preamble for this call (either provided, or default)
+        contextProvider.ProvideContext(ref comms);
+
         var sys = BuildSystemPreamble(comms ?? defaultComSettings, DEFAULT_SYS);
 
-        // Build the compact schema and per-condition guidance
         var schemaShape = BuildConditionsSchemaShape();
         var conditionGuidance = BuildConditionGuidance(conditions);
 
@@ -214,12 +184,11 @@ public class SmartAssistant : MonoBehaviour
 
         var request = new ChatRequest(ctx, model);
         ApplyReasoningOptions(request, allowThinking);
-        ApplyJsonOnlyMode(request); // prefers native response_format if supported
+        ApplyJsonOnlyMode(request);
 
         var res = await api.ChatEndpoint.GetCompletionAsync(request, ct);
         var raw = res.FirstChoice ?? "{}";
 
-        // Extract and parse JSON robustly
         if (!TryExtractFirstJsonObject(raw, out var jsonText))
             jsonText = raw.Trim();
 
@@ -227,13 +196,11 @@ public class SmartAssistant : MonoBehaviour
         try { json = JObject.Parse(jsonText); }
         catch
         {
-            // Fallback minimally
             json = new JObject { ["answer"] = raw, ["conditions"] = new JObject() };
         }
 
         string answer = json["answer"] != null ? json["answer"]!.ToString() : string.Empty;
 
-        // Build output dictionary typed according to the requested specs
         var condOut = new Dictionary<string, object>();
         var jConditions = json["conditions"] as JObject ?? new JObject();
 
@@ -265,7 +232,6 @@ public class SmartAssistant : MonoBehaviour
             condOut[key] = value;
         }
 
-        // Commit to the main conversation ONLY after success
         conversation.Add(new Message(Role.User, userPrompt ?? string.Empty));
         conversation.Add(new Message(Role.Assistant, answer ?? string.Empty));
 
@@ -282,22 +248,20 @@ public class SmartAssistant : MonoBehaviour
         }
     }
 
-    // =========================
-    // Helpers
-    // =========================
-
-    /// <summary>
-    /// Always keep conversation[0] as a single authoritative system preamble.
-    /// </summary>
-    private void EnsureFreshConversationWithSystem(string systemPreamble)
+    public void RefreshSystemPreamble(CommunicationSettings settings = null)
     {
-        conversation.Clear();
-        conversation.Add(new Message(Role.System, systemPreamble));
+        var active = settings ?? defaultComSettings;
+
+        contextProvider.ProvideContext(ref active);
+
+        var sys = BuildSystemPreamble(active, DEFAULT_SYS);
+
+        if (conversation.Count == 0)
+            conversation.Add(new Message(Role.System, sys));
+        else
+            conversation[0] = new Message(Role.System, sys);
     }
 
-    /// <summary>
-    /// Builds a SINGLE, structured system preamble from a CommunicationSettings asset.
-    /// </summary>
     private static string BuildSystemPreamble(CommunicationSettings asset, string defaultSys)
     {
         var instr = asset != null ? asset.instructions  : null;
@@ -306,10 +270,6 @@ public class SmartAssistant : MonoBehaviour
         return BuildSystemPreamble(instr, ctx, docs, defaultSys);
     }
 
-    /// <summary>
-    /// Builds a SINGLE, structured system preamble from raw pieces.
-    /// Structured YAML + explicit "do not echo" directive keeps the model from mixing meta with output.
-    /// </summary>
     private static string BuildSystemPreamble(string instructions, string context, string documentation, string defaultSys)
     {
         var safeInstr = string.IsNullOrWhiteSpace(instructions) ? defaultSys : instructions.Trim();
@@ -358,9 +318,6 @@ public class SmartAssistant : MonoBehaviour
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Try to enable JSON-only responses using SDK property if present; otherwise set in AdditionalProperties.
-    /// </summary>
     private static void ApplyJsonOnlyMode(ChatRequest request)
     {
         if (request == null) return;
@@ -369,7 +326,6 @@ public class SmartAssistant : MonoBehaviour
         {
             var t = request.GetType();
 
-            // Try property ResponseFormat = new { type = "json_object" }
             var pRespFmt = t.GetProperty("ResponseFormat");
             if (pRespFmt != null && pRespFmt.CanWrite)
             {
@@ -378,7 +334,6 @@ public class SmartAssistant : MonoBehaviour
                 return;
             }
 
-            // Fallback: AdditionalProperties["response_format"] = { type = "json_object" }
             var pBag = t.GetProperty("AdditionalProperties");
             if (pBag != null)
             {
@@ -390,10 +345,7 @@ public class SmartAssistant : MonoBehaviour
                 }
             }
         }
-        catch
-        {
-            // Swallow; some SDK versions won't expose this.
-        }
+        catch { }
     }
 
     private void ApplyReasoningOptions(ChatRequest request, bool allowThinking)
@@ -426,25 +378,11 @@ public class SmartAssistant : MonoBehaviour
                 }
             }
         }
-        catch
-        {
-            // Ignore if the SDK doesn't expose these properties.
-        }
+        catch { }
     }
 
-    /// <summary>
-    /// JSON schema string for: { "answer": string, "conditions": { key: typed } }
-    /// </summary>
-    private static string BuildConditionsSchemaShape()
-    {
-        // Types are enforced via instructions + response_format=json_object;
-        // we keep this compact and generic for robustness.
-        return "{\"answer\":string,\"conditions\":object}";
-    }
+    private static string BuildConditionsSchemaShape() => "{\"answer\":string,\"conditions\":object}";
 
-    /// <summary>
-    /// Builds clear guidance the model will follow to set each condition precisely.
-    /// </summary>
     private static string BuildConditionGuidance(IList<AiConditionSpec> specs)
     {
         var sb = new StringBuilder();
@@ -472,9 +410,6 @@ public class SmartAssistant : MonoBehaviour
         return Regex.Replace(s, @"\s+", " ").Trim();
     }
 
-    /// <summary>
-    /// Extracts the first top-level JSON object from text by tracking braces and quotes.
-    /// </summary>
     private static bool TryExtractFirstJsonObject(string text, out string json)
     {
         json = null;

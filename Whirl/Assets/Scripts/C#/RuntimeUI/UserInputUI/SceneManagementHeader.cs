@@ -8,6 +8,12 @@ public class SceneManagementHeader : MonoBehaviour
     public GameObject workspaceView;
     public WindowToggle workspaceWindowToggle;
     public GameObject simSpeedButtons;
+    public GameObject feedbackButton;
+
+    void OnEnable()
+    {
+        feedbackButton.SetActive(workspaceView.activeSelf);
+    }
 
     void Update()
     {
@@ -36,5 +42,6 @@ public class SceneManagementHeader : MonoBehaviour
         workspaceView.SetActive(state);
         workspaceWindowToggle.SetModeA(!state);
         simSpeedButtons.SetActive(!state);
+        feedbackButton.SetActive(state);
     }
 }
