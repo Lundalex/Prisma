@@ -229,15 +229,15 @@ public class RigidBodySensor : Sensor
                 break;
 
             case RigidBodySensorType.Velocity_X:
-                title = "Hastighet X";
+                title = "Hastigh. x";
                 break;
 
             case RigidBodySensorType.Velocity_Y:
-                title = "Hastighet Y";
+                title = "Hastigh. y";
                 break;
 
             case RigidBodySensorType.Momentum:
-                title = "R<b>ö</b>r.m<b>ä</b>ngd";
+                title = "Rör.mängd";
                 break;
 
             case RigidBodySensorType.RotationalVelocity:
@@ -245,15 +245,15 @@ public class RigidBodySensor : Sensor
                 break;
 
             case RigidBodySensorType.Distance:
-                title = "Str<b>ä</b>cka";
+                title = "Sträcka";
                 break;
 
             case RigidBodySensorType.Position_X:
-                title = "Position X";
+                title = "Koordnt. x";
                 break;
 
             case RigidBodySensorType.Position_Y:
-                title = "Position Y";
+                title = "Koordnt. y";
                 break;
 
             case RigidBodySensorType.FrictionForce:

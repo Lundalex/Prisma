@@ -1,4 +1,4 @@
-using TMPro;
+using TMPro; 
 using UnityEngine;
 using UnityEngine.UI;
 using Michsky.MUIP;
@@ -66,18 +66,16 @@ public class SensorUI : MonoBehaviour
     private const float PointerHoverCooldown = 0.25f;
 
     private Timer pointerMoveTimer;
-    private const float PointerMoveDelay = 0.15f; // delay from press/arm -> drag starts
+    private const float PointerMoveDelay = 0.15f;
 
-    // Track if this LMB press is “owned/armed” by this sensor
     private bool dragArmed = false;
-
     private bool settingsPanelIsClosing = false;
 
-    // Private - Transform fields
+    // Transform fields
     private Vector2 lastPositionFieldValues = Vector2.positiveInfinity;
     private bool positionFieldsHaveBeenModified = false;
 
-    // Private - Scale
+    // Scale
     private readonly Vector3 BaseScale = new(0.6f, 0.6f, 0.6f);
     private readonly Vector3 ScaleFactor = new(0.65f, 1.0f, 1.0f);
     private const float SettingsViewActiveFixedScale = 2.0f;
@@ -85,7 +83,7 @@ public class SensorUI : MonoBehaviour
     private const float MouseDraggingFixedScale = 1.2f;
     private const float HoverFixedScale = 1.10f;
 
-    // Private - Display value interpolation
+    // Display value interpolation
     private float currentValue = 0f;
     private float targetValue = 0f;
     private bool isInterpolating = false;
@@ -95,7 +93,7 @@ public class SensorUI : MonoBehaviour
         pointerHoverTimer = new Timer(PointerHoverCooldown, TimeType.NonClamped, true, PointerHoverCooldown);
         pointerMoveTimer = new Timer(PointerMoveDelay, TimeType.NonClamped, true, 0);
 
-        SetDisplayValue(0, sensor.numDecimals);
+        SetDisplayValue(0, GetNumDecimalsFromPrecision(sensor.displayPrecision));
     }
 
     private void Update()
@@ -103,7 +101,6 @@ public class SensorUI : MonoBehaviour
         if (PM.Instance.isAnySensorSettingsViewActive) return;
         if (PM.Instance.fullscreenView != null && PM.Instance.fullscreenView.activeSelf) return;
 
-        // Arm drag when the press STARTS on this sensor (front-most hover wins)
         if (Main.MousePressed.x)
         {
             if (pointerHoverArea.CheckIfHovering()
@@ -112,7 +109,7 @@ public class SensorUI : MonoBehaviour
             {
                 dragArmed = true;
                 isBeingMoved = false;
-                pointerMoveTimer.Reset(); // start delay from press
+                pointerMoveTimer.Reset();
             }
             else
             {
@@ -120,7 +117,6 @@ public class SensorUI : MonoBehaviour
             }
         }
 
-        // Allow arming mid-hold when cursor enters this sensor (still must be top-hover & win drag lock)
         if (!dragArmed && Input.GetMouseButton(0)
             && pointerHoverArea.CheckIfHovering()
             && PM.Instance.HoverMayReact(this)
@@ -128,13 +124,11 @@ public class SensorUI : MonoBehaviour
         {
             dragArmed = true;
             isBeingMoved = false;
-            pointerMoveTimer.Reset(); // start delay from the moment we armed
+            pointerMoveTimer.Reset();
         }
 
-        // Release -> clear state
         if (Input.GetMouseButtonUp(0))
         {
-            // Commit the final dropped position back to sensor space
             Vector2 simPos = sensor.CanvasSpaceToSimSpace(rectTransform.localPosition);
             if (sensor.positionType == PositionType.Relative)
                 sensor.localTargetPos = simPos - sensor.lastJointPos;
@@ -149,7 +143,6 @@ public class SensorUI : MonoBehaviour
             return;
         }
 
-        // Dragging (after delay) even if no longer hovering; must still own the drag
         bool canMove = Input.GetMouseButton(0)
                        && dragArmed
                        && pointerMoveTimer.Check(false)
@@ -160,20 +153,16 @@ public class SensorUI : MonoBehaviour
             isBeingMoved = true;
             OnIsBeingDragged?.Invoke();
 
-            // Get mouse position
             Vector2 mouseSimPos = PM.Instance.main.GetMousePosInSimSpace(true);
             Vector2 newPosition = sensor.SimSpaceToCanvasSpace(mouseSimPos);
 
-            // Set sensor UI position
             rectTransform.localPosition = ClampToScreenBounds(newPosition);
 
-            // Update sensor's logical position
             if (sensor.positionType == PositionType.Relative)
                 sensor.localTargetPos = mouseSimPos - sensor.lastJointPos;
             else
                 sensor.localTargetPos = mouseSimPos;
 
-            // Dashed rectangle feedback
             if (dashedRectangle != null)
             {
                 dashedRectangle.SetActive(true);
@@ -190,7 +179,6 @@ public class SensorUI : MonoBehaviour
 
     private void OnDisable()
     {
-        // ensure drag lock is released if this sensor gets disabled while dragging
         if (dragArmed || isBeingMoved)
             PM.Instance.EndSensorDrag(this);
 
@@ -251,7 +239,10 @@ public class SensorUI : MonoBehaviour
             sensor.localTargetPos = simPos - sensor.lastJointPos;
         }
 
-        sensor.graphController.ResetGraph();
+        if (sensor.doEnableGraph && sensor.graphController != null)
+        {
+            sensor.graphController.ResetGraph();
+        }
 
         if (rigidBodySensorTypeDropdownUsed || fluidSensorTypeDropdownUsed)
         {
@@ -263,7 +254,10 @@ public class SensorUI : MonoBehaviour
             sensor.numGraphTimeDecimals = 0;
             sensor.displayValueLerpThreshold = 0.0f;
             sensor.minDisplayValue = 0.0f;
-            sensor.graphController.SetNumGraphDecimals(sensor.numGraphDecimals, sensor.numGraphTimeDecimals);
+
+            if (sensor.doEnableGraph && sensor.graphController != null)
+                sensor.graphController.SetNumGraphDecimals(sensor.numGraphDecimals, sensor.numGraphTimeDecimals);
+
             if (rigidBodySensorTypeDropdownUsed && sensor is RigidBodySensor rigidBodySensor)
                 rigidBodySensor.SetRigidBodySensorType(selectedRigidBodySensorType);
             else if (fluidSensorTypeDropdownUsed && sensor is FluidSensor fluidSensor)
@@ -275,7 +269,7 @@ public class SensorUI : MonoBehaviour
     {
         if (sensor is FluidSensor)
         {
-            Debug.LogWarning("Trying to change the sensor UI position type of a fluid sensor. This is not allowed. FluidSensor: " + sensor.name);
+            Debug.LogWarning("Trying to change the sensor UI position type of a fluid sensor. This is not allowed. FluidSensor: " + this.name);
             return;
         }
 
@@ -292,25 +286,24 @@ public class SensorUI : MonoBehaviour
 #endregion
 
 #region Set UI position & display values
-    public void SetMeasurement(float val, int numDecimals, bool newPrefix)
+    public void SetMeasurement(float val, int /*ignored*/ numDecimals, bool newPrefix)
     {
         if (Mathf.Abs(currentValue - val) <= sensor.displayValueLerpThreshold) return;
 
-        numDecimals = Mathf.Clamp(numDecimals, 1, 2);
-        targetValue = Mathf.Clamp(val, -999, 999); // Clamp to 3 chars
+        targetValue = Mathf.Clamp(val, -999, 999);
 
         if (sensor.doDisplayValueLerp && !newPrefix)
         {
-            if (!isInterpolating) StartCoroutine(LerpMeasurementCoroutine(numDecimals));
+            if (!isInterpolating) StartCoroutine(LerpMeasurementCoroutine());
         }
         else
         {
             currentValue = targetValue;
-            SetDisplayValue(currentValue, numDecimals);
+            SetDisplayValue(currentValue, GetNumDecimalsFromPrecision(sensor.displayPrecision));
         }
     }
 
-    private IEnumerator LerpMeasurementCoroutine(int numDecimals)
+    private IEnumerator LerpMeasurementCoroutine()
     {
         isInterpolating = true;
 
@@ -322,29 +315,48 @@ public class SensorUI : MonoBehaviour
             currentValue = Mathf.Lerp(currentValue, targetValue, Time.deltaTime * currentLerpSpeed);
             currentValue = Mathf.Clamp(currentValue, -999, 999);
 
-            SetDisplayValue(currentValue, numDecimals);
+            SetDisplayValue(currentValue, GetNumDecimalsFromPrecision(sensor.displayPrecision));
             yield return null;
         }
 
         currentValue = targetValue;
-        SetDisplayValue(currentValue, numDecimals);
+        SetDisplayValue(currentValue, GetNumDecimalsFromPrecision(sensor.displayPrecision));
         isInterpolating = false;
     }
 
-    private void SetDisplayValue(float val, int numDecimals)
+    private void SetDisplayValue(float val, int decimals)
     {
-        val *= 1.00001f;
+        bool isNegative = val < 0f;
+        float absVal = Mathf.Abs(val);
+        float rounded = Quantize(absVal, sensor.displayPrecision);
+        float finalVal = isNegative ? -rounded : rounded;
 
-        int integerPart = Mathf.Clamp((int)val, -999, 999);
-        int decimalPart = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(val - integerPart) * Mathf.Pow(10, numDecimals)), 0, (int)Mathf.Pow(10, numDecimals) - 1);
+        int maxInteger = 999;
+        int integerPart = Mathf.Clamp((int)finalVal, -maxInteger, maxInteger);
 
-        integerText.text = integerPart.ToString();
-        decimalText.text = decimalPart.ToString($"D{numDecimals}");
+        if (decimals > 0)
+        {
+            int pow = (int)Mathf.Pow(10, decimals);
+            int decimalPart = Mathf.Clamp(
+                Mathf.RoundToInt(Mathf.Abs(finalVal - integerPart) * pow),
+                0, pow - 1
+            );
+
+            integerText.text = integerPart.ToString();
+            decimalText.text = decimalPart.ToString($"D{decimals}");
+        }
+        else
+        {
+            integerText.text = integerPart.ToString();
+            decimalText.text = "__";
+        }
     }
 
     public void SetUnit(string baseUnit, string unit)
     {
-        sensor.graphController.SetSuffix(baseUnit);
+        if (sensor.doEnableGraph && sensor.graphController != null)
+            sensor.graphController.SetSuffix(baseUnit);
+
         unitText.text = unit;
     }
 
@@ -364,10 +376,7 @@ public class SensorUI : MonoBehaviour
 
     public void SetPosition(Vector2 uiPos)
     {
-        // IMPORTANT: while drag is armed/active, don't let programmatic SetPosition override the manual drag.
         bool freezeDueToDrag = isBeingMoved || (dragArmed && Input.GetMouseButton(0));
-
-        // Only the front-most hovered sensor gets hover-freeze and hover-grow
         bool topHover = pointerHoverArea.CheckIfHovering() && PM.Instance.HoverMayReact(this);
 
         if (freezeDueToDrag)
@@ -385,7 +394,9 @@ public class SensorUI : MonoBehaviour
             pointerHoverTimer.Reset();
         }
 
-        sensor.graphController.isPointerHovering = isPointerHovering;
+        if (sensor.doEnableGraph && sensor.graphController != null)
+            sensor.graphController.isPointerHovering = isPointerHovering;
+
         rectTransform.localPosition = ClampToScreenBounds(uiPos);
     }
 
@@ -447,7 +458,11 @@ public class SensorUI : MonoBehaviour
 #endregion
 
 #region Other
-    private bool CheckIfGraphViewIsActive() => dataViewWindowManager.currentWindowIndex == 0 && settingsViewWindowManager.currentWindowIndex == 0;
+    private bool CheckIfGraphViewIsActive()
+    {
+        if (!sensor.doEnableGraph) return false;
+        return dataViewWindowManager.currentWindowIndex == 0 && settingsViewWindowManager.currentWindowIndex == 0;
+    }
 
     private Vector3 GetDashedRectangleSettingsViewScale()
     {
@@ -457,7 +472,7 @@ public class SensorUI : MonoBehaviour
     public Vector3 GetTotalScale(bool settingsViewActive = false)
     {
         float settingsViewFactor = settingsViewActive ? SettingsViewActiveFixedScale : sliderScale;
-        float graphViewFactor = CheckIfGraphViewIsActive() ? GraphViewActiveFixedScale : 1;
+        float graphViewFactor = (sensor.doEnableGraph && CheckIfGraphViewIsActive()) ? GraphViewActiveFixedScale : 1;
         float mouseDraggingFactor = isBeingMoved ? MouseDraggingFixedScale * (1 + Mathf.Sin(PM.Instance.totalTimeElapsed * 7.0f) * 0.03f) : 1;
         float hoverFactor = (!PM.Instance.isAnySensorSettingsViewActive && isPointerHovering) ? HoverFixedScale : 1;
 
@@ -469,10 +484,33 @@ public class SensorUI : MonoBehaviour
     {
         float.TryParse(positionXInput.text, out float positionX);
         float.TryParse(positionYInput.text, out float positionY);
-
         return new(positionX, positionY);
     }
 
-    private Vector2 ClampToScreenBounds(Vector2 uiPos) => TransformUtils.ClampToScreenBounds(uiPos, outerContainerRectTransform, transform.localScale, ScaleFactor);
+    private Vector2 ClampToScreenBounds(Vector2 uiPos) =>
+        TransformUtils.ClampToScreenBounds(uiPos, outerContainerRectTransform, transform.localScale, ScaleFactor);
 #endregion
+
+    // -------- Precision helpers --------
+
+    private static int GetNumDecimalsFromPrecision(DisplayPrecision p) =>
+        p switch
+        {
+            DisplayPrecision.Int_Halfs or DisplayPrecision.Int_Precise => 0,
+            DisplayPrecision.OneDec_Halfs or DisplayPrecision.OneDec_Precise => 1,
+            DisplayPrecision.TwoDec_Halfs or DisplayPrecision.TwoDec_Precise => 2,
+            _ => 0
+        };
+
+    private static float Quantize(float v, DisplayPrecision p) =>
+        p switch
+        {
+            DisplayPrecision.Int_Precise      => Mathf.Round(v),
+            DisplayPrecision.Int_Halfs        => Mathf.Round(v / 5f) * 5f,
+            DisplayPrecision.OneDec_Precise   => Mathf.Round(v * 10f) / 10f,
+            DisplayPrecision.OneDec_Halfs     => Mathf.Round(v * 2f) / 2f,
+            DisplayPrecision.TwoDec_Precise   => Mathf.Round(v * 100f) / 100f,
+            DisplayPrecision.TwoDec_Halfs     => Mathf.Round(v * 20f) / 20f,
+            _ => v
+        };
 }

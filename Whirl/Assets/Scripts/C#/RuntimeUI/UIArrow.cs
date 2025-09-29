@@ -19,7 +19,7 @@ public class UIArrow : EditorLifeCycle
     [SerializeField] private float value = 0f;
     [SerializeField] private float valueFactor10Exp = 0;
     [SerializeField, Range(1, 3)] private int numIntegers = 3;
-    [SerializeField, Range(1, 2)] private int numDecimals = 2;
+    [SerializeField] private DisplayPrecision displayPrecision = DisplayPrecision.Int_Precise;
     [SerializeField] private bool overrideUnit;
     [SerializeField] private string unit = "m/s";
     [SerializeField, Range(0f, 1f)] private float colorLerpFactor = 0;
@@ -44,7 +44,7 @@ public class UIArrow : EditorLifeCycle
     [SerializeField] private Color displayBoxColor;
 
     [Header("Update Thresholds")]
-    [SerializeField] private float minValueDeltaForUpdate = 0.01f;
+    [SerializeField] private float minValueDeltaForUpdate = 1f;
     [SerializeField] private float minRadiusDeltaForUpdate = 1f;
     [SerializeField] private float minRotationDeltaForUpdate = 1f;
     [SerializeField] private float minBaseLengthDeltaForUpdate = 1f;
@@ -73,6 +73,8 @@ public class UIArrow : EditorLifeCycle
     [SerializeField] private TMP_Text unitText;
 
     private float lastOscillation = 0;
+    private bool displyBoxActive;
+    private bool arrowActive;
 
 #if UNITY_EDITOR
     public override void OnEditorUpdate()
@@ -92,7 +94,7 @@ public class UIArrow : EditorLifeCycle
         float radius,
         float displayBoxScale,
         float value,
-        int numDecimals,
+        int _ignoredNumDecimals, // kept for API compatibility; precision is driven by enum now
         float rotation,
         string unit,
         float baseWidth,
@@ -105,21 +107,20 @@ public class UIArrow : EditorLifeCycle
         Color maxBodyColor,
         Color displayBoxColor)
     {
-        this.center          = center;
-        this.radius          = radius;
+        this.center = center;
+        this.radius = radius;
         this.displayBoxScale = displayBoxScale;
-        this.value           = value;
-        this.numDecimals     = numDecimals;
-        this.rotation        = rotation;
-        this.unit            = unit;
-        this.baseWidth       = baseWidth;
-        this.baseLength      = baseLength;
-        this.hatSize         = hatSize;
-        this.outlineGap      = outlineGap;
+        this.value = value;
+        this.rotation = rotation;
+        this.unit = unit;
+        this.baseWidth = baseWidth;
+        this.baseLength = baseLength;
+        this.hatSize = hatSize;
+        this.outlineGap = outlineGap;
         this.minOutlineColor = minOutlineColor;
         this.maxOutlineColor = maxOutlineColor;
-        this.minBodyColor    = minBodyColor;
-        this.maxBodyColor    = maxBodyColor;
+        this.minBodyColor = minBodyColor;
+        this.maxBodyColor = maxBodyColor;
         this.displayBoxColor = displayBoxColor;
 
         UpdateSprites();
@@ -184,7 +185,6 @@ public class UIArrow : EditorLifeCycle
         UpdateScaleSprites();
     }
 
-    private bool displyBoxActive;
     public void SetValueBoxVisibility(bool setVisible)
     {
         if (setVisible != displyBoxActive)
@@ -194,7 +194,6 @@ public class UIArrow : EditorLifeCycle
         }
     }
 
-    private bool arrowActive;
     public void SetArrowVisibility(bool setVisible)
     {
         if (setVisible != arrowActive)
@@ -259,7 +258,7 @@ public class UIArrow : EditorLifeCycle
         // Hat section
         float hatHeight = baseWidth + hatSize;
         outlineHatRect.sizeDelta = new Vector2(0.5f * hatHeight, hatHeight);
-        bodyHatRect.sizeDelta = outlineHatRect.sizeDelta - new Vector2(outlineGap * (7/3f), outlineGap * (14/3f));
+        bodyHatRect.sizeDelta = outlineHatRect.sizeDelta - new Vector2(outlineGap * (7 / 3f), outlineGap * (14 / 3f));
         bodyHatRect.localPosition = outlineHatRect.localPosition + new Vector3(outlineGap, 0);
     }
 
@@ -289,24 +288,86 @@ public class UIArrow : EditorLifeCycle
 
     private void UpdateDisplayValue()
     {
+        // Determine decimals from enum
+        int decimals = GetNumDecimalsFromPrecision(displayPrecision);
+
         // Update the UI text fields
         int maxInteger = (int)Mathf.Pow(10, numIntegers) - 1; // Determine max value based on numIntegers
         int integerPart = Mathf.Clamp((int)value, -maxInteger, maxInteger);
-        int decimalPart = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(value - integerPart) * Mathf.Pow(10, numDecimals)), 0, (int)Mathf.Pow(10, numDecimals) - 1);
-        integerText.text = integerPart.ToString();
-        decimalText.text = decimalPart.ToString($"D{numDecimals}");
+
+        if (decimals > 0)
+        {
+            int pow = (int)Mathf.Pow(10, decimals);
+            int decimalPart = Mathf.Clamp(
+                Mathf.RoundToInt(Mathf.Abs(value - integerPart) * pow),
+                0, pow - 1
+            );
+
+            integerText.text = integerPart.ToString();
+            decimalText.text = decimalPart.ToString($"D{decimals}");
+
+        }
+        else
+        {
+            // No decimals visible
+            integerText.text = integerPart.ToString();
+            decimalText.text = "__";
+        }
+
         unitText.text = unit;
     }
 
     private void SetDisplayValue(float newValue, string newUnit)
     {
-        this.value = newValue;
+        // Quantize/round the ABSOLUTE magnitude according to the selected precision.
+        bool isNegative = newValue < 0f;
+        float absVal = Mathf.Abs(newValue);
 
-        if (!overrideUnit) this.unit = newUnit;
-        if (this.value < 0.0f)
+        float rounded = Quantize(absVal, displayPrecision);
+
+        // Store positive magnitude; negativity encoded into unit if not overridden
+        this.value = rounded;
+
+        if (!overrideUnit)
         {
-            this.value = Mathf.Abs(this.value);
-            if (!overrideUnit) this.unit = "-" + newUnit;
+            this.unit = isNegative ? "-" + newUnit : newUnit;
         }
     }
+
+    // ---------- Helpers ----------
+
+    private static int GetNumDecimalsFromPrecision(DisplayPrecision p)
+    {
+        return p switch
+        {
+            DisplayPrecision.Int_Halfs or DisplayPrecision.Int_Precise => 0,
+            DisplayPrecision.OneDec_Halfs or DisplayPrecision.OneDec_Precise => 1,
+            DisplayPrecision.TwoDec_Halfs or DisplayPrecision.TwoDec_Precise => 2,
+            _ => 0,
+        };
+    }
+
+    private static float Quantize(float v, DisplayPrecision p)
+    {
+        return p switch
+        {
+            DisplayPrecision.Int_Precise => Mathf.Round(v),// step 1
+            DisplayPrecision.Int_Halfs => Mathf.Round(v / 5f) * 5f,// step 5
+            DisplayPrecision.OneDec_Precise => Mathf.Round(v * 10f) / 10f,// step 0.1
+            DisplayPrecision.OneDec_Halfs => Mathf.Round(v * 2f) / 2f,// step 0.5
+            DisplayPrecision.TwoDec_Precise => Mathf.Round(v * 100f) / 100f,// step 0.01
+            DisplayPrecision.TwoDec_Halfs => Mathf.Round(v * 20f) / 20f,// step 0.05
+            _ => v, // Full precision
+        };
+    }
+}
+
+public enum DisplayPrecision
+{
+    Int_Halfs,
+    Int_Precise,
+    OneDec_Halfs,
+    OneDec_Precise,
+    TwoDec_Halfs,
+    TwoDec_Precise
 }

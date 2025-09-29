@@ -43,6 +43,12 @@ public abstract class Sensor : SensorBase
     [Header("Settings View")]
     public bool doShowSensorTypeSelector = true;
 
+    [Header("Precision")]
+    [SerializeField] public DisplayPrecision displayPrecision = DisplayPrecision.Int_Precise;
+
+    [Header("Graph")]
+    [SerializeField] public bool doEnableGraph = true;
+
     [Header("References")]
     [SerializeField] private GameObject sensorUIPrefab;
     [SerializeField] private GameObject dashedRectanglePrefab;
@@ -76,9 +82,13 @@ public abstract class Sensor : SensorBase
     {
         InitSensorUI();
         InitSensor(sensorUIPos);
-        graphController.InitGraph(graphChart, itemLabels, verticalAxis, horizontalAxis, numGraphDecimals, numGraphTimeDecimals);
-        PM.Instance.sensorManager.SubscribeGraphToCoroutine(graphController);
-        
+
+        if (doEnableGraph && graphController != null)
+        {
+            graphController.InitGraph(graphChart, itemLabels, verticalAxis, horizontalAxis, numGraphDecimals, numGraphTimeDecimals);
+            PM.Instance.sensorManager.SubscribeGraphToCoroutine(graphController);
+        }
+
         newPrefixTimer = new Timer(newLowerPrefixThreshold, TimeType.Clamped, true);
 
         PM.Instance.AddSensor(sensorUI, this);
@@ -92,14 +102,16 @@ public abstract class Sensor : SensorBase
         this.sensorManager = sensorManager;
         this.canvasResolution = Func.Int2ToVector2(main.DefaultResolution);
 
-        graphController = gameObject.GetComponent<GraphController>();
+        // GraphController is optional now
+        graphController = GetComponent<GraphController>();
     }
 
-    // Warning: Super unreadable code. However, it's centralized to this function only
+    // Centralized ugly setup kept here
     private void InitSensorUI()
     {
         GameObject sensorUIObject = Instantiate(sensorUIPrefab, sensorUIContainer);
         sensorUI = sensorUIObject.GetComponent<SensorUI>();
+
         bool isStandardResolution = PM.Instance.isStandardResolution;
         if (isStandardResolution && false)
         {
@@ -109,29 +121,44 @@ public abstract class Sensor : SensorBase
             sensorUI.dashedRectangle = sensorUIOutline.GetComponent<DashedRectangle>();
             sensorUI.dashedRectangle.sensorUI = sensorUI;
         }
-        GameObject sensorUIGraphChartObject = Instantiate(graphChartPrefab, sensorUI.graphChartContainer);
-        Vector3 curPos = sensorUIGraphChartObject.transform.position;
-        sensorUIGraphChartObject.transform.position = curPos + new Vector3(graphPositionOffsetX + numGraphDecimals * 2.0f, 0, 0);
-        graphChart = sensorUIGraphChartObject.GetComponent<GraphChart>();
-        itemLabels = sensorUIGraphChartObject.GetComponent<ItemLabels>();
-        verticalAxis = sensorUIGraphChartObject.GetComponent<VerticalAxis>();
-        horizontalAxis = sensorUIGraphChartObject.GetComponent<HorizontalAxis>();
+
+        // Graph bits (optional)
+        if (doEnableGraph)
+        {
+            GameObject sensorUIGraphChartObject = Instantiate(graphChartPrefab, sensorUI.graphChartContainer);
+            Vector3 curPos = sensorUIGraphChartObject.transform.position;
+            sensorUIGraphChartObject.transform.position = curPos + new Vector3(graphPositionOffsetX + numGraphDecimals * 2.0f, 0, 0);
+            graphChart = sensorUIGraphChartObject.GetComponent<GraphChart>();
+            itemLabels = sensorUIGraphChartObject.GetComponent<ItemLabels>();
+            verticalAxis = sensorUIGraphChartObject.GetComponent<VerticalAxis>();
+            horizontalAxis = sensorUIGraphChartObject.GetComponent<HorizontalAxis>();
+        }
+
         mainCanvas = GameObject.FindGameObjectWithTag("UICanvas").GetComponent<Canvas>();
         sensorUI.swayElementA.mainCanvas = mainCanvas;
         sensorUI.swayElementB.mainCanvas = mainCanvas;
         sensorUI.swayElementC.mainCanvas = mainCanvas;
         sensorUI.swayElementD.mainCanvas = mainCanvas;
+        sensorUI.swayElementD.gameObject.SetActive(doEnableGraph);
+
         bool isRigidBodySensor = this is RigidBodySensor;
         sensorUI.rigidBodySensorTypeSelectObject.SetActive(isRigidBodySensor && doShowSensorTypeSelector);
         sensorUI.fluidSensorTypeSelectObject.SetActive(!isRigidBodySensor && doShowSensorTypeSelector);
         sensorUI.positionTypeSelector.SetActive(isRigidBodySensor);
         sensorUI.positionTitle.SetActive((!isRigidBodySensor && isStandardResolution) || isRigidBodySensor);
         sensorUI.positionInputFields.SetActive(!isRigidBodySensor && isStandardResolution);
+
         sensorUI.SetPrimaryColor(primaryColor, doUseGradient);
         sensorUI.sensor = this;
         sensorUI.scaleSlider.value = sensorScale;
         sensorUI.sliderScale = sensorScale;
-        sensorUI.SetDataWindow(defaultDataView == DataView.Numeric ? "NumericDisplay" : "GraphDisplay");
+
+        // Data window: force numeric if graph disabled
+        if (doEnableGraph)
+            sensorUI.SetDataWindow(defaultDataView == DataView.Numeric ? "NumericDisplay" : "GraphDisplay");
+        else
+            sensorUI.SetDataWindow("NumericDisplay");
+
         sensorUI.positionTypeSelector.GetComponent<HorizontalSelector>().defaultIndex = positionType == PositionType.Relative ? 0 : 1;
         sensorUI.Initialize();
         SetSensorTitle();
@@ -210,5 +237,9 @@ public abstract class Sensor : SensorBase
         return boundaryDims;
     }
 
-    public void AddSensorDataToGraph(float y) => graphController.AddPointsToGraph(new Vector2(PM.Instance.totalScaledTimeElapsed, y));
+    public void AddSensorDataToGraph(float y)
+    {
+        if (!doEnableGraph || graphController == null) return;
+        graphController.AddPointsToGraph(new Vector2(PM.Instance.totalScaledTimeElapsed, y));
+    }
 }
