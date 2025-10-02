@@ -1,65 +1,60 @@
 using UnityEngine;
+using PM = ProgramManager;
 
 public class SelectorConfigHelper : Assembly
 {
-    public int userSelectorIndex;
-    
     [Header("References")]
     [SerializeField] private UserSelectorInput userSelectorInput;
     [SerializeField] private ConfigHelper configHelper;
 
-    // Private static
-    [SerializeField] private DataStorage dataStorage;
-
 #if UNITY_EDITOR
-    private bool _isValidating;
+    private bool _validating;
     private void OnValidate()
     {
-        _isValidating = true;
+        _validating = true;
         UnityEditor.EditorApplication.delayCall += () =>
         {
-            if (this != null) _isValidating = false;
+            if (this == null) return;
+            _validating = false;
+            if (!Application.isPlaying) Apply();
         };
     }
 #endif
-    
+
     private void OnEnable()
     {
-        if (ProgramManager.Instance != null)
-            ProgramManager.Instance.OnPreStart += AssemblyUpdate;
-
-        RetrieveData();
+        if (PM.Instance != null)
+            PM.Instance.OnPreStart += AssemblyUpdate;
+        Apply();
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
-        StoreData();
-        if (ProgramManager.Instance != null)
-            ProgramManager.Instance.OnPreStart -= AssemblyUpdate;
-    }
-
-    private void StoreData()
-    {
-        dataStorage.SetValue<int>(userSelectorIndex);
-    }
-
-    private void RetrieveData()
-    {
-        if (!DataStorage.hasValue) return;
-        userSelectorIndex = dataStorage.GetValue<int>();
+        if (PM.Instance != null)
+            PM.Instance.OnPreStart -= AssemblyUpdate;
     }
 
     public override void AssemblyUpdate()
     {
-        // Skip when not safe to touch UI/Transforms
 #if UNITY_EDITOR
-        if (_isValidating) return;
-        if (!Application.isPlaying) return;
+        if (_validating) return;
 #endif
+        Apply();
+    }
+
+    private void Apply()
+    {
         if (configHelper == null || userSelectorInput == null) return;
 
-        // Safe at runtime
-        userSelectorInput.SetSelectorIndex(userSelectorIndex);
-        configHelper.SetActiveConfigByIndex(userSelectorIndex);
+        int idx;
+        if (Application.isPlaying && userSelectorInput.CurrentIndex >= 0)
+            idx = userSelectorInput.CurrentIndex;
+        else if (userSelectorInput.TryGetStoredIndex(out var stored) && stored >= 0)
+            idx = stored;
+        else
+            idx = 0;
+
+        userSelectorInput.SetSelectorIndex(idx);
+        configHelper.SetActiveConfigByIndex(idx);
     }
 }

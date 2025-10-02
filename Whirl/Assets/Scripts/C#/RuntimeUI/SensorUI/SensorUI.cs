@@ -1,4 +1,4 @@
-using TMPro; 
+using TMPro;  
 using UnityEngine;
 using UnityEngine.UI;
 using Michsky.MUIP;
@@ -44,6 +44,7 @@ public class SensorUI : MonoBehaviour
     // Events
     public event Action<bool> OnSettingsViewStatusChanged;
     public event Action OnIsBeingDragged;
+    public event Action OnHovered;
 
     // NonSerialized
     [NonSerialized] public Sensor sensor;
@@ -70,6 +71,11 @@ public class SensorUI : MonoBehaviour
 
     private bool dragArmed = false;
     private bool settingsPanelIsClosing = false;
+
+    // Only commit position if a real drag started after the delay
+    private bool dragActive = false;
+
+    private bool hoverArmed = false;
 
     // Transform fields
     private Vector2 lastPositionFieldValues = Vector2.positiveInfinity;
@@ -101,6 +107,7 @@ public class SensorUI : MonoBehaviour
         if (PM.Instance.isAnySensorSettingsViewActive) return;
         if (PM.Instance.fullscreenView != null && PM.Instance.fullscreenView.activeSelf) return;
 
+        // Fresh mouse down
         if (Main.MousePressed.x)
         {
             if (pointerHoverArea.CheckIfHovering()
@@ -108,34 +115,43 @@ public class SensorUI : MonoBehaviour
                 && PM.Instance.TryBeginSensorDrag(this))
             {
                 dragArmed = true;
+                dragActive = false;
                 isBeingMoved = false;
                 pointerMoveTimer.Reset();
             }
             else
             {
                 dragArmed = false;
+                dragActive = false;
             }
         }
 
+        // Late acquire while holding mouse (e.g., moved over the sensor)
         if (!dragArmed && Input.GetMouseButton(0)
             && pointerHoverArea.CheckIfHovering()
             && PM.Instance.HoverMayReact(this)
             && PM.Instance.TryBeginSensorDrag(this))
         {
             dragArmed = true;
+            dragActive = false;
             isBeingMoved = false;
             pointerMoveTimer.Reset();
         }
 
+        // Mouse up: only commit if an actual drag happened
         if (Input.GetMouseButtonUp(0))
         {
-            Vector2 simPos = sensor.CanvasSpaceToSimSpace(rectTransform.localPosition);
-            if (sensor.positionType == PositionType.Relative)
-                sensor.localTargetPos = simPos - sensor.lastJointPos;
-            else
-                sensor.localTargetPos = simPos;
+            if (dragActive)
+            {
+                Vector2 simPos = sensor.CanvasSpaceToSimSpace(rectTransform.localPosition);
+                if (sensor.positionType == PositionType.Relative)
+                    sensor.localTargetPos = simPos - sensor.lastJointPos;
+                else
+                    sensor.localTargetPos = simPos;
+            }
 
             dragArmed = false;
+            dragActive = false;
             isBeingMoved = false;
             pointerMoveTimer.Reset();
             PM.Instance.EndSensorDrag(this);
@@ -143,6 +159,7 @@ public class SensorUI : MonoBehaviour
             return;
         }
 
+        // Can we move yet (after the small delay)?
         bool canMove = Input.GetMouseButton(0)
                        && dragArmed
                        && pointerMoveTimer.Check(false)
@@ -150,6 +167,8 @@ public class SensorUI : MonoBehaviour
 
         if (canMove)
         {
+            if (!dragActive) dragActive = true;
+
             isBeingMoved = true;
             OnIsBeingDragged?.Invoke();
 
@@ -158,6 +177,7 @@ public class SensorUI : MonoBehaviour
 
             rectTransform.localPosition = ClampToScreenBounds(newPosition);
 
+            // While actively dragging, update target
             if (sensor.positionType == PositionType.Relative)
                 sensor.localTargetPos = mouseSimPos - sensor.lastJointPos;
             else
@@ -183,8 +203,10 @@ public class SensorUI : MonoBehaviour
             PM.Instance.EndSensorDrag(this);
 
         dragArmed = false;
+        dragActive = false;
         isBeingMoved = false;
         isPointerHovering = false;
+        hoverArmed = false;
     }
 
 #region User-triggered functions
@@ -247,6 +269,8 @@ public class SensorUI : MonoBehaviour
         if (rigidBodySensorTypeDropdownUsed || fluidSensorTypeDropdownUsed)
         {
             sensor.doUseCustomTitle = false;
+            sensor.doUseCustomUnit = false;
+            sensor.doUseAbsUnit = false;
             sensor.valueOffset = 0.0f;
             sensor.valueMultiplier = 1.0f;
             sensor.minPrefixIndex = 2;
@@ -376,8 +400,22 @@ public class SensorUI : MonoBehaviour
 
     public void SetPosition(Vector2 uiPos)
     {
+        // Raw + gated hover
+        bool rawHover = pointerHoverArea.CheckIfHovering();
+        bool topHover = rawHover && PM.Instance.HoverMayReact(this);
+
+        // Raise "hovered" once on raw hover edge (move to front immediately)
+        if (rawHover && !hoverArmed)
+        {
+            hoverArmed = true;
+            OnHovered?.Invoke();
+        }
+        else if (!rawHover && hoverArmed)
+        {
+            hoverArmed = false;
+        }
+
         bool freezeDueToDrag = isBeingMoved || (dragArmed && Input.GetMouseButton(0));
-        bool topHover = pointerHoverArea.CheckIfHovering() && PM.Instance.HoverMayReact(this);
 
         if (freezeDueToDrag)
         {

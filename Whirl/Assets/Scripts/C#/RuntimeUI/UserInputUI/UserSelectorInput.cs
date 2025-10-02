@@ -1,7 +1,12 @@
+using System.Collections.Generic;
 using Michsky.MUIP;
 using Resources2;
 using UnityEngine;
 using PM = ProgramManager;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 [ExecuteInEditMode]
 public class UserSelectorInput : UserUIElement
@@ -10,28 +15,39 @@ public class UserSelectorInput : UserUIElement
     [SerializeField] private bool disallowAutoModifyField;
     [Range(0.0f, 1000.0f), SerializeField] private float msMaxUpdateFrequency = 100.0f;
 
+    [Header("Start Value")]
+    [SerializeField] private int startIndex = 0;
+
     [Header("Inner Field")]
     public bool useInnerField = false;
     public string innerFieldName;
 
     [Header("Data Storage")]
-    [SerializeField] private bool doUseDataStorage;
+    [SerializeField] private bool doUseDataStorage = true;
     [SerializeField] private DataStorage dataStorage;
 
-    [Header("Internal")]
+    [Header("References")]
     [SerializeField] private HorizontalSelector selector;
-
-    [Header("Field Modifier")]
     [SerializeField] private FieldModifier fieldModifier;
 
     [Header("Config Activation")]
     public ConfigHelper configHelper;
     public string targetCollectionName = "TargetCollection";
 
-    // Private
     private int lastValue = -1;
     private Timer updateTimer;
-    private bool setupFinnished = false;
+    private bool setupDone = false;
+
+    public int CurrentIndex => selector != null ? selector.index : -1;
+
+    public bool TryGetStoredIndex(out int storedIndex)
+    {
+        if (doUseDataStorage && dataStorage != null && dataStorage.TryGetValue(out int v))
+        {
+            storedIndex = v; return true;
+        }
+        storedIndex = startIndex; return true;
+    }
 
     public void SetSelectorIndex(int index)
     {
@@ -39,48 +55,47 @@ public class UserSelectorInput : UserUIElement
         if (selector.index == index) return;
 
         selector.index = selector.defaultIndex = index;
+        if (Application.isPlaying && selector.gameObject.activeInHierarchy) selector.UpdateUI();
+
         lastValue = selector.index;
-
-        if (Application.isPlaying && selector.gameObject.activeInHierarchy)
-            selector.UpdateUI();
-
-        // Activate matching config by collection+index
+        if (!disallowAutoModifyField) ModifyField();
         ActivateConfigForIndex(selector.index);
 
-        SaveSelectorValue();
+        if (Application.isPlaying && doUseDataStorage && dataStorage != null)
+            dataStorage.SetValue(selector.index);
     }
 
     public override void InitDisplay()
     {
         if (containerTrimImage != null) containerTrimImage.color = primaryColor;
-
-        updateTimer = new Timer(Func.MsToSeconds(msMaxUpdateFrequency), TimeType.Clamped, true, Func.MsToSeconds(msMaxUpdateFrequency));
-        if (selector != null) lastValue = selector.index;
-
+        updateTimer ??= new Timer(Func.MsToSeconds(msMaxUpdateFrequency), TimeType.Clamped, true, Func.MsToSeconds(msMaxUpdateFrequency));
         if (title != null) title.text = titleText;
+        if (selector != null && !Application.isPlaying)
+            lastValue = selector.index;
     }
 
     private void OnEnable()
     {
-        setupFinnished = false;
+        setupDone = false;
         if (selector == null) return;
 
         if (Application.isPlaying)
         {
-            if (doUseDataStorage && dataStorage != null && DataStorage.hasValue)
+            int idx = startIndex;
+            if (doUseDataStorage && dataStorage != null)
             {
-                // Restore saved index and make that the default so MUIP won’t snap back
-                int saved = dataStorage.GetValue<int>();
-                selector.index = selector.defaultIndex = saved;
+                if (!dataStorage.TryGetValue(out idx)) // first play or after exit -> seed with start
+                {
+                    idx = startIndex;
+                    dataStorage.SetValue(idx);
+                }
             }
 
+            selector.index = selector.defaultIndex = idx;
             selector.UpdateUI();
             lastValue = selector.index;
 
-            if (doUseDataStorage && dataStorage != null && !disallowAutoModifyField)
-                ModifyField();
-
-            // Ensure config reflects the (possibly restored) current index
+            if (!disallowAutoModifyField) ModifyField();
             ActivateConfigForIndex(selector.index);
         }
         else
@@ -89,25 +104,18 @@ public class UserSelectorInput : UserUIElement
         }
     }
 
-    private void OnDisable()
-    {
-        setupFinnished = false;
-        SaveSelectorValue();
-    }
-
     private void Update()
     {
         if (selector == null) return;
 
-        // One-time refresh in case OnEnable execution order ran before MUIP internals
-        if (!setupFinnished)
+        if (!setupDone)
         {
             if (Application.isPlaying)
             {
                 selector.UpdateUI();
                 lastValue = selector.index;
             }
-            setupFinnished = true;
+            setupDone = true;
         }
 
         if (selector.index != lastValue)
@@ -116,17 +124,14 @@ public class UserSelectorInput : UserUIElement
             if (updateTimer.Check())
             {
                 if (!disallowAutoModifyField) ModifyField();
-
                 if (PM.Instance != null) PM.Instance.doOnSettingsChanged = true;
 
-                // Activate config for the new selection index
                 ActivateConfigForIndex(selector.index);
-
                 lastValue = selector.index;
                 onValueChanged.Invoke();
 
-                // Persist immediately so toggling the object restores the latest value
-                SaveSelectorValue();
+                if (Application.isPlaying && doUseDataStorage && dataStorage != null)
+                    dataStorage.SetValue(selector.index);
             }
         }
 
@@ -135,29 +140,17 @@ public class UserSelectorInput : UserUIElement
 
     private void ModifyField()
     {
-        if (selector == null) return;
-
         if (fieldModifier == null) return;
-
         if (useInnerField) fieldModifier.ModifyClassField(innerFieldName, selector.index);
         else               fieldModifier.ModifyField(selector.index);
     }
 
-    private void OnDestroy()
-    {
-        SaveSelectorValue();
-    }
-
-    private void SaveSelectorValue()
-    {
-        if (!Application.isPlaying || !doUseDataStorage || dataStorage == null || selector == null) return;
-        dataStorage.SetValue(selector.index);
-    }
-
-    // --- Activate collection config BY INDEX using ConfigHelper API ---
     private void ActivateConfigForIndex(int index)
     {
         if (configHelper == null) return;
-        configHelper.SetActiveConfigByNameAndIndex(targetCollectionName, index);
+        if (!string.IsNullOrEmpty(targetCollectionName))
+            configHelper.SetActiveConfigByNameAndIndex(targetCollectionName, index);
+        else
+            configHelper.SetActiveConfigByIndex(index);
     }
 }

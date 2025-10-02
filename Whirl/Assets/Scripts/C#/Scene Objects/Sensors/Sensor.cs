@@ -36,6 +36,7 @@ public abstract class Sensor : SensorBase
     public string customTitle = "Title Here";
     public bool doUseCustomUnit = false;
     public string customUnit = "Unit Here";
+    public bool doUseAbsUnit = false;
     public float valueMultiplier = 1.0f;
     public float valueOffset = 0.0f;
     public float graphPositionOffsetX = 0.0f;
@@ -46,8 +47,9 @@ public abstract class Sensor : SensorBase
     [Header("Precision")]
     [SerializeField] public DisplayPrecision displayPrecision = DisplayPrecision.Int_Precise;
 
-    [Header("Graph")]
+    [Header("Accessed Views")]
     [SerializeField] public bool doEnableGraph = true;
+    [SerializeField] public bool doEnableSettings = true;
 
     [Header("References")]
     [SerializeField] private GameObject sensorUIPrefab;
@@ -139,7 +141,10 @@ public abstract class Sensor : SensorBase
         sensorUI.swayElementB.mainCanvas = mainCanvas;
         sensorUI.swayElementC.mainCanvas = mainCanvas;
         sensorUI.swayElementD.mainCanvas = mainCanvas;
+
+        // Accessed views (show/hide buttons)
         sensorUI.swayElementD.gameObject.SetActive(doEnableGraph);
+        sensorUI.swayElementA.gameObject.SetActive(doEnableSettings);
 
         bool isRigidBodySensor = this is RigidBodySensor;
         sensorUI.rigidBodySensorTypeSelectObject.SetActive(isRigidBodySensor && doShowSensorTypeSelector);
@@ -181,7 +186,7 @@ public abstract class Sensor : SensorBase
         if (value < 0)
         {
             value *= -1;
-            minusPrefix = "-";
+            if (!doUseAbsUnit) minusPrefix = "-";
         }
 
         float originalValue = value * Mathf.Pow(1000, 3 - lastPrefixIndex);

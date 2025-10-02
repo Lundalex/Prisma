@@ -1,59 +1,42 @@
 using UnityEngine;
+using PM = ProgramManager;
 
 public class AdjustableVelocityRB : Assembly
 {
+    public enum TargetComponentXY { X, Y }
+
     [Header("Velocity")]
     [SerializeField] private TargetComponentXY targetComponent;
-    public float velocityScaler;
-    public float velocityX;
-    public float velocityY;
+    public float velocityScaler = 1f;
 
     [Header("References")]
     [SerializeField] private SceneRigidBody rigidBody;
     [SerializeField] private UserSliderInput userSliderInput;
 
-    // Private static
-    private static float storedVelocityX;
-    private static float storedVelocityY;
-    private static bool dataHasBeenStored = false;
-
     private void OnEnable()
     {
-        ProgramManager.Instance.OnPreStart += AssemblyUpdate;
-        RetrieveData();
+        if (PM.Instance != null)
+            PM.Instance.OnPreStart += AssemblyUpdate;
+        ApplyVelocity();
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
-        StoreData();
-        ProgramManager.Instance.OnPreStart -= AssemblyUpdate;
+        if (PM.Instance != null)
+            PM.Instance.OnPreStart -= AssemblyUpdate;
     }
 
-    private void StoreData()
+    private void Update() => ApplyVelocity();
+    public override void AssemblyUpdate() => ApplyVelocity();
+
+    private void ApplyVelocity()
     {
-        dataHasBeenStored = true;
-        storedVelocityX = velocityX;
-        storedVelocityY = velocityY;
-    }
+        if (rigidBody == null || userSliderInput == null) return;
 
-    private void RetrieveData()
-    {
-        if (!dataHasBeenStored || !Application.isPlaying) return;
-        velocityX = storedVelocityX;
-        velocityY = storedVelocityY;
-    }
-
-    public override void AssemblyUpdate()
-    {
-        RetrieveData();
-
-        // Set the initial velocity
-        if (rigidBody != null) rigidBody.rbInput.velocity = velocityScaler * new Vector2(velocityX, velocityY);
-
-        if (userSliderInput != null)
-        {
-            if (targetComponent == TargetComponentXY.X) userSliderInput.SetValue(velocityX);
-            else userSliderInput.SetValue(velocityY);
-        }
+        var v = rigidBody.rbInput.velocity;
+        float s = userSliderInput.CurrentValue * velocityScaler;
+        if (targetComponent == TargetComponentXY.X) v.x = s;
+        else                                        v.y = s;
+        rigidBody.rbInput.velocity = v;
     }
 }

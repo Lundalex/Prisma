@@ -428,6 +428,7 @@ public class ProgramManager : ScriptableObject
 
         sensorUI.OnSettingsViewStatusChanged += (isActive) => SetSensorSettingsViewStatus(sensorIndex, isActive);
         sensorUI.OnIsBeingDragged += () => MoveSensorToFront(sensorIndex);
+        sensorUI.OnHovered += () => MoveSensorToFront(sensorIndex);
     }
 
     public void AddRigidBodyArrow(RigidBodyArrow rigidBodyArrow)

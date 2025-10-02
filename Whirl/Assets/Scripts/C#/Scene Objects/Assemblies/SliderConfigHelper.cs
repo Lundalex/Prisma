@@ -1,44 +1,36 @@
 using UnityEngine;
+using PM = ProgramManager;
 
 public class SliderConfigHelper : Assembly
 {
-    public int userSliderIndex;
-    
     [Header("References")]
     [SerializeField] private UserSliderInput userSliderInput;
     [SerializeField] private ConfigHelper configHelper;
 
-    // Private static
-    [SerializeField] private DataStorage dataStorage;
-
     private void OnEnable()
     {
-        ProgramManager.Instance.OnPreStart += AssemblyUpdate;
-        RetrieveData();
+        if (PM.Instance != null)
+            PM.Instance.OnPreStart += AssemblyUpdate;
+        Apply();
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
-        StoreData();
-        ProgramManager.Instance.OnPreStart -= AssemblyUpdate;
+        if (PM.Instance != null)
+            PM.Instance.OnPreStart -= AssemblyUpdate;
     }
 
-    private void StoreData()
-    {
-        dataStorage.SetValue<int>(userSliderIndex);
-    }
+    public override void AssemblyUpdate() => Apply();
 
-    private void RetrieveData()
-    {
-        if (!DataStorage.hasValue) return;
-        userSliderIndex = dataStorage.GetValue<int>();
-    }
-
-    public override void AssemblyUpdate()
+    private void Apply()
     {
         if (configHelper == null || userSliderInput == null) return;
 
-        userSliderInput.startValue = userSliderIndex;
-        configHelper.SetActiveConfigByIndex(userSliderIndex);
+        int idx = Application.isPlaying
+            ? Mathf.RoundToInt(userSliderInput.CurrentValue)
+            : Mathf.RoundToInt(userSliderInput.TryGetStoredValue(out var v) ? v : userSliderInput.startValue);
+
+        userSliderInput.SetValue(idx);
+        configHelper.SetActiveConfigByIndex(idx);
     }
 }
