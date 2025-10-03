@@ -1,6 +1,7 @@
 using UnityEngine;
+using TMPro;
 
-[ExecuteInEditMode]
+[ExecuteAlways]
 public class SideTask : Task
 {
     [Header("Stretch Targets")]

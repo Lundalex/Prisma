@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Resources2;
 using UnityEngine;
 using PM = ProgramManager;
@@ -44,6 +46,126 @@ public class SceneRigidBody : Polygon
     [NonSerialized] public Vector2 lastLocalLinkPosOtherRB;
     [NonSerialized] public bool lastLinkTypeSet = false;
 
+    // ===== Tiny mass-props cache (in-memory + PlayerPrefs in builds) =====
+    private struct RBCalcCache
+    {
+        public int shapeHash;
+        public float gridSpacing;
+        public Vector2 centroidWorld;
+        public int numPoints;
+        public double sumR2AroundCentroid; // Σ |p - centroid|^2
+    }
+
+    private static readonly Dictionary<int, RBCalcCache> _memCache = new();
+    private static readonly object _memCacheLock = new();
+
+    private static string PrefKey(int shapeHash, float gridSpacing)
+        => $"RBCACHE:{shapeHash}:{Mathf.RoundToInt(gridSpacing * 1000f)}";
+
+    private void EnsureCollider()
+    {
+        if (polygonCollider == null) polygonCollider = GetComponent<PolygonCollider2D>();
+    }
+
+    private int ComputeShapeHash(float gridSpacing)
+    {
+        EnsureCollider();
+
+        unchecked
+        {
+            int h = 17;
+            h = h * 31 + polygonCollider.pathCount;
+            h = h * 31 + Mathf.RoundToInt(gridSpacing * 1000f);
+
+            for (int p = 0; p < polygonCollider.pathCount; p++)
+            {
+                var pts = polygonCollider.GetPath(p);
+                for (int i = 0; i < pts.Length; i++)
+                {
+                    int x = Mathf.RoundToInt(pts[i].x * 1000f);
+                    int y = Mathf.RoundToInt(pts[i].y * 1000f);
+                    h = h * 31 + x;
+                    h = h * 31 + y;
+                }
+            }
+
+            var t = transform;
+            int px = Mathf.RoundToInt(t.position.x * 1000f);
+            int py = Mathf.RoundToInt(t.position.y * 1000f);
+            int rz = Mathf.RoundToInt(t.eulerAngles.z * 1000f);
+            var s = t.lossyScale;
+            int sx = Mathf.RoundToInt(s.x * 1000f);
+            int sy = Mathf.RoundToInt(s.y * 1000f);
+
+            h = h * 31 + px; h = h * 31 + py;
+            h = h * 31 + rz;
+            h = h * 31 + sx; h = h * 31 + sy;
+
+            h = h * 31 + (int)rbInput.constraintType;
+
+            return h;
+        }
+    }
+
+    private bool TryGetCachedMassProps(float gridSpacing, out RBCalcCache cache)
+    {
+        EnsureCollider();
+
+        int hash = ComputeShapeHash(gridSpacing);
+        lock (_memCacheLock)
+        {
+            if (_memCache.TryGetValue(hash, out cache))
+                return true;
+        }
+
+        if (!Application.isEditor)
+        {
+            string key = PrefKey(hash, gridSpacing);
+            if (PlayerPrefs.HasKey(key))
+            {
+                var s = PlayerPrefs.GetString(key);
+                var parts = s.Split('|');
+                if (parts.Length == 4 &&
+                    float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float cx) &&
+                    float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float cy) &&
+                    int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int np) &&
+                    double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double sum))
+                {
+                    cache = new RBCalcCache
+                    {
+                        shapeHash = hash,
+                        gridSpacing = gridSpacing,
+                        centroidWorld = new Vector2(cx, cy),
+                        numPoints = np,
+                        sumR2AroundCentroid = sum
+                    };
+                    lock (_memCacheLock) _memCache[hash] = cache;
+                    return true;
+                }
+            }
+        }
+
+        cache = default;
+        return false;
+    }
+
+    private void SaveCachedMassProps(in RBCalcCache cache)
+    {
+        lock (_memCacheLock) _memCache[cache.shapeHash] = cache;
+
+        if (!Application.isEditor)
+        {
+            string key = PrefKey(cache.shapeHash, cache.gridSpacing);
+            string val = string.Concat(
+                cache.centroidWorld.x.ToString("R", CultureInfo.InvariantCulture), "|",
+                cache.centroidWorld.y.ToString("R", CultureInfo.InvariantCulture), "|",
+                cache.numPoints.ToString(CultureInfo.InvariantCulture), "|",
+                cache.sumR2AroundCentroid.ToString("R", CultureInfo.InvariantCulture)
+            );
+            PlayerPrefs.SetString(key, val);
+        }
+    }
+
 #if UNITY_EDITOR
     // Editor
     private int frameCount = 0;
@@ -59,13 +181,11 @@ public class SceneRigidBody : Polygon
     {
         if (Application.isPlaying || this == null) return;
 
-        // Skip re-assigning collider points if user is actively dragging handles
         bool userIsModifying = Tools.current == Tool.Move || Tools.current == Tool.Rotate || Tools.current == Tool.Scale;
         if (userIsModifying) return;
 
         if (polygonCollider == null) polygonCollider = GetComponent<PolygonCollider2D>();
 
-        // Update linear motor offset
         float newLerpTimeOffset = rbInput.lerpTimeOffset;
         Vector2 newStartPos = rbInput.startPos;
         Vector2 newEndPos = rbInput.endPos;
@@ -90,7 +210,6 @@ public class SceneRigidBody : Polygon
             rbInput.overrideCentroidPosition = transform.position;
         }
 
-        // Track transform changes
         if (lastFramePosition != (Vector2)transform.localPosition)
         {
             lastFramePosition = transform.localPosition;
@@ -98,9 +217,8 @@ public class SceneRigidBody : Polygon
         }
         else framesSinceLastPositionChange++;
 
-        if (framesSinceLastPositionChange < 20) return; // wait a bit if user is dragging?
+        if (framesSinceLastPositionChange < 20) return;
 
-        // Center if requested
         if (doCenterPosition)
         {
             CenterPolygonPosition();
@@ -116,7 +234,6 @@ public class SceneRigidBody : Polygon
             UpdateCachedData();
         }
 
-        // Check if link type changed
         if (!lastLinkTypeSet)
         {
             lastLinkType = rbInput.constraintType;
@@ -135,7 +252,6 @@ public class SceneRigidBody : Polygon
     {
         cachedCentroid = ComputeCentroid(defaultGridSpacing);
 
-        // If rigid and linked, try to position accordingly
         if (rbInput.constraintType == ConstraintType.Rigid)
         {
             if (rbInput.linkedRigidBody == null)
@@ -163,7 +279,6 @@ public class SceneRigidBody : Polygon
         }
         else if (rbInput.constraintType == ConstraintType.LinearMotor)
         {
-            // If linear motor, set position from offset
             transform.localPosition = rbInput.startPos + cachedLinearMotorOffset;
         }
 
@@ -178,7 +293,6 @@ public class SceneRigidBody : Polygon
     public override void SnapPointsToGrid()
     {
         base.SnapPointsToGrid();
-
         if (!rbInput.overrideCentroid) CenterPolygonPosition();
     }
 #endif
@@ -216,24 +330,45 @@ public class SceneRigidBody : Polygon
 
     public Vector2 ComputeCentroid(float gridSpacing)
     {
-        // Possibly override with a user-specified centroid
         (bool hasAltCentroid, Vector2 altCentroid) = GetAlternativeCentroid();
         if (hasAltCentroid) return altCentroid;
 
-        // Otherwise, generate grid points and average them for an accurate centroid
+        if (TryGetCachedMassProps(gridSpacing, out var cache))
+        {
+            cachedCentroid = cache.centroidWorld;
+            ApproximateVolume(cache.numPoints, gridSpacing);
+            return cachedCentroid;
+        }
+
         Vector2[] points = GeneratePoints(gridSpacing, Vector2.zero);
         int numPoints = points.Length;
         if (numPoints == 0) return Vector2.zero;
 
-        // Update the approximated volume in the inspector
         ApproximateVolume(numPoints, gridSpacing);
 
-        // Calculate centroid
         Vector2 centroid = Vector2.zero;
         foreach (Vector2 point in points) centroid += point;
         centroid /= numPoints;
 
         cachedCentroid = centroid;
+
+        double sumR2 = 0.0;
+        object lockObj = new object();
+        Parallel.For(0, numPoints,
+            () => 0.0,
+            (i, _, local) => local + (points[i] - centroid).sqrMagnitude,
+            local => { lock (lockObj) sumR2 += local; });
+
+        var newCache = new RBCalcCache
+        {
+            shapeHash = ComputeShapeHash(gridSpacing),
+            gridSpacing = gridSpacing,
+            centroidWorld = centroid,
+            numPoints = numPoints,
+            sumR2AroundCentroid = sumR2
+        };
+        SaveCachedMassProps(newCache);
+
         return centroid;
     }
 
@@ -245,15 +380,40 @@ public class SceneRigidBody : Polygon
     ) {
         float gridSpacing = gridDensityInput ?? 0.2f;
 
-        // Points from the edges fill, for inertia
+        bool canUseCache = !rbInput.overrideCentroid && rbInput.constraintType != ConstraintType.LinearMotor;
+
+        if (canUseCache && TryGetCachedMassProps(gridSpacing, out var cache) && cache.numPoints > 0)
+        {
+            ApproximateVolume(cache.numPoints, gridSpacing);
+
+            cachedCentroid = cache.centroidWorld;
+            Vector2 centroid2 = cachedCentroid;
+
+            Vector2 shift = rigidBodyPosition - centroid2;
+            for (int i = 0; i < vectors.Length; i++)
+                vectors[i] += shift;
+
+            rigidBodyPosition = centroid2;
+
+            float inertia = (rbInput.mass / Mathf.Max(1, cache.numPoints)) * (float)cache.sumR2AroundCentroid;
+
+            float maxRadiusSqr = 0.0f;
+            foreach (Vector2 vec in vectors)
+            {
+                Vector2 validatedVec = vec;
+                if (validatedVec.x > 50000) validatedVec.x -= 100000;
+                maxRadiusSqr = Mathf.Max(maxRadiusSqr, validatedVec.sqrMagnitude);
+            }
+            maxRadiusSqr += 1.0f;
+
+            return (inertia, maxRadiusSqr);
+        }
+
         Vector2[] points = GeneratePoints(gridSpacing, offset);
         int numPoints = points.Length;
         if (numPoints == 0) return (0f, 0f);
 
-        // Update the approximated volume in the inspector
         ApproximateVolume(numPoints, gridSpacing);
-
-        float pointMass = rbInput.mass / numPoints;
 
         (bool hasAltCentroid, Vector2 altCentroid) = GetAlternativeCentroid();
         Vector2 centroid;
@@ -270,36 +430,48 @@ public class SceneRigidBody : Polygon
             cachedCentroid = centroid;
         }
 
-        // Shift the vectors array to be centered around (0, 0)
-        Vector2 shift = rigidBodyPosition - centroid;
+        Vector2 shift2 = rigidBodyPosition - centroid;
         for (int i = 0; i < vectors.Length; i++)
-        {
-            vectors[i] += shift;
-        }
+            vectors[i] += shift2;
+
         rigidBodyPosition = centroid;
 
-        // Sum distance^2 from centroid for inertia
-        float inertia = 0.0f;
-        foreach (Vector2 pt in points)
-        {
-            float dstSqr = (pt - rigidBodyPosition).sqrMagnitude;
-            inertia += dstSqr;
-        }
-        inertia *= pointMass;
+        // IMPORTANT: copy ref var to local BEFORE lambda
+        Vector2 center = rigidBodyPosition;
 
-        // Max radius squared, which will be used for early collision solver exits
-        float maxRadiusSqr = 0.0f;
+        double sumR2 = 0.0;
+        object lockObj2 = new object();
+        Parallel.For(0, numPoints,
+            () => 0.0,
+            (i, _, local) => local + (points[i] - center).sqrMagnitude,
+            local => { lock (lockObj2) sumR2 += local; });
+
+        float pointMass = rbInput.mass / numPoints;
+        float inertiaOut = (float)(sumR2 * pointMass);
+
+        float maxRadiusSqrOut = 0.0f;
         foreach (Vector2 vec in vectors)
         {
-            // Make sure the new path flag doesn't ruin the calculations
             Vector2 validatedVec = vec;
             if (validatedVec.x > 50000) validatedVec.x -= 100000;
-
-            maxRadiusSqr = Mathf.Max(maxRadiusSqr, validatedVec.sqrMagnitude);
+            maxRadiusSqrOut = Mathf.Max(maxRadiusSqrOut, validatedVec.sqrMagnitude);
         }
-        maxRadiusSqr += 1.0f; // small offset to render edges properly
+        maxRadiusSqrOut += 1.0f;
 
-        return (inertia, maxRadiusSqr);
+        if (!hasAltCentroid && rbInput.constraintType != ConstraintType.LinearMotor)
+        {
+            var newCache = new RBCalcCache
+            {
+                shapeHash = ComputeShapeHash(gridSpacing),
+                gridSpacing = gridSpacing,
+                centroidWorld = centroid,
+                numPoints = numPoints,
+                sumR2AroundCentroid = sumR2
+            };
+            SaveCachedMassProps(newCache);
+        }
+
+        return (inertiaOut, maxRadiusSqrOut);
     }
 
     private void ApproximateVolume(int numPoints, float gridSpacing)
@@ -308,8 +480,7 @@ public class SceneRigidBody : Polygon
 
         if (PM.Instance.main == null) PM.Instance.main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
 
-        // Z-depth = 1
-        float approxVolume = numPoints * Func.Sqr(gridSpacing * PM.Instance.main.SimUnitToMetersFactor) * PM.Instance.main.ZDepthMeters * 1000; // *1000: m^3 -> dm^3 = l
+        float approxVolume = numPoints * Func.Sqr(gridSpacing * PM.Instance.main.SimUnitToMetersFactor) * PM.Instance.main.ZDepthMeters * 1000;
         approximatedVolume = approxVolume.ToString() + " l";
     }
 

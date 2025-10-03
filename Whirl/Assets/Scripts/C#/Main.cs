@@ -350,73 +350,73 @@ public class Main : MonoBehaviour
 
     public void SubmitParticlesToSimulation(PData[] particlesToAdd) => NewPDatas.AddRange(particlesToAdd);
 
-    public void StartScript()
-    {
-        SimTimeElapsed = 0;
+        public void StartScript()
+        {
+            SimTimeElapsed = 0;
 
-        ValidateHardwareCompatibility();
-        RenderSetup();
+            ValidateHardwareCompatibility();
+            RenderSetup();
 
-        BoundaryDims = sceneManager.GetBounds(MaxInfluenceRadius);
-        ChunksNum = BoundaryDims / MaxInfluenceRadius;
-        ChunksNumAll = ChunksNum.x * ChunksNum.y;
+            BoundaryDims = sceneManager.GetBounds(MaxInfluenceRadius);
+            ChunksNum = BoundaryDims / MaxInfluenceRadius;
+            ChunksNumAll = ChunksNum.x * ChunksNum.y;
 
-        BuildAtlasAndMats();
+            BuildAtlasAndMats();
 
-        PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
-        ParticlesNum = PDatas.Length;
+            PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
+            ParticlesNum = PDatas.Length;
 
-        (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
-        NumRigidBodies = RBDatas.Length;
-        NumRigidBodyVectors = RBVectors.Length;
-        NumFluidSensors = SensorAreas.Length;
+            (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
+            NumRigidBodies = RBDatas.Length;
+            NumRigidBodyVectors = RBVectors.Length;
+            NumFluidSensors = SensorAreas.Length;
 
-        TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
-        TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
+            TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
+            TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 
-        SetConstants();
-        InitTimeSetRand();
-        SetLightingSettings();
+            SetConstants();
+            InitTimeSetRand();
+            SetLightingSettings();
 
-        InitializeBuffers(PDatas, RBDatas, RBVectors, SensorAreas);
-        renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
-        ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
+            InitializeBuffers(PDatas, RBDatas, RBVectors, SensorAreas);
+            renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
+            ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
 
-        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowSrcFullRes, renderTexture.width * renderTexture.height);
+            ComputeHelper.CreateStructuredBuffer<float>(ref ShadowSrcFullRes, renderTexture.width * renderTexture.height);
 
-        AllocateOrResizeShadowWorkingBuffers();
+            AllocateOrResizeShadowWorkingBuffers();
 
-        shaderHelper.SetPSimShaderBuffers(pSimShader);
-        shaderHelper.SetRBSimShaderBuffers(rbSimShader);
-        shaderHelper.SetRenderShaderBuffers(renderShader);
-        shaderHelper.SetRenderShaderTextures(renderShader);
-        shaderHelper.SetPostProcessorBuffers(ppShader);
-        shaderHelper.SetPostProcessorTextures(ppShader);
-        shaderHelper.SetSortShaderBuffers(sortShader);
+            shaderHelper.SetPSimShaderBuffers(pSimShader);
+            shaderHelper.SetRBSimShaderBuffers(rbSimShader);
+            shaderHelper.SetRenderShaderBuffers(renderShader);
+            shaderHelper.SetRenderShaderTextures(renderShader);
+            shaderHelper.SetPostProcessorBuffers(ppShader);
+            shaderHelper.SetPostProcessorTextures(ppShader);
+            shaderHelper.SetSortShaderBuffers(sortShader);
 
-        shaderHelper.UpdatePSimShaderVariables(pSimShader);
-        shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
-        shaderHelper.UpdateRenderShaderVariables(renderShader);
-        shaderHelper.SetPostProcessorVariables(ppShader);
-        shaderHelper.UpdateSortShaderVariables(sortShader);
+            shaderHelper.UpdatePSimShaderVariables(pSimShader);
+            shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
+            shaderHelper.UpdateRenderShaderVariables(renderShader);
+            shaderHelper.SetPostProcessorVariables(ppShader);
+            shaderHelper.UpdateSortShaderVariables(sortShader);
 
-        SetShaderKeywords();
-        InitCausticsGen();
+            SetShaderKeywords();
+            InitCausticsGen();
 
-#if UNITY_EDITOR
-        ComputeShaderDebugger.CheckShaderConstants(this, debugShader, pTypeInput);
-#endif
+    #if UNITY_EDITOR
+            ComputeShaderDebugger.CheckShaderConstants(this, debugShader, pTypeInput);
+    #endif
 
-        UpdateShaderTimeStep();
-        GPUSortChunkLookUp();
-        GPUSortSpringLookUp();
-        PM.Instance.clampedDeltaTime = Const.SMALL_FLOAT;
-        UpdateScript();
+            UpdateShaderTimeStep();
+            GPUSortChunkLookUp();
+            GPUSortSpringLookUp();
+            PM.Instance.clampedDeltaTime = Const.SMALL_FLOAT;
+            UpdateScript();
 
-        StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
+            StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
 
-        TryLoadAddressableCaustics();
-    }
+            TryLoadAddressableCaustics();
+        }
 
     public void UpdateScript()
     {

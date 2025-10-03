@@ -90,7 +90,6 @@ public class TaskManager : MonoBehaviour
 
     int _currentIndex;
     bool _didRuntimeInit;
-    Coroutine _consistencyLoop;
 
     RectTransform[] _activeDefaults;
     RectTransform[] _activeAlts;
@@ -577,7 +576,7 @@ public class TaskManager : MonoBehaviour
 
         sideWindowManager.windows.Clear();
         sideTaskWindowGOs.Clear();
-        sideTaskWindowGOs.Clear();
+        sideTaskScripts.Clear();
         sideTaskWindowGOs.Capacity = FlatCount;
         sideTaskScripts.Capacity = FlatCount;
 
@@ -981,9 +980,10 @@ public class TaskManager : MonoBehaviour
 
         for (int i = 0; i < selectorGroups.Length; i++)
         {
-            var grp = selectorGroups[i];
-            if (grp.indicators == null || grp.selector == null) continue;
-            grp.indicators.SetPrevNext(currentTaskIndex, tasks.Count);
+            var grp = selectorGroups[i].indicators;
+            var sel = selectorGroups[i].selector;
+            if (grp == null || sel == null) continue;
+            grp.SetPrevNext(currentTaskIndex, tasks.Count);
         }
     }
 
@@ -997,7 +997,7 @@ public class TaskManager : MonoBehaviour
         if (idx >= 0)
         {
             // mark solved
-            SetItemProgress(idx, Verdict.Success);
+            SetItemProgressInternal(idx, Verdict.Success);
             // clear any tip flag since it's solved now
             EnsureTipListSize();
             if (idx < _tipShown.Count) _tipShown[idx] = false;
@@ -1093,7 +1093,7 @@ public class TaskManager : MonoBehaviour
         ActivateConfigForTask(index);
         if (pngViewer != null) pngViewer.Disable();
 
-        if (Application.isPlaying) SaveCurrentIndex();
+        if (Application.isPlaying) { SaveCurrentIndex(); }
     }
 
     public void SendTip()
@@ -1136,8 +1136,6 @@ public class TaskManager : MonoBehaviour
 
             ApplyProgressToAllIndicators();
             ApplyProgressToAllAnswerFields();
-
-            if (_consistencyLoop == null) _consistencyLoop = StartCoroutine(ConsistencyHeartbeat());
         }
         else
         {
@@ -1145,9 +1143,6 @@ public class TaskManager : MonoBehaviour
             UpdatePrevNextForAllSelectors();
             UpdateTaskSelectorLabels();
         }
-
-        if (Application.isPlaying && _consistencyLoop == null)
-            _consistencyLoop = StartCoroutine(ConsistencyHeartbeat());
     }
 
     void OnDisable()
@@ -1155,11 +1150,6 @@ public class TaskManager : MonoBehaviour
 #if UNITY_EDITOR
         EditorApplication.playModeStateChanged -= HandleEditorPlayModeChanged;
 #endif
-        if (_consistencyLoop != null)
-        {
-            StopCoroutine(_consistencyLoop);
-            _consistencyLoop = null;
-        }
     }
 
     void OnDestroy()
@@ -1169,39 +1159,6 @@ public class TaskManager : MonoBehaviour
             SaveProgress();
             SaveTipShown();
             SaveCurrentIndex();
-        }
-    }
-
-    IEnumerator ConsistencyHeartbeat()
-    {
-        var wait = new WaitForSeconds(1f);
-        while (true)
-        {
-            if (selectorGroups != null)
-            {
-                int curTaskIndex = (_currentIndex >= 0 && _currentIndex < FlatCount) ? _flat[_currentIndex].task : 0;
-                for (int i = 0; i < selectorGroups.Length; i++)
-                {
-                    var sel = selectorGroups[i].selector;
-                    if (sel == null) continue;
-                    if (sel.index != curTaskIndex)
-                    {
-                        sel.index = curTaskIndex;
-                        sel.UpdateUI();
-                    }
-                }
-            }
-
-            ApplyProgressToAllIndicators();
-            ApplyProgressToAllAnswerFields();
-            UpdatePrevNextForAllSelectors();
-            UpdateTaskSelectorLabels();
-
-            if (Application.isPlaying) SaveCurrentIndex();
-
-            SaveProgress();
-            SaveTipShown();
-            yield return wait;
         }
     }
 
@@ -1233,7 +1190,7 @@ public class TaskManager : MonoBehaviour
         }
 
         ApplyProgressToFlatIndex(flatIndex);
-        if (Application.isPlaying) SaveProgress();
+        if (Application.isPlaying) { SaveProgress(); SaveTipShown(); }
     }
 
     public void SetAllTaskProgress(Verdict progress)
@@ -1385,7 +1342,7 @@ public class TaskManager : MonoBehaviour
     public enum TaskType { SingleLine, MultiLine }
 
     [System.Serializable]
-    struct AIConditionDescriptions
+    public struct AIConditionDescriptions
     {
         [TextArea(2, 40)] public string isCorrect, isAlmost, isAlmostFeedback;
         public bool doGiveAlmostFeedback;
@@ -1995,4 +1952,54 @@ public class TaskManager : MonoBehaviour
         _currentIndex = 0;
         UpdatePrevNextForAllSelectors();
     }
+
+    // ======= FORCE UPDATE MENUS =======
+    [ContextMenu("Force Update All")]
+    public void Context_ForceUpdateAll()
+    {
+#if UNITY_EDITOR
+        Editor_ForceUpdateAll();
+#endif
+    }
+
+#if UNITY_EDITOR
+    [MenuItem("Tools/Tasks/Force Update Everything")]
+    static void Menu_ForceUpdateEverything()
+    {
+        foreach (var tm in GameObject.FindObjectsByType<TaskManager>(FindObjectsSortMode.None))
+            tm.Editor_ForceUpdateAll();
+
+        foreach (var ag in GameObject.FindObjectsByType<AutoGrowToText>(FindObjectsSortMode.None))
+            ag.ForceRecomputeNow();
+
+        foreach (var gd in GameObject.FindObjectsByType<AutoGrowTextDownwards>(FindObjectsSortMode.None))
+            gd.FitImmediate();
+
+        EditorApplication.QueuePlayerLoopUpdate();
+        SceneView.RepaintAll();
+    }
+
+    public void Editor_ForceUpdateAll()
+    {
+        RebuildFlatMap();
+        EnsureTipListSize();
+        SetWorkspaceTaskWindows();
+        SetSideTaskWindows();
+        SyncDualMultiContainerTargets();
+        ApplyTaskDataToScripts();
+        BuildTaskSelectorItems();
+        ApplyProgressToAllIndicators();
+        UpdatePrevNextForAllSelectors();
+
+        if (Application.isPlaying)
+        {
+            ApplyProgressToAllAnswerFields();
+            OpenTaskByIndex(Mathf.Clamp(_currentIndex, 0, Mathf.Max(0, FlatCount - 1)));
+        }
+        else
+        {
+            if (FlatCount > 0) OpenTaskByIndex(Mathf.Clamp(_currentIndex, 0, FlatCount - 1));
+        }
+    }
+#endif
 }

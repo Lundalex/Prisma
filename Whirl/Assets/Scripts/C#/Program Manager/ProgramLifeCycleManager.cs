@@ -21,7 +21,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
     [SerializeField] public GameObject uiCanvas;
     [SerializeField] private GameObject userUI;
     [SerializeField] private GameObject startConfirmationWindow;
-    [SerializeField] private GameObject fullscreenView; // <-- Added reference
+    [SerializeField] private GameObject fullscreenView;
 
     private void OnValidate()
     {

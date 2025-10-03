@@ -64,6 +64,7 @@ public class AutoGrowTextDownwards : MonoBehaviour
     }
 
     // Public API: immediate fit
+    [ContextMenu("Force Fit Now")]
     public void FitImmediate()
     {
         _dirty = true;
@@ -118,7 +119,14 @@ public class AutoGrowTextDownwards : MonoBehaviour
         if (Mathf.Abs(newHeight - currentHeight) > 0.5f)
         {
             _textRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, newHeight);
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(_textRT);
+            else
+                UnityEngine.UI.LayoutRebuilder.MarkLayoutForRebuild(_textRT);
+#else
             UnityEngine.UI.LayoutRebuilder.MarkLayoutForRebuild(_textRT);
+#endif
         }
 
         // Record the values we just fit against

@@ -58,7 +58,7 @@ public class AutoGrowToText : MonoBehaviour
     void Reset()
     {
         target = (RectTransform)transform;
-        if (text == null) text = GetComponentInChildren<TMP_Text>();
+        if (text == null) text = GetComponentInChildren<TMP_Text>(true);
         if (leftTarget != null && leftText == null) leftText = leftTarget.GetComponentInChildren<TMP_Text>(true);
         if (rightTarget != null && rightText == null) rightText = rightTarget.GetComponentInChildren<TMP_Text>(true);
         if (parentContainer == null && transform.parent != null) parentContainer = transform.parent as RectTransform;
@@ -67,8 +67,9 @@ public class AutoGrowToText : MonoBehaviour
     void OnEnable()
     {
         RegisterTMPListeners();
-        TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTMPGlobalChanged);
 #if UNITY_EDITOR
+        // Global TMP change only in Editor (runtime can be noisy)
+        TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTMPGlobalChanged);
         if (!_didMigrateLegacyFit)
         {
             inputFitMode = _legacyFitToParent ? InputFitMode.Relative : inputFitMode;
@@ -76,6 +77,15 @@ public class AutoGrowToText : MonoBehaviour
         }
         if (!Application.isPlaying) _pendingEditorRebuild = true;
 #endif
+        ApplyInspectorTexts();
+
+        _input = text ? text.GetComponentInParent<TMP_InputField>() : null;
+        if (_input) _input.onValueChanged.AddListener(UpdateSize);
+
+        _leftInput = leftText ? leftText.GetComponentInParent<TMP_InputField>() : null;
+        if (_leftInput) _leftInput.onValueChanged.AddListener(UpdateLeftSize);
+
+        _lastParentWidth = parentContainer ? parentContainer.rect.width : float.NaN;
     }
 
     void OnDisable()
@@ -84,21 +94,15 @@ public class AutoGrowToText : MonoBehaviour
         if (_leftInput) _leftInput.onValueChanged.RemoveListener(UpdateLeftSize);
 
         UnregisterTMPListeners();
+#if UNITY_EDITOR
         TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTMPGlobalChanged);
+#endif
     }
 
     void Start()
     {
-        _input = text ? text.GetComponentInParent<TMP_InputField>() : null;
-        if (_input) _input.onValueChanged.AddListener(UpdateSize);
-
-        _leftInput = leftText ? leftText.GetComponentInParent<TMP_InputField>() : null;
-        if (_leftInput) _leftInput.onValueChanged.AddListener(UpdateLeftSize);
-
-        ApplyInspectorTexts();
-
-        _lastParentWidth = parentContainer ? parentContainer.rect.width : float.NaN;
-        RecomputeAllTwice();
+        // one recompute on start — double pass only in editor to stabilize inspector preview
+        RecomputeAll();
     }
 
     void OnValidate()
@@ -146,7 +150,9 @@ public class AutoGrowToText : MonoBehaviour
         parentPadding = Mathf.Max(0f, pad);
         _dirtySize = true;
     }
-    public void ForceRecomputeNow() => RecomputeAllTwice();
+
+    [ContextMenu("Force Recompute")]
+    public void ForceRecomputeNow() => RecomputeAll();
     // ------------------------------------------------------
 
     void RegisterTMPListeners()
@@ -218,7 +224,12 @@ public class AutoGrowToText : MonoBehaviour
         _suppressTMPCallback = true;
         if (!Mathf.Approximately(target.rect.width, w))
             target.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, w);
-        LayoutRebuilder.ForceRebuildLayoutImmediate(target);
+#if UNITY_EDITOR
+        if (!Application.isPlaying) LayoutRebuilder.ForceRebuildLayoutImmediate(target);
+        else LayoutRebuilder.MarkLayoutForRebuild(target);
+#else
+        LayoutRebuilder.MarkLayoutForRebuild(target);
+#endif
         _suppressTMPCallback = false;
         _suppressDimCallback = false;
 
@@ -246,7 +257,12 @@ public class AutoGrowToText : MonoBehaviour
         _suppressTMPCallback = true;
         if (!Mathf.Approximately(leftTarget.rect.width, lw))
             leftTarget.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, lw);
-        LayoutRebuilder.ForceRebuildLayoutImmediate(leftTarget);
+#if UNITY_EDITOR
+        if (!Application.isPlaying) LayoutRebuilder.ForceRebuildLayoutImmediate(leftTarget);
+        else LayoutRebuilder.MarkLayoutForRebuild(leftTarget);
+#else
+        LayoutRebuilder.MarkLayoutForRebuild(leftTarget);
+#endif
         _suppressTMPCallback = false;
         _suppressDimCallback = false;
 
@@ -297,11 +313,12 @@ public class AutoGrowToText : MonoBehaviour
         if (!Application.isPlaying && _pendingEditorRebuild)
         {
             _pendingEditorRebuild = false;
-            RecomputeAllTwice();
+            RecomputeAll();
         }
 #endif
         if (inputFitMode == InputFitMode.Relative && parentContainer)
         {
+            // tiny check to react to window/canvas resizes
             float pw = parentContainer.rect.width;
             if (!Mathf.Approximately(pw, _lastParentWidth))
             {
@@ -315,7 +332,7 @@ public class AutoGrowToText : MonoBehaviour
         if (_dirtySize)
         {
             _dirtySize = false;
-            RecomputeAllTwice();
+            RecomputeAll();
         }
     }
 
@@ -338,25 +355,31 @@ public class AutoGrowToText : MonoBehaviour
         UpdateSize(text ? text.text : string.Empty);
     }
 
-    void RecomputeAllTwice()
+    void RecomputeAll()
     {
         if (IsBlockedByAnswerAnim()) return;
 
         RecomputeAllOnce();
 
-        text?.ForceMeshUpdate();
-        leftText?.ForceMeshUpdate();
-        rightText?.ForceMeshUpdate();
-        placeholderText?.ForceMeshUpdate();
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            text?.ForceMeshUpdate();
+            leftText?.ForceMeshUpdate();
+            rightText?.ForceMeshUpdate();
+            placeholderText?.ForceMeshUpdate();
 
-        Canvas.ForceUpdateCanvases();
-        if (target) LayoutRebuilder.ForceRebuildLayoutImmediate(target);
-        if (leftTarget) LayoutRebuilder.ForceRebuildLayoutImmediate(leftTarget);
-        if (rightTarget) LayoutRebuilder.ForceRebuildLayoutImmediate(rightTarget);
+            Canvas.ForceUpdateCanvases();
+            if (target) LayoutRebuilder.ForceRebuildLayoutImmediate(target);
+            if (leftTarget) LayoutRebuilder.ForceRebuildLayoutImmediate(leftTarget);
+            if (rightTarget) LayoutRebuilder.ForceRebuildLayoutImmediate(rightTarget);
 
-        RecomputeAllOnce();
+            RecomputeAllOnce();
+        }
+#endif
     }
 
+#if UNITY_EDITOR
     void OnTMPGlobalChanged(Object changedObj)
     {
         if (_suppressTMPCallback) return;
@@ -369,4 +392,5 @@ public class AutoGrowToText : MonoBehaviour
             _dirtySize = true;
         }
     }
+#endif
 }

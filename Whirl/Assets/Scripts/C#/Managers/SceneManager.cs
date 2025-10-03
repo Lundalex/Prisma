@@ -19,13 +19,12 @@ public class SceneManager : MonoBehaviour
     private ArrowManager arrowManager;
     private SensorManager sensorManager;
 
-    // ======== NEW: single growing atlas cache ========
     private struct CachedAtlas
     {
         public Texture2D atlas;
-        public Dictionary<int, Rect> rectByTexId; // instanceID -> rect
-        public List<Texture2D> sources;           // the Texture2D sources currently packed
-        public int maxDims;                       // MaxAtlasDims when packed
+        public Dictionary<int, Rect> rectByTexId;
+        public List<Texture2D> sources;
+        public int maxDims;
     }
 
     private static CachedAtlas _cachedAtlas;
@@ -48,6 +47,20 @@ public class SceneManager : MonoBehaviour
         if (boundsMod.x != 0) bounds.x += maxInfluenceRadius - boundsMod.x;
         if (boundsMod.y != 0) bounds.y += maxInfluenceRadius - boundsMod.y;
         return bounds;
+    }
+
+    // NEW: single call to provide world-space bounds without per-point recomputation
+    public void GetSceneBounds(out Vector2 min, out Vector2 max)
+    {
+        if (!referencesHaveBeenSet) SetReferences();
+
+        sceneMin.x = transform.position.x - transform.localScale.x * 0.5f + main.FluidPadding;
+        sceneMin.y = transform.position.y - transform.localScale.y * 0.5f + main.FluidPadding;
+        sceneMax.x = transform.position.x + transform.localScale.x * 0.5f - main.FluidPadding;
+        sceneMax.y = transform.position.y + main.FluidPadding + transform.localScale.y * 0.5f - main.FluidPadding;
+
+        min = sceneMin;
+        max = sceneMax;
     }
 
     public bool IsPointInsideBounds(Vector2 point)
@@ -89,12 +102,8 @@ public class SceneManager : MonoBehaviour
         return true;
     }
 
-    // ===============================
-    // Optimised: single growing atlas
-    // ===============================
     public (Texture2D, Mat[]) ConstructTextureAtlas(CustomMat[] materials)
     {
-        // 1) Collect requested textures (dedupe) + remember per-material tex id
         var requestedUnique = new List<Texture2D>();
         var seenRequested = new HashSet<int>();
         int[] matTexIds = new int[materials.Length];
@@ -121,7 +130,6 @@ public class SceneManager : MonoBehaviour
         bool hasCached = _cachedAtlas.atlas != null;
         bool dimsChanged = hasCached && _cachedAtlas.maxDims != MaxAtlasDims;
 
-        // 2) If we have a cache and dims didn't change, check if all requested textures are already present
         if (hasCached && !dimsChanged)
         {
             var rects = _cachedAtlas.rectByTexId;
@@ -137,14 +145,12 @@ public class SceneManager : MonoBehaviour
 
             if (allPresent)
             {
-                // Reuse atlas, just rebuild Mat[]
                 var mats = BuildMats(materials, matTexIds, _cachedAtlas.atlas, _cachedAtlas.rectByTexId);
                 StringUtils.LogIfInEditor($"[Atlas] Reused cached atlas ({_cachedAtlas.atlas.width}x{_cachedAtlas.atlas.height}) with {_cachedAtlas.rectByTexId.Count} textures");
                 return (_cachedAtlas.atlas, mats);
             }
         }
 
-        // 3) Need to repack: union of cached sources (if any) + requested
         var union = new List<Texture2D>();
         var seenUnion = new HashSet<int>();
 
@@ -165,10 +171,8 @@ public class SceneManager : MonoBehaviour
                 union.Add(t);
         }
 
-        // If dims changed, we still repack from union into the new MaxAtlasDims.
         var (newAtlas, rectByTexId) = PackUnionIntoNewAtlas(union, MaxAtlasDims);
 
-        // Replace cached atlas (clean old)
         if (hasCached && _cachedAtlas.atlas != null && _cachedAtlas.atlas != newAtlas)
         {
             UnityEngine.Object.Destroy(_cachedAtlas.atlas);
@@ -188,7 +192,6 @@ public class SceneManager : MonoBehaviour
 
     private static (Texture2D atlas, Dictionary<int, Rect> rects) PackUnionIntoNewAtlas(List<Texture2D> textures, int maxDims)
     {
-        // Sort by instanceID for stable packing order (not required, but helps determinism)
         textures.Sort((a, b) => a.GetInstanceID().CompareTo(b.GetInstanceID()));
 
         Texture2D atlas = new Texture2D(maxDims, maxDims, TextureFormat.RGBAHalf, false);
@@ -196,14 +199,11 @@ public class SceneManager : MonoBehaviour
             ? atlas.PackTextures(textures.ToArray(), 1, maxDims)
             : Array.Empty<Rect>();
 
-        // Make non-readable to reduce CPU memory + GC pressure
         atlas.Apply(false, true);
 
         var dict = new Dictionary<int, Rect>(textures.Count);
         for (int i = 0; i < textures.Count; i++)
-        {
             dict[textures[i].GetInstanceID()] = rectsArr[i];
-        }
 
         float sizeMB = (atlas.width * atlas.height * 8f) / (1024f * 1024f);
         StringUtils.LogIfInEditor($"[Atlas] New atlas Packed ({atlas.width}x{atlas.height}) with {textures.Count} textures, ~{sizeMB:0.00} MB");
@@ -312,16 +312,12 @@ public class SceneManager : MonoBehaviour
         SceneRigidBody[] allRigidBodies = GetAllSceneRigidBodies();
 
         foreach (SceneRigidBody rigidBody in allRigidBodies)
-        {
             rigidBody.ComputeCentroid(rbCalcGridSpacing);
-        }
 
         foreach (SceneRigidBody rigidBody in allRigidBodies)
         {
             if (rigidBody.polygonCollider == null)
-            {
                 rigidBody.polygonCollider = rigidBody.GetComponent<PolygonCollider2D>();
-            }
 
             int pathCount = rigidBody.polygonCollider.pathCount;
             for (int p = 0; p < pathCount; p++)
@@ -348,9 +344,7 @@ public class SceneManager : MonoBehaviour
 
             Vector2[] vectors = GetTransformedMultiPathPoints(rigidBody, boundsOffset, out Vector2 transformedRBPos);
             if (rigidBody.addInBetweenPoints)
-            {
                 AddInBetweenPoints(ref vectors, rigidBody.doRecursiveSubdivisison, rigidBody.minDstForSubDivision);
-            }
 
             (float inertia, float maxRadiusSqr) = rigidBody.ComputeInertiaAndBalanceRigidBody(
                 ref vectors, ref transformedRBPos, boundsOffset, rbCalcGridSpacing
@@ -383,9 +377,7 @@ public class SceneManager : MonoBehaviour
 
             int startIndex = allRBVectors.Count;
             foreach (Vector2 v in vectors)
-            {
                 allRBVectors.Add(new RBVector(v, i));
-            }
             int endIndex = allRBVectors.Count - 1;
 
             int matIndex = -1;
@@ -498,9 +490,7 @@ public class SceneManager : MonoBehaviour
 
         transformedRBPos = (Vector2)rigidBody.transform.position + offset;
         for (int i = 0; i < combined.Count; i++)
-        {
             combined[i] = combined[i] + offset - transformedRBPos;
-        }
 
         return combined.ToArray();
     }
@@ -585,9 +575,7 @@ public class SceneManager : MonoBehaviour
         vectors = newVectors.ToArray();
 
         if (needsSubdivision)
-        {
             AddInBetweenPointsRecursively(ref vectors, minDst);
-        }
     }
 
     private Vector2 GetBoundsOffset()
@@ -615,9 +603,7 @@ public class SceneManager : MonoBehaviour
         GameObject[] fluidObjects = GameObject.FindGameObjectsWithTag("Fluid");
         SceneFluid[] allFluids = new SceneFluid[fluidObjects.Length];
         for (int i = 0; i < fluidObjects.Length; i++)
-        {
             allFluids[i] = fluidObjects[i].GetComponent<SceneFluid>();
-        }
         return allFluids;
     }
 
