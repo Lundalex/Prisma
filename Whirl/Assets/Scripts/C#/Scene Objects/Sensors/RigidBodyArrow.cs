@@ -86,14 +86,21 @@ public class RigidBodyArrow : SensorBase
 
     public void Initialize()
     {
-        uiArrow = arrowManager.CreateArrow(uiArrowPrefab);
+        if (uiArrow == null)
+        {
+            uiArrow = arrowManager.CreateArrow(uiArrowPrefab);
+        }
+        else
+        {
+            // Reusing an existing arrow after a soft reset
+            uiArrow.SetArrowVisibility(false);
+        }
+
         uiArrow.UpdateArrow(0f, "", 0, 0f);
-        uiArrow.SetArrowVisibility(false);
         uiArrow.SetValueBoxVisibility(doDisplayValueBox);
         firstDataRecieved = false;
 
         SetConstants();
-
         PM.Instance.AddRigidBodyArrow(this);
     }
 
@@ -115,7 +122,7 @@ public class RigidBodyArrow : SensorBase
 
         recordedBuffer = new Vector2[recordedAverageFrames];
         recordedBufferIndex = 0;
-        
+
         velocityBuffer = new Vector2[accelFramesBack + 1];
         velocityTimeBuffer = new float[accelFramesBack + 1];
         velocityBufferIndex = 0;
@@ -136,7 +143,7 @@ public class RigidBodyArrow : SensorBase
             float angleDiff = Mathf.Abs(Mathf.DeltaAngle(currentRotation, currentTargetRotation));
 
             Vector2 targetPosition;
-            switch(moveInterpolation)
+            switch (moveInterpolation)
             {
                 case InterpolationType.None:
                     targetPosition = canvasTargetPosition;
@@ -155,7 +162,7 @@ public class RigidBodyArrow : SensorBase
             }
 
             float targetRotation;
-            switch(rotateInterpolation)
+            switch (rotateInterpolation)
             {
                 case InterpolationType.None:
                     targetRotation = currentTargetRotation;
@@ -194,7 +201,7 @@ public class RigidBodyArrow : SensorBase
         RBData rbData = retrievedRBDatas[linkedRBIndex];
 
         Vector2 rawVel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB);
-        
+
         (float sensorDt, float programDt) = GetDeltaTimeValues();
         (Vector2 newValue, string unit) = GetDisplayInfo(rbData, rawVel, sensorDt, programDt);
 
@@ -205,7 +212,7 @@ public class RigidBodyArrow : SensorBase
             uiArrow.SetCenterAndRotation(SimSpaceToCanvasSpace(currentTargetPosition), startRotation);
             firstDataRecieved = true;
         }
-        
+
         bool valueIsNearZero = newValue.magnitude < minArrowValue;
         bool rbIsbeingDragged = Func.ReadBit(rbData.stateFlags, 0); // Check isBeingDragged flag bit
         if (valueIsNearZero || rbIsbeingDragged)
@@ -256,7 +263,7 @@ public class RigidBodyArrow : SensorBase
             currentTargetRotation += sensorDt * deltaAngle;
         }
     }
-    
+
     private (Vector2 newValue, string unit) GetDisplayInfo(RBData rbData, Vector2 rawVel, float sensorDt, float programDt)
     {
         float simUnitToMetersFactor = main.SimUnitToMetersFactor;
@@ -427,7 +434,7 @@ public class RigidBodyArrow : SensorBase
         }
         return boundaryDims;
     }
-    
+
     private Vector2 ComputeWeightedAverage(Vector2[] buffer, float weightBias)
     {
         float totalWeight = 0f;
@@ -442,7 +449,7 @@ public class RigidBodyArrow : SensorBase
         }
         return weightedSum / totalWeight;
     }
-    
+
     private float ComputeWeightedAverage(float[] buffer, float weightBias)
     {
         float totalWeight = 0f;
@@ -457,7 +464,7 @@ public class RigidBodyArrow : SensorBase
         }
         return weightedSum / totalWeight;
     }
-    
+
     private void CheckBufferSizes()
     {
         if (moveInterpolation == InterpolationType.Average)
@@ -493,6 +500,16 @@ public class RigidBodyArrow : SensorBase
         if (velocityTimeBuffer == null || velocityTimeBuffer.Length != (accelFramesBack + 1))
         {
             ArrayUtils.ResizeArray(ref velocityTimeBuffer, accelFramesBack + 1);
+        }
+    }
+    
+    private void OnDisable()
+    {
+        if (uiArrow != null)
+        {
+            var go = uiArrow.gameObject;
+            uiArrow = null;
+            if (go != null) Destroy(go);
         }
     }
 }

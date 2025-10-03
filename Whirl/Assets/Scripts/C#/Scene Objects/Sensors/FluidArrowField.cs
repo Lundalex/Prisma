@@ -13,10 +13,10 @@ public class FluidArrowField : SensorBase
     [SerializeField] private bool doDisplayValueBoxes;
 
     [Header("Optimisations")]
-    [SerializeField, Range(0f, 1f)] private float minUsagePercentage = 0.5f; 
+    [SerializeField, Range(0f, 1f)] private float minUsagePercentage = 0.5f;
     [SerializeField] private bool doUseWorkSplitting = false;
     [SerializeField] private int updatesPerFrame = 100;
-    
+
     [Header("Measurement Zone")]
     public bool doRenderMeasurementZone;
     [SerializeField] private Rect measurementZone;
@@ -72,6 +72,8 @@ public class FluidArrowField : SensorBase
 
     public void Initialize()
     {
+        DestroyAllArrowsLocal();
+        
         chunkArrows.Clear();
         currentArrowValues.Clear();
         targetArrowRotations.Clear();
@@ -151,7 +153,7 @@ public class FluidArrowField : SensorBase
             currentRotation = angleDiff > rotationLerpSkipThreshold
                                 ? targetRotation
                                 : Mathf.LerpAngle(currentRotation, targetRotation, PM.Instance.clampedDeltaTime * rotationLerpSpeed);
-            
+
             uiArrow.SetRotation(currentRotation);
             uiArrow.SetRadius(uiArrow.radius);
         }
@@ -327,7 +329,7 @@ public class FluidArrowField : SensorBase
             Destroy(arrow.gameObject);
         }
     }
- 
+
     private float GetDeltaTimeValues()
     {
         float sensorDt = PM.Instance.totalScaledTimeElapsed - lastSensorUpdateTime;
@@ -358,7 +360,7 @@ public class FluidArrowField : SensorBase
 
     private Vector2 SimSpaceToCanvasSpace(Vector2 simCoords)
         => (simCoords / GetBoundaryDims() - new Vector2(0.5f, 0.5f)) * canvasResolution;
- 
+
     public Vector2 GetBoundaryDims()
     {
         if (boundaryDims == Vector2.zero)
@@ -368,7 +370,7 @@ public class FluidArrowField : SensorBase
         }
         return boundaryDims;
     }
-    
+
     private void AddRecordedFluidData(ref RecordedFluidData_Translated a, RecordedFluidData_Translated b)
     {
         a.totTemp += b.totTemp;
@@ -379,5 +381,24 @@ public class FluidArrowField : SensorBase
         a.totVelAbs += b.totVelAbs;
         a.totMass += b.totMass;
         a.numContributions += b.numContributions;
+    }
+    
+    private void OnDisable()
+    {
+        DestroyAllArrowsLocal();
+    }
+
+    private void DestroyAllArrowsLocal()
+    {
+        foreach (var kv in chunkArrows)
+            if (kv.Value != null) Destroy(kv.Value.gameObject);
+        chunkArrows.Clear();
+
+        foreach (var a in arrowPool)
+            if (a != null) Destroy(a.gameObject);
+        arrowPool.Clear();
+
+        currentArrowValues.Clear();
+        targetArrowRotations.Clear();
     }
 }

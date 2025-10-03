@@ -241,17 +241,60 @@ public class ProgramManager : ScriptableObject
         }
     }
 
-    public void ResetScene()
+    // public void ResetScene()
+    // {
+    //     // Clear timer subscribers to prevent leaks
+    //     OnProgramUpdate = null;
+    //     // Dispose timers
+    //     rapidFrameSteppingTimer?.Dispose();
+    //     rapidFrameSteppingTimer = null;
+
+    //     startConfirmationStatus = StartConfirmationStatus.NotStarted;
+    //     hasBeenReset = true;
+    //     UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+    // }
+
+    public void ResetScene() => SoftResetScene();
+
+    public void SoftResetScene()
     {
-        // Clear timer subscribers to prevent leaks
+        if (sceneIsResetting) return;
+        sceneIsResetting = true;
+
+        // Pause & clear callbacks to prevent races while tearing down
+        TriggerSetPauseState(true);
         OnProgramUpdate = null;
-        // Dispose timers
+
         rapidFrameSteppingTimer?.Dispose();
         rapidFrameSteppingTimer = null;
 
-        startConfirmationStatus = StartConfirmationStatus.NotStarted;
-        hasBeenReset = true;
-        UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+        // Stop async readers before releasing GPU buffers
+        if (sensorManager != null) sensorManager.Stop();
+
+        var am = GameObject.FindFirstObjectByType<ArrowManager>();
+        if (am != null) am.ClearAllArrows(true);
+
+        // Release GPU/Addressables/RTs/compute buffers
+        if (main != null) main.ReleaseResources();
+
+        // Clean up UI instances spawned by sensors/arrows so they can be recreated
+        var smGO = GameObject.FindGameObjectWithTag("SceneManager");
+        if (smGO != null)
+        {
+            var sm = smGO.GetComponent<SceneManager>();
+            if (sm != null) sm.DestroyRuntimeSensorObjects();
+        }
+
+        // Reset runtime data/state and re-initialize view transforms
+        ResetData(pauseOnStart);
+        Initialize();
+
+        // Rebuild full pipeline in correct order
+        main.StartScript();
+        if (fluidSpawnerManager != null) fluidSpawnerManager.StartScript(main);
+        if (sensorManager != null) sensorManager.StartScript(main);
+
+        sceneIsResetting = false;
     }
 
     private void TriggerProgramUpdate(bool doUpdateClampedTime) => OnProgramUpdate?.Invoke(doUpdateClampedTime);
@@ -863,7 +906,7 @@ public class ProgramManager : ScriptableObject
         if (Application.isPlaying && changed && forceSceneReset && CheckAllowRestart())
         {
             sceneIsResetting = true;
-            ResetScene();
+            SoftResetScene(); // was: UnityEngine.SceneManagement.SceneManager.LoadScene(...)
         }
     }
 }

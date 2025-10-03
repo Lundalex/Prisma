@@ -94,6 +94,20 @@ public class ArrowManager : MonoBehaviour
         Array.Resize(ref arrowObjects, newSize);
         arrowObject.name = "Arrow_" + newSize;
         arrowObjects[oldSize] = arrowObject;
-        
+
+    }
+    
+    public void ClearAllArrows(bool immediate = true)
+    {
+        if (arrowContainerTransform != null)
+        {
+            for (int i = arrowContainerTransform.childCount - 1; i >= 0; i--)
+            {
+                var go = arrowContainerTransform.GetChild(i).gameObject;
+                if (immediate) DestroyImmediate(go); else Destroy(go);
+            }
+        }
+
+        arrowObjects = new GameObject[0];
     }
 }

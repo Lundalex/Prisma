@@ -79,14 +79,15 @@ public class ProgramLifeCycleManager : MonoBehaviour
 
     private void Update() => PM.Instance.Update();
 
-    public void ResetScene() => PM.Instance.ResetScene();
+    // public void ResetScene() => PM.Instance.ResetScene();
+    public void ResetScene() => PM.Instance.SoftResetScene();
 
     public void PrimeSceneReset_OnSimulationView()
     {
         if (!fullscreenView) fullscreenView = GameObject.FindGameObjectWithTag("FullscreenView");
         if (!fullscreenView.activeInHierarchy)
         {
-            ResetScene();
+            PM.Instance.SoftResetScene();
         }
         else
         {
@@ -120,14 +121,14 @@ public class ProgramLifeCycleManager : MonoBehaviour
             }
 
             yield return new WaitUntil(AllowedSceneClick);
-            ResetScene();
+            PM.Instance.SoftResetScene();
         }
     }
 
     private IEnumerator WaitForFullscreenInactiveThenReset()
     {
         yield return new WaitUntil(() => !fullscreenView.activeInHierarchy);
-        ResetScene();
+        PM.Instance.SoftResetScene();
     }
 
     public void OnStartConfirmation()

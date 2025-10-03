@@ -40,6 +40,24 @@ public class SceneManager : MonoBehaviour
         referencesHaveBeenSet = true;
     }
 
+    public void DestroyRuntimeSensorObjects()
+    {
+        if (!referencesHaveBeenSet) SetReferences();
+
+        // Wipe UI widgets
+        if (sensorUIContainer != null)
+        {
+            for (int i = sensorUIContainer.childCount - 1; i >= 0; i--)
+                Destroy(sensorUIContainer.GetChild(i).gameObject);
+        }
+
+        if (sensorOutlineContainer != null)
+        {
+            for (int i = sensorOutlineContainer.childCount - 1; i >= 0; i--)
+                Destroy(sensorOutlineContainer.GetChild(i).gameObject);
+        }
+    }
+
     public int2 GetBounds(int maxInfluenceRadius)
     {
         int2 bounds = new(Mathf.CeilToInt(transform.localScale.x), Mathf.CeilToInt(transform.localScale.y));

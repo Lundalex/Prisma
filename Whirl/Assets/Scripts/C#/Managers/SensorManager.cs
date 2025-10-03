@@ -41,6 +41,21 @@ public class SensorManager : MonoBehaviour
         StartCoroutine(UpdateGraphsCoroutine());
     }
 
+    public void Stop()
+    {
+        programRunning = false;
+        StopAllCoroutines();
+        retrievedRBDatas = null;
+        retrievedFluidDatas = null;
+    }
+
+    public void SoftReset(Main main)
+    {
+        Stop();
+        StartScript(main);
+    }
+
+
     public void SubscribeGraphToCoroutine(GraphController graphController) => graphControllers.Add(graphController);
 
     private IEnumerator RetrieveRigidBodyDatasCoroutine()

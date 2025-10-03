@@ -1025,7 +1025,14 @@ public class Main : MonoBehaviour
         else Graphics.Blit(src, dest);
     }
 
-    private void OnDestroy()
+    public void SoftReset()
+    {
+        ReleaseResources();
+        StartScript();
+    }
+
+
+    public void ReleaseResources()
     {
         ComputeHelper.Release(
             SpatialLookupBuffer,
@@ -1051,7 +1058,33 @@ public class Main : MonoBehaviour
             RimLightMask
         );
 
+        // Release render textures if they exist
+        if (renderTexture != null) { renderTexture.Release(); Destroy(renderTexture); renderTexture = null; }
+        if (ppRenderTexture != null) { ppRenderTexture.Release(); Destroy(ppRenderTexture); ppRenderTexture = null; }
+
+        AtlasTexture = null;
+        LiquidVelocityGradientTexture = null;
+        GasVelocityGradientTexture = null;
+
         if (_causticsHandle.IsValid()) Addressables.Release(_causticsHandle);
+        _causticsLoadStarted = false;
+        causticsLoaded = false;
+
+        // Reset runtime counters/lightweight state
+        NewPDatas.Clear();
+        gpuDataSorted = false;
+        StepCount = 0;
+        SimTimeElapsed = 0f;
+        ParticlesNum = 0;
+        NumRigidBodies = 0;
+        NumRigidBodyVectors = 0;
+        NumFluidSensors = 0;
+        _cachedShadowRes = int2.zero;
+    }
+
+    private void OnDestroy()
+    {
+        ReleaseResources();
     }
 
     private int2 GetShadowResolution()
@@ -1087,14 +1120,15 @@ public class Main : MonoBehaviour
 
     private void RecreateOrUpdateMaterialBuffer()
     {
-        if (MaterialBuffer == null || MaterialBuffer.count != MaterialsCount)
-        {
-            ComputeHelper.CreateStructuredBuffer<Mat>(ref MaterialBuffer, Mats);
-        }
-        else
-        {
-            MaterialBuffer.SetData(Mats);
-        }
+        ComputeHelper.CreateStructuredBuffer<Mat>(ref MaterialBuffer, Mats);
+        // if (MaterialBuffer == null || MaterialBuffer.count != MaterialsCount)
+        // {
+        //     ComputeHelper.CreateStructuredBuffer<Mat>(ref MaterialBuffer, Mats);
+        // }
+        // else
+        // {
+        //     MaterialBuffer.SetData(Mats);
+        // }
     }
 
     private void BuildAtlasAndMats()
