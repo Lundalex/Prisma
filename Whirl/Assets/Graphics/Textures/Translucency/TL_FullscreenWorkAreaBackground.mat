@@ -8,10 +8,12 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: TL_FullscreenWorkAreaBackground
-  m_Shader: {fileID: 4800000, guid: b1115addd36579a429d5e6b4ffae668d, type: 3}
+  m_Shader: {fileID: 4800000, guid: 68c06cbb40864e97ac0ab4f9ef7dba16, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _BACKGROUND_MODE_NORMAL
+  - _REFRACTION_MODE_OFF
   m_InvalidKeywords:
   - _EMISSION
   m_LightmapFlags: 1
@@ -70,13 +72,19 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _BACKGROUND_MODE: 0
     - _Brightness: -0.1
     - _BumpScale: 1
+    - _ChromaticDispersion: 0.5
     - _ColorMask: 15
     - _Constrast: 0.1
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
+    - _EdgeGlint1Strength: 0.25
+    - _EdgeGlint2Strength: 0.1
+    - _EdgeGlintSharpness: 512
+    - _EdgeGlintWrap: 1
     - _Flatten: 0.916
     - _GlossMapScale: 1
     - _Glossiness: 0.5
@@ -86,6 +94,8 @@ Material:
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
+    - _REFRACTION_MODE: 0
+    - _RefractiveIndex: 1.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
@@ -94,12 +104,15 @@ Material:
     - _StencilOp: 0
     - _StencilReadMask: 255
     - _StencilWriteMask: 255
+    - _USE_EDGE_GLINT: 0
     - _UVSec: 0
     - _UseUIAlphaClip: 0
     - _Vibrancy: 1.07
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _EdgeGlintDirections: {r: -0.258819, g: 0.9659259, b: 0.2588191, a: -0.9659258}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _RefractiveIndexRatios: {r: 0.666666, g: 0.666666, b: 0.666666, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
