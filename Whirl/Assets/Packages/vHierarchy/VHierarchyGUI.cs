@@ -926,7 +926,7 @@ namespace VHierarchy
                         var treeViewController = sceneHierarchy.GetFieldValue("m_TreeView");
                         var treeViewControllerData = treeViewController.GetMemberValue("data");
 
-                        var item = treeViewControllerData.InvokeMethod<TreeViewItem>("FindItem", scene.handle);
+                        var item = treeViewControllerData.InvokeMethod<TreeViewItem<int>>("FindItem", scene.handle);
 
                         treeViewController.GetMemberValue("dragging").InvokeMethod("StartDrag", item, new List<int>());
 
