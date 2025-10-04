@@ -26,8 +26,6 @@ public class SensorUI : MonoBehaviour
     [SerializeField] public GameObject graphButton;
     [SerializeField] public GameObject defaultButton;
     [SerializeField] public GameObject settingsButton;
-    [SerializeField] public CustomTwinButtonToggleParent swayParentAB;
-    [SerializeField] public CustomTwinButtonToggleParent swayParentCD;
     [SerializeField] public GameObject rigidBodySensorTypeSelectObject;
     [SerializeField] public GameObject fluidSensorTypeSelectObject;
     [SerializeField] public CustomDropdown rigidBodySensorTypeSelect;
