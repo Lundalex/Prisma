@@ -37,6 +37,7 @@ public class SceneFluid : Polygon
     {
         if (Application.isPlaying) return;
 
+        // Skip re-assigning collider points if user is actively dragging handles
         bool userIsModifying = Tools.current == Tool.Move || Tools.current == Tool.Rotate || Tools.current == Tool.Scale;
         if (userIsModifying) return;
 
@@ -77,7 +78,9 @@ public class SceneFluid : Polygon
 
         PData[] pDatas = new PData[generatedPoints.Count];
         for (int i = 0; i < pDatas.Length; i++)
+        {
             pDatas[i] = InitPData(generatedPoints[i] + pointOffset, particleTemperatureCelcius);
+        }
 
         return pDatas;
     }
@@ -93,30 +96,13 @@ public class SceneFluid : Polygon
         SceneRigidBody[] allRigidBodies = SceneManager.GetAllSceneRigidBodies();
         SceneFluid[] allFluids = SceneManager.GetAllSceneFluids();
 
-        // Precompute polygon AABB (avoid LINQ/allocs)
-        Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
-        Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-        foreach (var e in Edges)
-        {
-            if (e.start.x < min.x) min.x = e.start.x;
-            if (e.start.y < min.y) min.y = e.start.y;
-            if (e.end.x   < min.x) min.x = e.end.x;
-            if (e.end.y   < min.y) min.y = e.end.y;
+        Vector2 min = Func.MinVector2(Edges.Select(edge => Func.MinVector2(edge.start, edge.end)).ToArray());
+        Vector2 max = Func.MaxVector2(Edges.Select(edge => Func.MaxVector2(edge.start, edge.end)).ToArray());
 
-            if (e.start.x > max.x) max.x = e.start.x;
-            if (e.start.y > max.y) max.y = e.start.y;
-            if (e.end.x   > max.x) max.x = e.end.x;
-            if (e.end.y   > max.y) max.y = e.end.y;
-        }
-
-        // Quantise just like before (kept behaviour)
         min.x -= min.x % editorGridSpacing;
         min.y -= min.y % editorGridSpacing;
         max.x += max.x % editorGridSpacing;
         max.y += max.y % editorGridSpacing;
-
-        // NEW: get scene bounds once, do a cheap rect test per point
-        sceneManager.GetSceneBounds(out Vector2 sMin, out Vector2 sMax);
 
         int iterationCount = 0;
         List<Vector2> generatedPoints = new();
@@ -124,14 +110,12 @@ public class SceneFluid : Polygon
         {
             for (float y = min.y; y <= max.y; y += gridSpacing)
             {
+                // Offset the spawning of each particle slightly to avoid visual rendering artifacts the first few frames
                 Vector2 point = new(x, y);
                 if (doApplySmallRandOffset) point += SmallRandVector2(particleOffsetMagnitude * gridSpacing);
 
-                // Fast reject: scene bounds
-                if (point.x <= sMin.x || point.y <= sMin.y || point.x >= sMax.x || point.y >= sMax.y)
-                    continue;
-
                 if (IsPointInsidePolygon(point) &&
+                    sceneManager.IsPointInsideBounds(point) &&
                     sceneManager.IsSpaceEmpty(point, this, allRigidBodies, allFluids))
                 {
                     if (++iterationCount > MaxGizmosIterations && editorView) return generatedPoints;
@@ -154,7 +138,7 @@ public class SceneFluid : Polygon
             lastVel = new float2(0.0f, 0.0f),
             density = 0.0f,
             nearDensity = 0.0f,
-            lastChunkKey_PType_POrder = pTypeIndex * (main != null ? main.ChunksNumAll : 0),
+            lastChunkKey_PType_POrder = pTypeIndex * main.ChunksNumAll,
             temperature = Utils.CelsiusToKelvin(tempCelsius),
             temperatureExchangeBuffer = 0.0f
         };
@@ -162,8 +146,10 @@ public class SceneFluid : Polygon
 
     private static Vector2 SmallRandVector2(float range)
     {
+        // Randomize each component within the range
         float x = UnityEngine.Random.Range(-range, range);
         float y = UnityEngine.Random.Range(-range, range);
+
         return new Vector2(x, y);
     }
 }

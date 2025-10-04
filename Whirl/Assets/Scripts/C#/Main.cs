@@ -3,6 +3,7 @@ using Unity.Mathematics;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 using Resources2;
@@ -337,7 +338,8 @@ public class Main : MonoBehaviour
     [NonSerialized] public static bool2 MousePressed = false;
 
     private AsyncOperationHandle<Texture2DArray> _causticsHandle;
-    private bool _causticsLoadStarted;
+    private Coroutine _causticsCoroutine;
+    private int _causticsLoadVersion = 0; // increments to cancel stale coroutines
 
     private int2 _cachedShadowRes = int2.zero;
 
@@ -345,78 +347,81 @@ public class Main : MonoBehaviour
     [NonSerialized] public int BackgroundMatIndex = -1;
     [NonSerialized] public int MetalHighlightsMatIndex = -1;
     private bool causticsLoaded = false;
+    [NonSerialized] public bool ppFrameValid = false;
 
     [NonSerialized] public Dictionary<CustomMat, int> MatIndexMap = new();
 
     public void SubmitParticlesToSimulation(PData[] particlesToAdd) => NewPDatas.AddRange(particlesToAdd);
 
-        public void StartScript()
-        {
-            SimTimeElapsed = 0;
+    public void StartScript()
+    {
+        SimTimeElapsed = 0;
 
-            ValidateHardwareCompatibility();
-            RenderSetup();
+        ValidateHardwareCompatibility();
+        RenderSetup();
 
-            BoundaryDims = sceneManager.GetBounds(MaxInfluenceRadius);
-            ChunksNum = BoundaryDims / MaxInfluenceRadius;
-            ChunksNumAll = ChunksNum.x * ChunksNum.y;
+        BoundaryDims = sceneManager.GetBounds(MaxInfluenceRadius);
+        ChunksNum = BoundaryDims / MaxInfluenceRadius;
+        ChunksNumAll = ChunksNum.x * ChunksNum.y;
 
-            BuildAtlasAndMats();
+        BuildAtlasAndMats();
 
-            PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
-            ParticlesNum = PDatas.Length;
+        PData[] PDatas = sceneManager.GenerateParticles(MaxStartingParticlesNum);
+        ParticlesNum = PDatas.Length;
 
-            (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
-            NumRigidBodies = RBDatas.Length;
-            NumRigidBodyVectors = RBVectors.Length;
-            NumFluidSensors = SensorAreas.Length;
+        (RBData[] RBDatas, RBVector[] RBVectors, SensorArea[] SensorAreas) = sceneManager.CreateRigidBodies();
+        NumRigidBodies = RBDatas.Length;
+        NumRigidBodyVectors = RBVectors.Length;
+        NumFluidSensors = SensorAreas.Length;
 
-            TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
-            TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
+        TextureHelper.TextureFromGradient(ref LiquidVelocityGradientTexture, LiquidVelocityGradientResolution, LiquidVelocityGradient);
+        TextureHelper.TextureFromGradient(ref GasVelocityGradientTexture, GasVelocityGradientResolution, GasVelocityGradient);
 
-            SetConstants();
-            InitTimeSetRand();
-            SetLightingSettings();
+        SetConstants();
+        InitTimeSetRand();
+        SetLightingSettings();
 
-            InitializeBuffers(PDatas, RBDatas, RBVectors, SensorAreas);
-            renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
-            ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
+        InitializeBuffers(PDatas, RBDatas, RBVectors, SensorAreas);
+        renderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
+        ppRenderTexture = TextureHelper.CreateTexture(PM.Instance.ResolutionInt2, 3);
 
-            ComputeHelper.CreateStructuredBuffer<float>(ref ShadowSrcFullRes, renderTexture.width * renderTexture.height);
+        ComputeHelper.CreateStructuredBuffer<float>(ref ShadowSrcFullRes, renderTexture.width * renderTexture.height);
 
-            AllocateOrResizeShadowWorkingBuffers();
+        AllocateOrResizeShadowWorkingBuffers();
 
-            shaderHelper.SetPSimShaderBuffers(pSimShader);
-            shaderHelper.SetRBSimShaderBuffers(rbSimShader);
-            shaderHelper.SetRenderShaderBuffers(renderShader);
-            shaderHelper.SetRenderShaderTextures(renderShader);
-            shaderHelper.SetPostProcessorBuffers(ppShader);
-            shaderHelper.SetPostProcessorTextures(ppShader);
-            shaderHelper.SetSortShaderBuffers(sortShader);
+        shaderHelper.SetPSimShaderBuffers(pSimShader);
+        shaderHelper.SetRBSimShaderBuffers(rbSimShader);
+        shaderHelper.SetRenderShaderBuffers(renderShader);
+        shaderHelper.SetRenderShaderTextures(renderShader);
+        shaderHelper.SetPostProcessorBuffers(ppShader);
+        shaderHelper.SetPostProcessorTextures(ppShader);
+        shaderHelper.SetSortShaderBuffers(sortShader);
 
-            shaderHelper.UpdatePSimShaderVariables(pSimShader);
-            shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
-            shaderHelper.UpdateRenderShaderVariables(renderShader);
-            shaderHelper.SetPostProcessorVariables(ppShader);
-            shaderHelper.UpdateSortShaderVariables(sortShader);
+        shaderHelper.UpdatePSimShaderVariables(pSimShader);
+        shaderHelper.UpdateRBSimShaderVariables(rbSimShader);
+        shaderHelper.UpdateRenderShaderVariables(renderShader);
+        shaderHelper.SetPostProcessorVariables(ppShader);
+        shaderHelper.UpdateSortShaderVariables(sortShader);
 
-            SetShaderKeywords();
-            InitCausticsGen();
+        SetShaderKeywords();
+        InitCausticsGen();
 
-    #if UNITY_EDITOR
-            ComputeShaderDebugger.CheckShaderConstants(this, debugShader, pTypeInput);
-    #endif
+#if UNITY_EDITOR
+        ComputeShaderDebugger.CheckShaderConstants(this, debugShader, pTypeInput);
+#endif
 
-            UpdateShaderTimeStep();
-            GPUSortChunkLookUp();
-            GPUSortSpringLookUp();
-            PM.Instance.clampedDeltaTime = Const.SMALL_FLOAT;
-            UpdateScript();
+        UpdateShaderTimeStep();
+        GPUSortChunkLookUp();
+        GPUSortSpringLookUp();
+        PM.Instance.clampedDeltaTime = Const.SMALL_FLOAT;
+        if (PM.Instance.globalBrightnessFactor < 0f)
+            PM.Instance.globalBrightnessFactor = 1f;
+        UpdateScript();
 
-            StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
+        StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
 
-            TryLoadAddressableCaustics();
-        }
+        TryLoadAddressableCaustics();
+    }
 
     public void UpdateScript()
     {
@@ -710,7 +715,7 @@ public class Main : MonoBehaviour
             }
             if (precomputedCausticsTexture != null)
             {
-                if (precomputedCausticsTexture.name == "PrecomputedCaustics_400xy_120z") Debug.LogError("Heavy caustics texture should be loaded as an addressable for lower load times");
+                if (precomputedCausticsTexture.name == "PrecomputedCaustics_400xy_120z" && !PM.hasBeenReset) Debug.LogError("Heavy caustics texture should be loaded as an addressable for lower load times");
                 PrecomputedCausticsDims = new(precomputedCausticsTexture.width, precomputedCausticsTexture.height, precomputedCausticsTexture.depth);
             }
         }
@@ -852,6 +857,9 @@ public class Main : MonoBehaviour
 
     public void RunRenderShader()
     {
+        if (PM.Instance != null && PM.Instance.sceneIsResetting) return;
+        if (renderTexture == null || ppRenderTexture == null) return;
+
         PM.Instance.timeSetRandTimer += PM.Instance.clampedDeltaTime;
         if (TimeSetRandInterval == 0) TimeSetRandInterval = 0.01f;
         if (PM.Instance.timeSetRandTimer > TimeSetRandInterval)
@@ -964,6 +972,8 @@ public class Main : MonoBehaviour
 
         Shadows();
         ApplyAA();
+
+        ppFrameValid = true;
     }
 
     private void InitTimeSetRand()
@@ -975,24 +985,58 @@ public class Main : MonoBehaviour
 
     private void TryLoadAddressableCaustics()
     {
-        if (_causticsLoadStarted) return;
-        AssetReferenceT<Texture2DArray> addressableCausticsTexture = shaderHelper.addressableCausticsTexture;
+        var addressableCausticsTexture = shaderHelper.addressableCausticsTexture;
         if (addressableCausticsTexture == null) return;
         if (!addressableCausticsTexture.RuntimeKeyIsValid()) return;
 
-        _causticsLoadStarted = true;
-        StartCoroutine(LoadAddressableCaustics_Coroutine());
+        // If a previous coroutine is running, stop it (we'll start a fresh one)
+        if (_causticsCoroutine != null)
+        {
+            StopCoroutine(_causticsCoroutine);
+            _causticsCoroutine = null;
+        }
+        _causticsCoroutine = StartCoroutine(LoadAddressableCaustics_Coroutine());
     }
 
     private IEnumerator LoadAddressableCaustics_Coroutine()
     {
+        int myVersion = ++_causticsLoadVersion; // reserve a new version for this run
+
+        // first-start stagger (avoid fighting with other heavy startup tasks)
         if (!PM.hasBeenReset) yield return new WaitForSecondsRealtime(2f);
 
+        // If we already succeeded and nothing was invalidated, just exit
+        if (causticsLoaded && precomputedCausticsTexture != null)
+        {
+            yield break;
+        }
+
+        // Ensure any previous reference/handle is released BEFORE calling LoadAssetAsync again
+        try
+        {
+            var aref = shaderHelper.addressableCausticsTexture;
+            if (aref != null && aref.IsValid())
+            {
+                aref.ReleaseAsset();
+            }
+            else if (_causticsHandle.IsValid())
+            {
+                Addressables.Release(_causticsHandle);
+            }
+        }
+        catch { /* ignore double release */ }
+
+        // Safe re-init
         var init = Addressables.InitializeAsync();
         yield return init;
 
+        if (myVersion != _causticsLoadVersion) yield break; // cancelled by a reset
+
+        // Now load
         _causticsHandle = shaderHelper.addressableCausticsTexture.LoadAssetAsync<Texture2DArray>();
         yield return _causticsHandle;
+
+        if (myVersion != _causticsLoadVersion) yield break; // cancelled by a reset
 
         if (_causticsHandle.Status == AsyncOperationStatus.Succeeded)
         {
@@ -1001,12 +1045,14 @@ public class Main : MonoBehaviour
             precomputedCausticsTexture = newTex;
             causticsLoaded = true;
 
-            if (CausticsType != CausticsType.Precomputed) yield break;
-
-            ApplyPrecomputedCausticsToShader(newTex);
+            if (CausticsType == CausticsType.Precomputed)
+            {
+                ApplyPrecomputedCausticsToShader(newTex);
+            }
         }
         else
         {
+            causticsLoaded = false;
             Debug.LogError(_causticsHandle.OperationException ?? new System.Exception("Failed to load Addressable caustics texture."));
         }
     }
@@ -1021,8 +1067,38 @@ public class Main : MonoBehaviour
 
     public void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
-        if (simDevice == SimulationDevice.GPU) Graphics.Blit(ppRenderTexture, dest);
-        else Graphics.Blit(src, dest);
+        // During reset just pass through the camera so we don't flash black.
+        if (PM.Instance != null && PM.Instance.sceneIsResetting)
+        {
+            Graphics.Blit(src, dest);
+            return;
+        }
+
+        if (renderTexture == null)
+        {
+            Graphics.Blit(src, dest);
+            return;
+        }
+        
+        RenderTexture finalRT = DoUseAntiAliasing ? ppRenderTexture : renderTexture;
+
+        if (finalRT == null)
+        {
+            // Texture not ready yet
+            Graphics.Blit(src, dest);
+            return;
+        }
+
+        // Ensure we've produced at least one frame before blitting our RTs.
+        // (This can happen at paused start or right after soft/hard reset.)
+        if (!ppFrameValid)
+        {
+            RunGPUSorting();
+            RunRenderShader();
+        }
+
+        // Final blit.
+        Graphics.Blit(finalRT, dest);
     }
 
     public void SoftReset()
@@ -1031,9 +1107,16 @@ public class Main : MonoBehaviour
         StartScript();
     }
 
-
     public void ReleaseResources()
     {
+        // Stop any in-flight caustics loading and invalidate it
+        if (_causticsCoroutine != null)
+        {
+            try { StopCoroutine(_causticsCoroutine); } catch { }
+            _causticsCoroutine = null;
+        }
+        _causticsLoadVersion++; // invalidate any pending yield continuations
+
         ComputeHelper.Release(
             SpatialLookupBuffer,
             StartIndicesBuffer,
@@ -1066,8 +1149,22 @@ public class Main : MonoBehaviour
         LiquidVelocityGradientTexture = null;
         GasVelocityGradientTexture = null;
 
-        if (_causticsHandle.IsValid()) Addressables.Release(_causticsHandle);
-        _causticsLoadStarted = false;
+        // Proper Addressables release (prefer releasing via AssetReference if valid; otherwise by handle)
+        try
+        {
+            var aref = shaderHelper != null ? shaderHelper.addressableCausticsTexture : null;
+            if (aref != null && aref.IsValid())
+            {
+                aref.ReleaseAsset();
+            }
+            else if (_causticsHandle.IsValid())
+            {
+                Addressables.Release(_causticsHandle);
+            }
+        }
+        catch { /* swallow double release */ }
+
+        _causticsHandle = default;
         causticsLoaded = false;
 
         // Reset runtime counters/lightweight state
@@ -1080,6 +1177,7 @@ public class Main : MonoBehaviour
         NumRigidBodyVectors = 0;
         NumFluidSensors = 0;
         _cachedShadowRes = int2.zero;
+        ppFrameValid = false;
     }
 
     private void OnDestroy()
@@ -1120,15 +1218,46 @@ public class Main : MonoBehaviour
 
     private void RecreateOrUpdateMaterialBuffer()
     {
-        ComputeHelper.CreateStructuredBuffer<Mat>(ref MaterialBuffer, Mats);
-        // if (MaterialBuffer == null || MaterialBuffer.count != MaterialsCount)
-        // {
-        //     ComputeHelper.CreateStructuredBuffer<Mat>(ref MaterialBuffer, Mats);
-        // }
-        // else
-        // {
-        //     MaterialBuffer.SetData(Mats);
-        // }
+        int count = (Mats != null) ? Mats.Length : 0;
+
+        // If no materials, release any existing buffer and bail
+        if (count <= 0)
+        {
+            ComputeHelper.Release(MaterialBuffer);
+            MaterialBuffer = null;
+            return;
+        }
+
+        int requiredStride = Marshal.SizeOf<Mat>();
+
+        // If existing buffer is invalid or wrong shape/stride, recreate it
+        bool needsRecreate = false;
+        if (MaterialBuffer == null)
+        {
+            needsRecreate = true;
+        }
+        else
+        {
+            try
+            {
+                if (MaterialBuffer.count != count || MaterialBuffer.stride != requiredStride)
+                    needsRecreate = true;
+            }
+            catch
+            {
+                needsRecreate = true;
+            }
+        }
+
+        if (needsRecreate)
+        {
+            ComputeHelper.Release(MaterialBuffer);
+            ComputeHelper.CreateStructuredBuffer<Mat>(ref MaterialBuffer, Mats);
+        }
+        else
+        {
+            MaterialBuffer.SetData(Mats);
+        }
     }
 
     private void BuildAtlasAndMats()

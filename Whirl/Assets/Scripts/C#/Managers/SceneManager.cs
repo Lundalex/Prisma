@@ -4,6 +4,8 @@ using System.Linq;
 using Resources2;
 using Unity.Mathematics;
 using UnityEngine;
+using Utilities.Extensions;
+using UnityEngine.EventSystems;
 
 public class SceneManager : MonoBehaviour
 {
@@ -42,19 +44,25 @@ public class SceneManager : MonoBehaviour
 
     public void DestroyRuntimeSensorObjects()
     {
+        // IF UI INTERACTION BECOMES BROKEN, THATS BECAUSE "Event System" IS INCORRECTLY PLACED AS A CHILD OF THE SENSORUI CONTAINER, AND THUS GETS DELETED WITH THE OLD SENSORS.
         if (!referencesHaveBeenSet) SetReferences();
 
-        // Wipe UI widgets
         if (sensorUIContainer != null)
         {
             for (int i = sensorUIContainer.childCount - 1; i >= 0; i--)
-                Destroy(sensorUIContainer.GetChild(i).gameObject);
+            {
+                var go = sensorUIContainer.GetChild(i).gameObject;
+                if (go.name == "Event System") continue;
+                sensorUIContainer.GetChild(i).gameObject.Destroy();
+            }
         }
 
         if (sensorOutlineContainer != null)
         {
             for (int i = sensorOutlineContainer.childCount - 1; i >= 0; i--)
-                Destroy(sensorOutlineContainer.GetChild(i).gameObject);
+            {
+                sensorOutlineContainer.GetChild(i).gameObject.Destroy();
+            }
         }
     }
 
@@ -67,7 +75,6 @@ public class SceneManager : MonoBehaviour
         return bounds;
     }
 
-    // NEW: single call to provide world-space bounds without per-point recomputation
     public void GetSceneBounds(out Vector2 min, out Vector2 max)
     {
         if (!referencesHaveBeenSet) SetReferences();

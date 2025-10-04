@@ -41,7 +41,7 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public bool programStarted;
     [NonSerialized] public bool sceneIsResetting;
     [NonSerialized] public bool doOnSettingsChanged;
-    [NonSerialized] public float globalBrightnessFactor;
+    [NonSerialized] public float globalBrightnessFactor = -1;
     [NonSerialized] public float timeScale = 1;
     [NonSerialized] public bool isAnySensorSettingsViewActive;
     [NonSerialized] public bool programPaused;
@@ -95,6 +95,9 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] private TMP_Text pauseText;
     [NonSerialized] private float pauseTextAlpha = -1f;
 
+    // Private - Render optimisation
+    [NonSerialized] private float _lastRenderedBrightnessFactor = float.NaN;
+
     // Key inputs
     private Timer rapidFrameSteppingTimer;
     private static readonly float rapidFrameSteppingDelay = 0.1f;
@@ -106,10 +109,8 @@ public class ProgramManager : ScriptableObject
     private Main.ResolutionScale _appliedResolutionScale = Main.ResolutionScale.Scale_1_1;
     private int2 _appliedDefaultResolution = int2.zero;
 
-    // ─────────────────────────────────────────────────────────────
-    // NEW: Drag-lock and Hover-arbiter (single owner at a time)
-    // ─────────────────────────────────────────────────────────────
-    [NonSerialized] private SensorUI _dragOwner;     // only one sensor may drag at a time
+    [NonSerialized] private SensorUI _dragOwner;
+    [NonSerialized] private SensorUI _hoverOwner;
 
     // Singleton
     private static ProgramManager _instance;
@@ -156,8 +157,7 @@ public class ProgramManager : ScriptableObject
 
     public void Update()
     {
-        // If user edits Main.DefaultResolution or Main.ResolutionScaleSetting at runtime,
-        // store & apply, then reset scene.
+        // If Main.DefaultResolution or Main.ResolutionScaleSetting is edited, reset the scene.
         if (Application.isPlaying && main != null)
         {
             bool scaleChanged = main.ResolutionScaleSetting != _appliedResolutionScale;
@@ -173,8 +173,7 @@ public class ProgramManager : ScriptableObject
         if (sceneIsResetting) return;
         CheckStartConfirmation();
 
-        sceneIsResetting = CheckInputs();
-        if (sceneIsResetting)
+        if (CheckInputs())
         {
             ResetScene();
             return;
@@ -190,7 +189,7 @@ public class ProgramManager : ScriptableObject
         LerpGlobalBrightness(clampedDeltaTime);
         LerpTimeScale(clampedDeltaTime);
         LerpSensorUIScale(clampedDeltaTime);
-        UpdatePauseTextAlpha(clampedDeltaTime); // NEW: fade PauseText alpha while pausing/unpausing
+        UpdatePauseTextAlpha(clampedDeltaTime);
 
         if (doOnSettingsChanged && programStarted)
         {
@@ -230,36 +229,48 @@ public class ProgramManager : ScriptableObject
 
             // Request sensor refresh
             sensorManager.RequestUpdate();
+
+            // Track tint
+            _lastRenderedBrightnessFactor = globalBrightnessFactor;
         }
         else
         {
-            main.RunGPUSorting();
-            main.RunRenderShader();
+            // When paused, only re-render if the dark tint has changed
+            bool shouldRender = !programPaused || !Mathf.Approximately(globalBrightnessFactor, _lastRenderedBrightnessFactor);
+            if (shouldRender)
+            {
+                main.RunGPUSorting();
+                main.RunRenderShader();
+                _lastRenderedBrightnessFactor = globalBrightnessFactor;
+            }
+
             UpdateArrowScripts();
             UpdateSensorScripts();
             TriggerProgramUpdate(false);
         }
     }
 
-    // public void ResetScene()
-    // {
-    //     // Clear timer subscribers to prevent leaks
-    //     OnProgramUpdate = null;
-    //     // Dispose timers
-    //     rapidFrameSteppingTimer?.Dispose();
-    //     rapidFrameSteppingTimer = null;
+    // False -> soft, True -> hard
+    public void ResetScene(bool soft_hard = false) { if (!soft_hard) SoftResetScene(); else HardSceneReset(); }
 
-    //     startConfirmationStatus = StartConfirmationStatus.NotStarted;
-    //     hasBeenReset = true;
-    //     UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
-    // }
+    public void HardSceneReset()
+    {
+        // Clear timer subscribers to prevent leaks
+        OnProgramUpdate = null;
+        // Dispose timers
+        rapidFrameSteppingTimer?.Dispose();
+        rapidFrameSteppingTimer = null;
 
-    public void ResetScene() => SoftResetScene();
-
+        startConfirmationStatus = StartConfirmationStatus.NotStarted;
+        hasBeenReset = true;
+        UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+    }
+    
     public void SoftResetScene()
     {
         if (sceneIsResetting) return;
         sceneIsResetting = true;
+        hasBeenReset = true;
 
         // Pause & clear callbacks to prevent races while tearing down
         TriggerSetPauseState(true);
@@ -271,7 +282,7 @@ public class ProgramManager : ScriptableObject
         // Stop async readers before releasing GPU buffers
         if (sensorManager != null) sensorManager.Stop();
 
-        var am = GameObject.FindFirstObjectByType<ArrowManager>();
+        var am = FindFirstObjectByType<ArrowManager>();
         if (am != null) am.ClearAllArrows(true);
 
         // Release GPU/Addressables/RTs/compute buffers
@@ -281,8 +292,7 @@ public class ProgramManager : ScriptableObject
         var smGO = GameObject.FindGameObjectWithTag("SceneManager");
         if (smGO != null)
         {
-            var sm = smGO.GetComponent<SceneManager>();
-            if (sm != null) sm.DestroyRuntimeSensorObjects();
+            if (smGO.TryGetComponent<SceneManager>(out var sm)) sm.DestroyRuntimeSensorObjects();
         }
 
         // Reset runtime data/state and re-initialize view transforms
@@ -446,7 +456,6 @@ public class ProgramManager : ScriptableObject
         totalScaledTimeElapsed = 0f;
         totalRLTimeSinceSceneLoad = 0f;
         frameCount = 0;
-        globalBrightnessFactor = -1f;
 
         sensorDatas = new();
         rigidBodyArrows = new();
@@ -458,8 +467,8 @@ public class ProgramManager : ScriptableObject
 
         InterpolatedFPS = 120.0f;
         InterpolatedSimSpeed = 2.0f;
+        main.ppFrameValid = false;
 
-        // Clear interaction owners on reset
         _dragOwner = null;
     }
 
@@ -577,19 +586,33 @@ public class ProgramManager : ScriptableObject
         return _dragOwner != null && _dragOwner != requester;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Single-hover arbiter: only the top-most hovered sensor may react
-    // (Recomputed fresh on every query to avoid order/caching issues)
-    // When dragging, only the drag owner may react to hover.
-    // ─────────────────────────────────────────────────────────────
+    public void EndSensorHover(SensorUI requester)
+    {
+        if (_hoverOwner == requester) _hoverOwner = null;
+    }
+    
     public bool HoverMayReact(SensorUI candidate)
     {
-        // If we're dragging a different sensor, nobody else may react to hover.
+        // While dragging another sensor, nobody else may react to hover.
         if (_dragOwner != null && _dragOwner != candidate)
             return false;
 
-        var owner = ComputeHoverOwner();
-        return owner == candidate;
+        // Keep current owner maybe
+        if (_hoverOwner != null)
+        {
+            bool stillValid =
+                _hoverOwner.gameObject.activeInHierarchy &&
+                _hoverOwner.pointerHoverArea != null &&
+                _hoverOwner.pointerHoverArea.CheckIfHovering();
+
+            if (!stillValid)
+                _hoverOwner = null;
+        }
+
+        if (_hoverOwner == null)
+            _hoverOwner = ComputeHoverOwner();
+
+        return _hoverOwner == candidate;
     }
 
     private SensorUI ComputeHoverOwner()
@@ -803,11 +826,6 @@ public class ProgramManager : ScriptableObject
         rapidFrameSteppingTimer = null;
 
         SetLastOpenedScene();
-
-        // NOTE:
-        // We no longer call userSettings.Reset() here, because OnDestroy also
-        // executes on every scene reload during Play Mode.
-        // Reset is now handled by an editor-only playmode hook below.
     }
 
     public void UnsubscribeFromActions()
@@ -906,7 +924,7 @@ public class ProgramManager : ScriptableObject
         if (Application.isPlaying && changed && forceSceneReset && CheckAllowRestart())
         {
             sceneIsResetting = true;
-            SoftResetScene(); // was: UnityEngine.SceneManagement.SceneManager.LoadScene(...)
+            SoftResetScene();
         }
     }
 }

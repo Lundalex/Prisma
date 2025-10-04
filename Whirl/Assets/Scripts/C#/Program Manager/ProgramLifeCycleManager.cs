@@ -79,8 +79,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
 
     private void Update() => PM.Instance.Update();
 
-    // public void ResetScene() => PM.Instance.ResetScene();
-    public void ResetScene() => PM.Instance.SoftResetScene();
+    public void ResetScene(bool soft_hard = false) => PM.Instance.ResetScene(soft_hard);
 
     public void PrimeSceneReset_OnSimulationView()
     {

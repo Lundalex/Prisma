@@ -87,15 +87,10 @@ public class RigidBodyArrow : SensorBase
     public void Initialize()
     {
         if (uiArrow == null)
-        {
             uiArrow = arrowManager.CreateArrow(uiArrowPrefab);
-        }
-        else
-        {
-            // Reusing an existing arrow after a soft reset
-            uiArrow.SetArrowVisibility(false);
-        }
 
+        // Start hidden until the first valid data update arrives
+        uiArrow.SetArrowVisibility(false);
         uiArrow.UpdateArrow(0f, "", 0, 0f);
         uiArrow.SetValueBoxVisibility(doDisplayValueBox);
         firstDataRecieved = false;
@@ -138,6 +133,7 @@ public class RigidBodyArrow : SensorBase
         CheckBufferSizes();
         if (firstDataRecieved)
         {
+            if (!uiArrow) return;
             (Vector2 currentPosition, float currentRotation) = uiArrow.GetPosition();
             Vector2 canvasTargetPosition = SimSpaceToCanvasSpace(currentTargetPosition);
             float angleDiff = Mathf.Abs(Mathf.DeltaAngle(currentRotation, currentTargetRotation));
@@ -188,17 +184,39 @@ public class RigidBodyArrow : SensorBase
 
     public override void UpdateSensor()
     {
-        CheckBufferSizes();
-        if (uiArrow == null) return;
-
-        if (linkedRBIndex == -1)
+        // If we're mid-reset or missing plumbing, don't touch buffers this frame.
+        if (PM.Instance == null || PM.Instance.sceneIsResetting || sensorManager == null)
         {
-            Debug.LogWarning("Arrow not linked to any rigid body; It will not be updated. RigidBodySensor: " + this.name);
+            HideUntilValid(); 
             return;
         }
 
-        RBData[] retrievedRBDatas = sensorManager.retrievedRBDatas;
-        RBData rbData = retrievedRBDatas[linkedRBIndex];
+        if (uiArrow == null)
+        {
+            // Arrow not spawned yet (e.g., during init or after reset) — nothing to do.
+            return;
+        }
+
+        // Take a local snapshot to avoid races if SensorManager swaps the array mid-call
+        var rbArray = sensorManager.retrievedRBDatas;
+
+        // No data yet this frame (async readback hasn’t landed)
+        if (rbArray == null || rbArray.Length == 0)
+        {
+            HideUntilValid();
+            return;
+        }
+
+        // If this arrow’s linked index is invalid for the current buffer, bail out safely.
+        if (linkedRBIndex < 0 || linkedRBIndex >= rbArray.Length)
+        {
+            // During soft resets or scene changes, indices can temporarily mismatch.
+            HideUntilValid();
+            return;
+        }
+
+        // Safe to read now.
+        RBData rbData = rbArray[linkedRBIndex];
 
         Vector2 rawVel = Func.Int2ToFloat2(rbData.vel_AsInt2, main.FloatIntPrecisionRB);
 
@@ -207,6 +225,7 @@ public class RigidBodyArrow : SensorBase
 
         UpdateTargetTransform(rbData, rawVel, newValue, sensorDt);
 
+        // On very first valid packet, snap to the correct position immediately (no lerp)
         if (!firstDataRecieved)
         {
             uiArrow.SetCenterAndRotation(SimSpaceToCanvasSpace(currentTargetPosition), startRotation);
@@ -214,15 +233,17 @@ public class RigidBodyArrow : SensorBase
         }
 
         bool valueIsNearZero = newValue.magnitude < minArrowValue;
-        bool rbIsbeingDragged = Func.ReadBit(rbData.stateFlags, 0); // Check isBeingDragged flag bit
+        bool rbIsbeingDragged = Func.ReadBit(rbData.stateFlags, 0); // isBeingDragged flag bit
+
         if (valueIsNearZero || rbIsbeingDragged)
         {
-            newValue = Vector2.zero;
-            uiArrow.SetArrowVisibility(false);
-            firstDataRecieved = false;
+            // Hide and wait for next meaningful update
+            HideUntilValid();
             return;
         }
-        else if (Vector2.Distance(lastValue, newValue) < minValueChangeForUpdate) return;
+
+        // Throttle tiny updates to avoid churn
+        if (Vector2.Distance(lastValue, newValue) < minValueChangeForUpdate) return;
 
         float newValueMgn = newValue.magnitude;
         float factor = Mathf.Clamp01((newValueMgn - minArrowValue) / Mathf.Max(maxArrowValue - minArrowValue, 0.001f));
@@ -231,8 +252,14 @@ public class RigidBodyArrow : SensorBase
         uiArrow.UpdateArrow(newValueMgn, unit, arrowLength, factor);
         uiArrow.SetArrowVisibility(true);
 
-        // Store references for next frame
+        // Store for next frame
         lastValue = newValue;
+    }
+
+    private void HideUntilValid()
+    {
+        if (uiArrow != null) uiArrow.SetArrowVisibility(false);
+        firstDataRecieved = false;
     }
 
     private (float sensorDt, float programDt) GetDeltaTimeValues()

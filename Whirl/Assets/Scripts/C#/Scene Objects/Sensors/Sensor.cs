@@ -108,11 +108,14 @@ public abstract class Sensor : SensorBase
         graphController = GetComponent<GraphController>();
     }
 
-    // Centralized ugly setup kept here
+    // Very ugly setup
     private void InitSensorUI()
     {
         GameObject sensorUIObject = Instantiate(sensorUIPrefab, sensorUIContainer);
         sensorUI = sensorUIObject.GetComponent<SensorUI>();
+
+        // Hide the sensor UI until the first real data point arrives
+        sensorUIObject.SetActive(false);
 
         bool isStandardResolution = PM.Instance.isStandardResolution;
         if (isStandardResolution && false)
@@ -136,15 +139,9 @@ public abstract class Sensor : SensorBase
             horizontalAxis = sensorUIGraphChartObject.GetComponent<HorizontalAxis>();
         }
 
-        mainCanvas = GameObject.FindGameObjectWithTag("UICanvas").GetComponent<Canvas>();
-        sensorUI.swayElementA.mainCanvas = mainCanvas;
-        sensorUI.swayElementB.mainCanvas = mainCanvas;
-        sensorUI.swayElementC.mainCanvas = mainCanvas;
-        sensorUI.swayElementD.mainCanvas = mainCanvas;
-
         // Accessed views (show/hide buttons)
-        sensorUI.swayElementD.gameObject.SetActive(doEnableGraph);
-        sensorUI.swayElementA.gameObject.SetActive(doEnableSettings);
+        sensorUI.graphButton.SetActive(doEnableGraph);
+        sensorUI.settingsButton.SetActive(doEnableSettings);
 
         bool isRigidBodySensor = this is RigidBodySensor;
         sensorUI.rigidBodySensorTypeSelectObject.SetActive(isRigidBodySensor && doShowSensorTypeSelector);

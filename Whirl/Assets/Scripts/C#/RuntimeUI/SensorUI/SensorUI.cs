@@ -22,10 +22,10 @@ public class SensorUI : MonoBehaviour
     [SerializeField] public Slider scaleSlider;
     [SerializeField] public RectTransform rectTransform;
     [SerializeField] public RectTransform outerContainerRectTransform;
-    [SerializeField] public DemoElementSway swayElementA;
-    [SerializeField] public DemoElementSway swayElementB;
-    [SerializeField] public DemoElementSway swayElementC;
-    [SerializeField] public DemoElementSway swayElementD;
+    [SerializeField] public GameObject numericButton;
+    [SerializeField] public GameObject graphButton;
+    [SerializeField] public GameObject defaultButton;
+    [SerializeField] public GameObject settingsButton;
     [SerializeField] public CustomTwinButtonToggleParent swayParentAB;
     [SerializeField] public CustomTwinButtonToggleParent swayParentCD;
     [SerializeField] public GameObject rigidBodySensorTypeSelectObject;
@@ -202,6 +202,8 @@ public class SensorUI : MonoBehaviour
         if (dragArmed || isBeingMoved)
             PM.Instance.EndSensorDrag(this);
 
+        PM.Instance.EndSensorHover(this);
+        
         dragArmed = false;
         dragActive = false;
         isBeingMoved = false;
@@ -312,6 +314,17 @@ public class SensorUI : MonoBehaviour
 #region Set UI position & display values
     public void SetMeasurement(float val, int /*ignored*/ numDecimals, bool newPrefix)
     {
+        // First data point: reveal instantly and snap to value (no interpolation)
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+            isInterpolating = false;
+            currentValue = Mathf.Clamp(val, -999, 999);
+            targetValue = currentValue;
+            SetDisplayValue(currentValue, GetNumDecimalsFromPrecision(sensor.displayPrecision));
+            return;
+        }
+
         if (Mathf.Abs(currentValue - val) <= sensor.displayValueLerpThreshold) return;
 
         targetValue = Mathf.Clamp(val, -999, 999);
@@ -405,12 +418,12 @@ public class SensorUI : MonoBehaviour
         bool topHover = rawHover && PM.Instance.HoverMayReact(this);
 
         // Raise "hovered" once on raw hover edge (move to front immediately)
-        if (rawHover && !hoverArmed)
+        if (topHover && !hoverArmed)
         {
             hoverArmed = true;
             OnHovered?.Invoke();
         }
-        else if (!rawHover && hoverArmed)
+        else if (!topHover && hoverArmed)
         {
             hoverArmed = false;
         }

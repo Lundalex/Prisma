@@ -49,37 +49,56 @@ public class RigidBodySensor : Sensor
         sensorUI.SetPosition(next);
     }
 
+    private bool IsLinkedIndexValid(RBData[] arr)
+    {
+        return arr != null && linkedRBIndex >= 0 && linkedRBIndex < arr.Length;
+    }
+
+    private void OnLinkedRigidBodyBecameInvalid()
+    {
+        firstDataRecieved = false;
+        lastPos = Vector2.positiveInfinity;
+    }
+
     public override void UpdateSensor()
     {
-        if (sensorUI != null)
+        if (sensorUI == null) return;
+
+        if (linkedRBIndex == -1)
         {
-            if (linkedRBIndex == -1) Debug.LogWarning("Sensor not linked to any rigid body; It will not be updated. RigidBodySensor: " + this.name);
-            else
-            {
-                RBData[] retrievedRBDatas = sensorManager.retrievedRBDatas;
-
-                RBData rbData = retrievedRBDatas[linkedRBIndex];
-                lastJointPos = (Vector2)rbData.pos;
-
-                // Init sensor UI position
-                if (!firstDataRecieved)
-                {
-                    currentTargetPosition = localTargetPos;
-                    if (positionType == PositionType.Relative) currentTargetPosition += lastJointPos;
-                    sensorUI.SetPosition(SimSpaceToCanvasSpace(currentTargetPosition));
-                    firstDataRecieved = true;
-                }
-                else currentTargetPosition = positionType == PositionType.Relative ? lastJointPos + localTargetPos : localTargetPos;
-
-                UpdateSensorContents(retrievedRBDatas, linkedRBIndex);
-            }
+            Debug.LogWarning($"Sensor not linked to any rigid body; it will not be updated. RigidBodySensor: {name}");
+            return;
         }
+
+        RBData[] retrievedRBDatas = sensorManager.retrievedRBDatas;
+        if (!IsLinkedIndexValid(retrievedRBDatas))
+        {
+            OnLinkedRigidBodyBecameInvalid();
+            return;
+        }
+
+        RBData rbData = retrievedRBDatas[linkedRBIndex];
+        lastJointPos = (Vector2)rbData.pos;
+
+        // Init sensor UI position on first real data
+        if (!firstDataRecieved)
+        {
+            currentTargetPosition = localTargetPos;
+            if (positionType == PositionType.Relative) currentTargetPosition += lastJointPos;
+            sensorUI.SetPosition(SimSpaceToCanvasSpace(currentTargetPosition));
+            firstDataRecieved = true;
+        }
+        else currentTargetPosition = positionType == PositionType.Relative ? lastJointPos + localTargetPos : localTargetPos;
+
+        UpdateSensorContents(retrievedRBDatas, linkedRBIndex);
     }
 
     private float distanceTraveled = 0;
     private Vector2 lastPos = Vector2.positiveInfinity;
     private void UpdateSensorContents(RBData[] rBDatas, int linkedRBIndex)
     {
+        if (rBDatas == null || linkedRBIndex < 0 || linkedRBIndex >= rBDatas.Length) return;
+
         float simUnitToMetersFactor = main.SimUnitToMetersFactor;
 
         RBData rbData = rBDatas[linkedRBIndex];
