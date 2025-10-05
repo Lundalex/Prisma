@@ -467,6 +467,7 @@ public class ProgramManager : ScriptableObject
 
         InterpolatedFPS = 120.0f;
         InterpolatedSimSpeed = 2.0f;
+        if (!main) main = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Main>();
         main.ppFrameValid = false;
 
         _dragOwner = null;

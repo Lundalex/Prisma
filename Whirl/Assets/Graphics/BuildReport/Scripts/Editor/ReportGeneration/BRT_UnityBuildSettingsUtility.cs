@@ -286,7 +286,6 @@ namespace BuildReportTool
 #if !UNITY_4
 			settings.EnableCrashReportApi = PlayerSettings.enableCrashReportAPI;
 			settings.EnableInternalProfiler = PlayerSettings.enableInternalProfiler;
-			settings.ActionOnDotNetUnhandledException = PlayerSettings.actionOnDotNetUnhandledException.ToString();
 #endif
 
 			settings.ConnectProfiler = EditorUserBuildSettings.connectProfiler;
@@ -835,8 +834,10 @@ namespace BuildReportTool
 
 #if !UNITY_4
 			settings.AndroidAsAndroidProject = EditorUserBuildSettings.exportAsGoogleAndroidProject;
-			settings.AndroidIsGame = PlayerSettings.Android.androidIsGame;
-			settings.AndroidTvCompatible = PlayerSettings.Android.androidTVCompatibility;
+#pragma warning disable CS0618 // Type or member is obsolete
+            settings.AndroidIsGame = PlayerSettings.Android.androidIsGame;
+#pragma warning restore CS0618 // Type or member is obsolete
+            settings.AndroidTvCompatible = PlayerSettings.Android.androidTVCompatibility;
 #endif
 
 #if UNITY_2017_4_OR_NEWER

@@ -575,17 +575,23 @@ namespace BuildReportTool
 							// no shader assigned to material
 							continue;
 						}
-						int shaderPropertyCount = ShaderUtil.GetPropertyCount(shader);
-						for (int pIdx = 0; pIdx < shaderPropertyCount; ++pIdx)
+#pragma warning disable CS0618 // Type or member is obsolete
+                        int shaderPropertyCount = ShaderUtil.GetPropertyCount(shader);
+#pragma warning restore CS0618 // Type or member is obsolete
+                        for (int pIdx = 0; pIdx < shaderPropertyCount; ++pIdx)
 						{
-							if (ShaderUtil.GetPropertyType(shader, pIdx) != ShaderUtil.ShaderPropertyType.TexEnv)
+#pragma warning disable CS0618 // Type or member is obsolete
+                            if (ShaderUtil.GetPropertyType(shader, pIdx) != ShaderUtil.ShaderPropertyType.TexEnv)
 							{
 								// go through texture properties only
 								continue;
 							}
+#pragma warning restore CS0618 // Type or member is obsolete
 
-							var texture = material.GetTexture(ShaderUtil.GetPropertyName(shader, pIdx));
-							if (texture == null)
+#pragma warning disable CS0618 // Type or member is obsolete
+                            var texture = material.GetTexture(ShaderUtil.GetPropertyName(shader, pIdx));
+#pragma warning restore CS0618 // Type or member is obsolete
+                            if (texture == null)
 							{
 								// no texture currently assigned to this texture property
 								continue;

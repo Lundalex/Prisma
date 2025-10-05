@@ -111,6 +111,7 @@ MonoBehaviour:
     - line: '|   muteOtherAudioSources: 0'
     - line: '|   Prepare IOS For Recording: 0'
     - line: '|   Force IOS Speakers When Recording: 0'
+    - line: '|   audioSpatialExperience: 0'
     - line: '|   deferSystemGesturesMode: 0'
     - line: '|   hideHomeButton: 0'
     - line: '|   submitAnalytics: 1'
@@ -157,6 +158,7 @@ MonoBehaviour:
     - line: '|   switchNVNMaxPublicSamplerIDCount: 0'
     - line: '|   switchMaxWorkerMultiple: 8'
     - line: '|   switchNVNGraphicsFirmwareMemory: 32'
+    - line: '|   switchGraphicsJobsSyncAfterKick: 1'
     - line: '|   vulkanNumSwapchainBuffers: 3'
     - line: '|   vulkanEnableSetSRGBWrite: 0'
     - line: '|   vulkanEnablePreTransform: 0'
@@ -298,6 +300,9 @@ MonoBehaviour:
     - line: '|   AndroidBuildApkPerCpuArchitecture: 0'
     - line: '|   AndroidTVCompatibility: 0'
     - line: '|   AndroidIsGame: 1'
+    - line: '|   androidAppCategory: 3'
+    - line: '|   useAndroidAppCategory: 1'
+    - line: '|   androidAppCategoryOther: '
     - line: '|   AndroidEnableTango: 0'
     - line: '|   androidEnableBanner: 1'
     - line: '|   androidUseLowAccuracyLocation: 0'
@@ -375,6 +380,7 @@ MonoBehaviour:
     - line: '|     iPhone: 1'
     - line: '|     tvOS: 1'
     - line: '|   m_BuildTargetGroupLightmapEncodingQuality: []'
+    - line: '|   m_BuildTargetGroupHDRCubemapEncodingQuality: []'
     - line: '|   m_BuildTargetGroupLightmapSettings: []'
     - line: '|   m_BuildTargetGroupLoadStoreDebugModeSettings: []'
     - line: '|   m_BuildTargetNormalMapEncoding: []'
@@ -645,12 +651,12 @@ MonoBehaviour:
     - line: '|   webGLMemoryLinearGrowthStep: 16'
     - line: '|   webGLMemoryGeometricGrowthStep: 0.2'
     - line: '|   webGLMemoryGeometricGrowthCap: 96'
-    - line: '|   webGLEnableWebGPU: 1'
     - line: '|   webGLPowerPreference: 2'
     - line: '|   webGLWebAssemblyTable: 1'
     - line: '|   webGLWebAssemblyBigInt: 1'
     - line: '|   webGLCloseOnQuit: 0'
     - line: '|   webWasm2023: 0'
+    - line: '|   webEnableSubmoduleStrippingCompatibility: 0'
     - line: '|   scriptingDefineSymbols: {}'
     - line: '|   additionalCompilerArguments: {}'
     - line: '|   platformArchitecture: {}'
@@ -765,11 +771,11 @@ MonoBehaviour:
     - line: '|   captureStartupLogs: {}'
     - line: '|   activeInputHandler: 0'
     - line: '|   windowsGamepadBackendHint: 0'
-    - line: '|   cloudProjectId: 3d0a492f-30e2-4ec5-9f2a-fb7d913831cb'
+    - line: '|   cloudProjectId: 12480e47-a370-4a44-a41f-e22bea402867'
     - line: '|   framebufferDepthMemorylessMode: 0'
     - line: '|   qualitySettingsNames: []'
-    - line: '|   projectName: Simulation'
-    - line: '|   organizationId: lundalex'
+    - line: '|   projectName: Whirl - Fysiksimulering'
+    - line: '|   organizationId: unity_a30a473d66632ecd9c66'
     - line: '|   cloudEnabled: 0'
     - line: '|   legacyClampBlendShapeWeights: 0'
     - line: '|   hmiLoadingImage: {instanceID: 0}'
@@ -778,6 +784,7 @@ MonoBehaviour:
     - line: '|   insecureHttpOption: 0'
     - line: '|   androidVulkanDenyFilterList: []'
     - line: '|   androidVulkanAllowFilterList: []'
+    - line: '|   androidVulkanDeviceFilterListAsset: {instanceID: 0}'
     - line: '| '
   references:
     version: 2
@@ -796,6 +803,8 @@ MonoBehaviour:
         m_ExplicitArrayBoundsChecks: 0
         m_CompressionType: -1
         m_InstallInBuildFolder: 0
+        m_InsightsSettingsContainer:
+          m_BuildProfileEngineDiagnosticsState: 2
         m_CodeOptimization: 0
         m_WebGLClientBrowserPath: 
         m_WebGLClientBrowserType: 0
