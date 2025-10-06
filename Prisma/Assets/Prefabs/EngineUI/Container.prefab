@@ -86,6 +86,7 @@ MonoBehaviour:
   interactSliders: []
   interactFields: []
   uiManager: {fileID: 11400000, guid: 09694218b3d8a5246b4e7c413bb47eb0, type: 2}
+  glassExtension: {fileID: 0}
 --- !u!1001 &4001815997828818988
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -128,11 +129,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 590
+      value: 591
       objectReference: {fileID: 0}
     - target: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 340
+      value: 341
       objectReference: {fileID: 0}
     - target: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_LocalScale.x
@@ -196,15 +197,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_Color.b
-      value: 0.48627454
+      value: 0.3773585
       objectReference: {fileID: 0}
     - target: {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_Color.g
-      value: 0.25882354
+      value: 0.2103533
       objectReference: {fileID: 0}
     - target: {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_Color.r
-      value: 0.08627451
+      value: 0.083659664
       objectReference: {fileID: 0}
     - target: {fileID: 7519206536961042724, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_Enabled
@@ -277,11 +278,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 580
+      value: 582
       objectReference: {fileID: 0}
     - target: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 330
+      value: 332
       objectReference: {fileID: 0}
     - target: {fileID: 6811374787027209266, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       propertyPath: m_LocalScale.x
@@ -391,8 +392,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 196bb08d6c2d3c9499c04e1281fd4ad3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 2100000, guid: e40f3415208bee248a6a98b9f0010f75, type: 2}
-  m_Color: {r: 0.13338679, g: 0.16054907, b: 0.19676542, a: 1}
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.09411765, g: 0.11764706, b: 0.14117648, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -630,6 +631,9 @@ PrefabInstance:
       addedObject: {fileID: 3182471947757015302}
     - targetCorrespondingSourceObject: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 3439894616293209047}
+    - targetCorrespondingSourceObject: {fileID: 6681365638919728260, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 2352653928481394614}
   m_SourcePrefab: {fileID: 100100000, guid: 0af5d050d04708a40aa11300805c9113, type: 3}
 --- !u!1 &3272863007286530679 stripped
@@ -661,9 +665,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 196bb08d6c2d3c9499c04e1281fd4ad3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 2100000, guid: e40f3415208bee248a6a98b9f0010f75, type: 2}
-  m_Color: {r: 0.13338679, g: 0.16054907, b: 0.19676542, a: 1}
-  m_RaycastTarget: 1
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.09411765, g: 0.11764706, b: 0.14117648, a: 1}
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -678,19 +682,19 @@ MonoBehaviour:
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1.8
+  m_PixelsPerUnitMultiplier: 1.75
   _source: {fileID: 0}
-  _foregroundOpacity: 0.4
-  _vibrancy: 1
-  _brightness: 0
-  _flatten: 0
+  _foregroundOpacity: 0.95
+  _vibrancy: 0.1
+  _brightness: -0.96
+  _flatten: 0.4
   paraformConfig:
-    isCornersLinked: 0
+    isCornersLinked: 1
     cornerRadii: {x: 0, y: 0, z: 0, w: 0}
-    cornerCurvature: 1.5
-    filletCurvature: 2.5
-    edgeWidth: 64
-    elevation: 100
+    cornerCurvature: 1
+    filletCurvature: 3.5
+    edgeWidth: 0
+    elevation: 150
 --- !u!114 &3182471947757015302
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -704,6 +708,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uiManager: {fileID: 11400000, guid: 09694218b3d8a5246b4e7c413bb47eb0, type: 2}
+--- !u!114 &3439894616293209047
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3272863007286530679}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52c162dc854d2f24fa639ba0623de5ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LeTai.TrueShadow::LeTai.TrueShadow.TrueShadow
+  algorithm: 0
+  size: 32
+  spread: 0.3
+  useGlobalAngle: 0
+  offsetAngle: 90
+  offsetDistance: 0
+  offset: {x: 0, y: -0}
+  color: {r: 0, g: 0, b: 0, a: 0.3137255}
+  inset: 0
+  blendMode: 0
+  useCasterAlpha: 1
+  ignoreCasterColor: 0
+  skipTextHashing: 0
+  deallocateOnDisable: 0
+  disableFitCompensation: 0
+  shadowAsSibling: 0
+  cutout: 0
+  baked: 0
+  modifiedFromInspector: 0
+  bakedShadows: []
 --- !u!114 &2352653928481394614
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -3,11 +3,17 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "UserSettings", menuName = "Scriptable Objects/UserSettings")]
 public class UserSettings : ScriptableObject
 {
-    [Header("Values")]
+    [Header("Current Values")]
     [SerializeField] private TextSize _textSize = TextSize.Normal;
     [SerializeField] private LineSpacing _lineSpacing = LineSpacing.Normal;
-    [SerializeField] private Theme _theme = Theme.Modern;
+    [SerializeField] private Theme _theme = Theme.Glass;
     [SerializeField] private bool _dyslexiaMode = false;
+
+    [Header("Default Values")]
+    [SerializeField] private TextSize defaultTextSize = TextSize.Normal;
+    [SerializeField] private LineSpacing defaultLineSpacing = LineSpacing.Normal;
+    [SerializeField] private Theme defaultTheme = Theme.Glass;
+    [SerializeField] private bool defaultDyslexiaMode = false;
 
     [Header("References")]
     public UIManager uiManager;
@@ -59,10 +65,10 @@ public class UserSettings : ScriptableObject
     public void Reset()
     {
         // Use properties so the event fires for each change
-        _textSize = TextSize.Normal;
-        _lineSpacing = LineSpacing.Normal;
-        _theme = Theme.Modern;
-        _dyslexiaMode = false;
+        _textSize = defaultTextSize;
+        _lineSpacing = defaultLineSpacing;
+        _theme = defaultTheme;
+        _dyslexiaMode = defaultDyslexiaMode;
         RaiseChanged();
     }
 
@@ -90,5 +96,6 @@ public enum Theme
 {
     Modern,
     Dark,
-    Light
+    Light,
+    Glass
 }

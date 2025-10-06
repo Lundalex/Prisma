@@ -34,6 +34,8 @@ public class MultiContainer : MonoBehaviour
     [Header("Tooltips")]
     [SerializeField] private TooltipContent minimizedTooltip;
     [SerializeField] private TooltipContent expandedTooltip;
+    [SerializeField] private TooltipContent minimizedTooltipG;
+    [SerializeField] private TooltipContent expandedTooltipG;
     [SerializeField] private GameObject minimizedTooltipR;
     [SerializeField] private GameObject expandedTooltipR;
 
@@ -325,15 +327,15 @@ public class MultiContainer : MonoBehaviour
     // ===== Tooltips =====
     private void UpdateTooltips()
     {
-        if (expandedTooltip && expandedTooltipR)
+        if (expandedTooltip && expandedTooltipR && expandedTooltipG)
         {
             expandedTooltipR.SetActive(viewMode == ViewMode.Expanded);
-            expandedTooltip.enabled = viewMode == ViewMode.Expanded;
+            expandedTooltip.enabled = expandedTooltipG.enabled = viewMode == ViewMode.Expanded;
         }
-        if (minimizedTooltip && minimizedTooltipR)
+        if (minimizedTooltip && minimizedTooltipR && minimizedTooltipG)
         {
-            minimizedTooltip.enabled = viewMode == ViewMode.Minimized;
             minimizedTooltipR.SetActive(viewMode == ViewMode.Minimized);
+            minimizedTooltip.enabled = minimizedTooltipG.enabled = viewMode == ViewMode.Minimized;
         }
     }
 

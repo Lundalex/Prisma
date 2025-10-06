@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using Michsky.MUIP;
 using TMPro;
+using LeTai.Asset.TranslucentImage;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -37,6 +39,10 @@ public class UIController : MonoBehaviour
 
     [Header("UIManager Reference")]
     [SerializeField] UIManager uiManager;
+
+    [Header("Extensions")]
+    [Tooltip("Optional extension that applies palette-specific 'glassy UI' effects.")]
+    public UIGlassControllerExtension glassExtension;
 
     readonly Dictionary<Image, Color> imgOrig = new();
     readonly Dictionary<UIGradient, Gradient> gradOrig = new();
@@ -142,6 +148,7 @@ public class UIController : MonoBehaviour
                 h = h * 31 + p.text.GetHashCode();
                 h = h * 31 + p.contrast.GetHashCode();
                 h = h * 31 + p.notification.GetHashCode();
+                h = h * 31 + (p.glassUI ? 1 : 0);
                 h = h * 31 + (p.name?.GetHashCode() ?? 0);
             }
 
@@ -217,11 +224,20 @@ public class UIController : MonoBehaviour
         ApplyColour(interactSliders, cp.text);
         ApplyColour(interactFields, cp.text);
 
-        // NEW: hide all affected TMP_Texts during font asset/style/size/spacing changes
+        if (glassExtension != null)
+            glassExtension.SetGlassyUIActive(cp.glassUI);
+
+        SetTranslucencyUpdateFrequency(cp.glassUI);
+
         ApplyFontsHidden(fp);
     }
 
-    // === NEW: hide-while-changing-font helper ===
+    void SetTranslucencyUpdateFrequency(bool glassUI)
+    {
+        TranslucentImageSource TISource = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<TranslucentImageSource>();
+        TISource.MaxUpdateRate = glassUI ? 120f : 5f;
+    }
+
     void ApplyFontsHidden(FontPalette fp)
     {
         var set = GatherAllTMPTexts();

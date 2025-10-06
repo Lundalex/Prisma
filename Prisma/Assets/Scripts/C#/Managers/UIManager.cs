@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System.Collections.Generic; 
 using UnityEngine;
 using TMPro;
 using UnityEngine.Serialization;
@@ -222,6 +222,7 @@ public class UIManager : ScriptableObject
                     h = h * 31 + p.text.GetHashCode();
                     h = h * 31 + p.contrast.GetHashCode();
                     h = h * 31 + p.notification.GetHashCode();
+                    h = h * 31 + (p.glassUI ? 1 : 0); // NEW
                     h = h * 31 + (p.name?.GetHashCode() ?? 0);
                 }
             }
@@ -490,8 +491,10 @@ public struct ColorPalette
 
     [ColorUsage(true, true)] public Color outline;
     [ColorUsage(true, true)] public Color background;
+
     public bool doUseBackgroundGradient;
     [ColorUsage(true, true)] public Color lightBackground;
+
     [ColorUsage(true, true)] public Color interactColor;
     public Gradient interactGradient;
 
@@ -499,6 +502,9 @@ public struct ColorPalette
     [ColorUsage(true, true)] public Color contrast;
 
     [ColorUsage(true, true)] public Color notification;
+
+    // NEW: whether this palette uses glassy UI styling
+    public bool glassUI;
 }
 
 /* ────────── FontSettings + FontPalette (consumed by UIController) ────────── */

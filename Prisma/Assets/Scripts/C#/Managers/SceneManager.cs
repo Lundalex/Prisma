@@ -5,7 +5,6 @@ using Resources2;
 using Unity.Mathematics;
 using UnityEngine;
 using Utilities.Extensions;
-using UnityEngine.EventSystems;
 
 public class SceneManager : MonoBehaviour
 {
