@@ -17,7 +17,6 @@ public class ProgramManager : ScriptableObject
 {
     // References
     public UserSettings userSettings;
-    public Material lineMaterial;
     [NonSerialized] public ProgramLifeCycleManager lifeCycleManager;
     [NonSerialized] public Main main;
     [NonSerialized] public NotificationManager2 notificationManager;
@@ -186,7 +185,6 @@ public class ProgramManager : ScriptableObject
         totalRLTimeSinceSceneLoad += Time.deltaTime;
 
         // Rendering
-        UpdateAnimatedDashedLineOffset(clampedDeltaTime);
         LerpGlobalBrightness(clampedDeltaTime);
         LerpTimeScale(clampedDeltaTime);
         LerpSensorUIScale(clampedDeltaTime);
@@ -417,13 +415,6 @@ public class ProgramManager : ScriptableObject
             sensorData.sensorUI.settingsViewWindowManager.OpenPanel("DefaultDisplay");
             sensorData.sensorUI.SetSettingsViewAsDisabled();
         }
-    }
-
-    private void UpdateAnimatedDashedLineOffset(float deltaTime)
-    {
-        float speedFactor = isAnySensorSettingsViewActive ? SettingsMaterialScrollSpeed : NonSettingsMaterialScrollSpeed;
-        offset += deltaTime * speedFactor;
-        lineMaterial.mainTextureOffset = new Vector2(offset, 0);
     }
 
     private void SetReferences()
