@@ -691,6 +691,8 @@ public class Main : MonoBehaviour
             }
         }
 
+        if (PM.Instance.slowMotionActive) deltaTime /= PM.SlowMotionFactor;
+
         return deltaTime;
     }
 
