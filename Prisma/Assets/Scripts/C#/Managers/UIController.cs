@@ -6,7 +6,6 @@ using Michsky.MUIP;
 using TMPro;
 using LeTai.Asset.TranslucentImage;
 
-
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -19,6 +18,7 @@ public class UIController : MonoBehaviour
     public List<Image> backgrounds = new();
     public List<Image> lightBackgrounds = new();
     public List<Image> contrasts = new();
+    public List<Image> lowContrasts = new();
     public List<Image> interactColors = new();
     public List<UIGradient> interactGradients = new();
     public List<TMP_Text> interactGradientTexts = new();
@@ -41,7 +41,6 @@ public class UIController : MonoBehaviour
     [SerializeField] UIManager uiManager;
 
     [Header("Extensions")]
-    [Tooltip("Optional extension that applies palette-specific 'glassy UI' effects.")]
     public UIGlassControllerExtension glassExtension;
 
     readonly Dictionary<Image, Color> imgOrig = new();
@@ -69,7 +68,6 @@ public class UIController : MonoBehaviour
     bool refreshQueued;
     int cachedHash;
 
-    // Shared per-frame hash so only one controller computes it each frame.
     static int s_lastComputedFrame = -1;
     static int s_sharedHash;
 
@@ -104,7 +102,6 @@ public class UIController : MonoBehaviour
 
     void Update()
     {
-        // Compute hash once per frame globally. First controller with a valid manager does the work.
         int frame = Time.frameCount;
         if (s_lastComputedFrame != frame && uiManager)
         {
@@ -147,6 +144,7 @@ public class UIController : MonoBehaviour
                 h = h * 31 + p.interactGradient.GetHashCode();
                 h = h * 31 + p.text.GetHashCode();
                 h = h * 31 + p.contrast.GetHashCode();
+                h = h * 31 + p.lowContrast.GetHashCode();
                 h = h * 31 + p.notification.GetHashCode();
                 h = h * 31 + (p.glassUI ? 1 : 0);
                 h = h * 31 + (p.name?.GetHashCode() ?? 0);
@@ -202,12 +200,12 @@ public class UIController : MonoBehaviour
         ColorPalette cp = uiManager.ActivePalette;
         FontPalette fp = uiManager.ActiveFontPalette;
 
-        // Apply colors & gradients first
         ApplyColour(outlines, cp.outline);
         ApplyColour(backgrounds, cp.background);
         ApplyColour(lightBackgrounds, cp.lightBackground);
         ApplyColour(interactColors, cp.interactColor);
         ApplyColour(contrasts, cp.contrast);
+        ApplyColour(lowContrasts, cp.lowContrast);
         ApplyGradient(interactGradients, cp.interactGradient);
         ApplyGradient(interactGradientTexts, cp.interactGradient);
         ApplyColour(notifications, cp.notification);
@@ -250,7 +248,6 @@ public class UIController : MonoBehaviour
             t.enabled = false;
         }
 
-        // Apply font settings while hidden
         ApplyFont(header1s, fp.header1);
         ApplyFont(header2s, fp.header2);
         ApplyFont(body1s, fp.body1);
@@ -262,7 +259,6 @@ public class UIController : MonoBehaviour
         ApplyFont(interactSliders, fp.interactSlider);
         ApplyFont(interactFields, fp.interactField);
 
-        // Restore original enabled states
         for (int i = 0; i < states.Count; i++)
         {
             var t = states[i].Key;
@@ -283,7 +279,6 @@ public class UIController : MonoBehaviour
         AddList(set, interactHeaders);
         AddList(set, interactSliders);
         AddList(set, interactFields);
-        // include any TMP_Texts added in generic 'texts'
         if (texts != null)
         {
             for (int i = 0; i < texts.Count; i++)
@@ -304,7 +299,6 @@ public class UIController : MonoBehaviour
             if (t) set.Add(t);
         }
     }
-    // === END: hide helper ===
 
     void ApplyColour(List<Image> imgs, Color c)
     {
@@ -496,7 +490,7 @@ public class UIController : MonoBehaviour
     bool IsInAnyImageList(Image img) =>
         outlines.Contains(img) || backgrounds.Contains(img) ||
         lightBackgrounds.Contains(img) || interactColors.Contains(img) ||
-        contrasts.Contains(img) || notifications.Contains(img);
+        contrasts.Contains(img) || lowContrasts.Contains(img) || notifications.Contains(img);
 
     bool IsInAnyTextListGraphic(MaskableGraphic g) =>
         texts.Contains(g) || header1s.Contains(g as TMP_Text) || header2s.Contains(g as TMP_Text) ||

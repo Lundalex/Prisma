@@ -47,6 +47,7 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public bool programPaused;
     [NonSerialized] public bool pauseOnStart;
     [NonSerialized] public bool slowMotionActive;
+    [NonSerialized] public bool slowMotionOnStart;
     [NonSerialized] public bool frameStep;
     [NonSerialized] public int frameCount;
     [NonSerialized] public float clampedDeltaTime;
@@ -101,7 +102,7 @@ public class ProgramManager : ScriptableObject
     // Key inputs
     private Timer rapidFrameSteppingTimer;
     private static readonly float rapidFrameSteppingDelay = 0.1f;
-    private static readonly float SlowMotionFactor = 4.0f;
+    public const float SlowMotionFactor = 4.0f;
 
     [NonSerialized] public static bool hasBeenReset = false;
 
@@ -138,7 +139,7 @@ public class ProgramManager : ScriptableObject
         ApplyResolutionScale(desiredScale, forceSceneReset: false);
 
         ScreenToViewFactorUI = GetScreenToViewFactor(Resolution.x / Resolution.y);
-        ScreenToViewFactorScene = GetScreenToViewFactor(Screen.width / (float)Screen.height);
+        ScreenToViewFactorScene = Vector2.one;
         main.SetScreenToViewFactor(ScreenToViewFactorScene);
         (ViewScale, ViewOffset) = GetViewTransform();
         SetStaticUIPositions();
@@ -296,7 +297,7 @@ public class ProgramManager : ScriptableObject
         }
 
         // Reset runtime data/state and re-initialize view transforms
-        ResetData(pauseOnStart);
+        ResetData(pauseOnStart, slowMotionOnStart);
         Initialize();
 
         // Rebuild full pipeline in correct order
@@ -322,8 +323,13 @@ public class ProgramManager : ScriptableObject
         }
         else if (startConfirmationStatus == StartConfirmationStatus.Complete)
         {
+            // Pause setting
             programPaused = pauseOnStart;
             if (pauseOnStart) TriggerSetPauseState(true);
+
+            // Slow motion setting
+            if (slowMotionActive != slowMotionOnStart)
+                TriggerSetSlowMotionState(slowMotionOnStart);
 
             startConfirmationStatus = StartConfirmationStatus.None;
         }
@@ -431,7 +437,7 @@ public class ProgramManager : ScriptableObject
         fullscreenView = GameObject.FindGameObjectWithTag("FullscreenView");
     }
 
-    public void ResetData(bool pauseOnStart)
+    public void ResetData(bool pauseOnStart, bool slowMotionOnStart)
     {
         OnProgramUpdate = null;
 
@@ -439,9 +445,12 @@ public class ProgramManager : ScriptableObject
         sceneIsResetting = false;
         doOnSettingsChanged = false;
         isAnySensorSettingsViewActive = false;
+
         programPaused = pauseOnStart;
         this.pauseOnStart = pauseOnStart;
-        slowMotionActive = false;
+
+        slowMotionActive = slowMotionOnStart;
+        this.slowMotionOnStart = slowMotionOnStart;
 
         if (!hasShownStartConfirmation)
         {
@@ -757,25 +766,10 @@ public class ProgramManager : ScriptableObject
     private (Vector2 ViewScale, Vector2 ViewOffset) GetViewTransform()
     {
         Vector2 boundaryDims = Utils.Int2ToVector2(main.BoundaryDims);
-        float boundsAspect = boundaryDims.x / boundaryDims.y;
-        float resolutionAspect = Resolution.x / Resolution.y;
 
-        Vector2 scale = boundaryDims / Resolution;
+        // Stretch-to-fill: independent X/Y scaling, no centering offsets.
+        Vector2 scale  = boundaryDims / Resolution;
         Vector2 offset = Vector2.zero;
-        if (resolutionAspect > boundsAspect)
-        {
-            // Wider resolution: scale based on height
-            scale.x = boundaryDims.y / Resolution.y;
-            float scaledWidth = Resolution.x * scale.x;
-            offset.x = (boundaryDims.x - scaledWidth) / 2.0f;
-        }
-        else
-        {
-            // Taller resolution: scale based on width
-            scale.y = boundaryDims.x / Resolution.x;
-            float scaledHeight = Resolution.y * scale.y;
-            offset.y = (boundaryDims.y - scaledHeight) / 2.0f;
-        }
 
         return (scale, offset);
     }
@@ -841,8 +835,14 @@ public class ProgramManager : ScriptableObject
     {
         programPaused = state;
         Debug.Log(programPaused ? "Program paused" : "Program resumed");
-        if (programPaused) notificationManager.OpenNotification("PauseTip");
-        else notificationManager.CloseNotification("PauseTip");
+
+        if (programPaused)
+            notificationManager.OpenNotification("PauseTip");
+        else
+            notificationManager.CloseNotification("PauseTip");
+
+        if (!programPaused && slowMotionActive)
+            notificationManager.OpenNotification("SlowMotionTip");
     }
 
     private void OnNewSlowMotionState(bool state)
@@ -853,15 +853,9 @@ public class ProgramManager : ScriptableObject
         Debug.Log(slowMotionActive ? "Slow motion activated" : "Slow motion deactivated");
 
         if (slowMotionActive)
-        {
-            main.ProgramSpeed /= SlowMotionFactor;
             notificationManager.OpenNotification("SlowMotionTip");
-        }
         else
-        {
-            main.ProgramSpeed *= SlowMotionFactor;
             notificationManager.CloseNotification("SlowMotionTip");
-        }
     }
 
     public void SetNewLanguage(int languageIndex)

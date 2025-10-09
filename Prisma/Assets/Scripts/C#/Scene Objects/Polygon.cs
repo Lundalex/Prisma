@@ -13,8 +13,8 @@ public abstract class Polygon : EditorLifeCycle
     [ColorUsage(true, true)] public Color BodyColor = Color.white;
 
     [NonSerialized] public List<Edge> Edges = new();
-    [NonSerialized] public List<Vector2> MeshPoints = new(); // All points combined
-    [NonSerialized] public List<List<Vector2>> MeshPointsPerPath = new(); // Multi-path drawing
+    [NonSerialized] public List<Vector2> MeshPoints = new();
+    [NonSerialized] public List<List<Vector2>> MeshPointsPerPath = new();
     [NonSerialized] public PolygonCollider2D polygonCollider;
 
 #if UNITY_EDITOR

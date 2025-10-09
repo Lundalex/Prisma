@@ -101,7 +101,6 @@ void AccumulateFrictionForce(int index, int2 frictionForce_Int2)
 
 bool IsPointInsideRB(float2 pos, RigidBody rb)
 {
-    // Shift pos to local space
     pos -= rb.pos;
 
     uint intersections = 0;
@@ -110,41 +109,33 @@ bool IsPointInsideRB(float2 pos, RigidBody rb)
     uint numVertices = endIndex - startIndex + 1;
     uint pathStartIndex = startIndex;
     
-    // First vertex
     float2 firstPathVec = RBVectors[startIndex].pos;
     float2 lastVec = firstPathVec;
 
-    // Perform point-line tests for every edge
     for (uint i = 1; i <= numVertices; i++)
     {
-        // Wrap at the end
         uint vecIndex = (i == numVertices) ? pathStartIndex : (startIndex + i);
         float2 newVec = RBVectors[vecIndex].pos;
 
         bool newPathFlag = (newVec.x > PATH_FLAG_THRESHOLD);
         if (newPathFlag)
         {
-            // Close the subpath: (lastVec -> firstPathVec)
             if (IsPointToTheLeftOfLine(pos, lastVec, firstPathVec)) intersections++;
 
-            // Remove the marker offset
             newVec.x -= PATH_FLAG_OFFSET;
 
-            // Start a new subpath
             firstPathVec = newVec;
             lastVec = newVec;
             pathStartIndex = vecIndex;
         }
         else
         {
-            // Normal edge: (lastVec -> newVec)
             if (IsPointToTheLeftOfLine(pos, lastVec, newVec)) intersections++;
 
             lastVec = newVec;
         }
     }
 
-    // Odd # intersections => inside
     return ((intersections % 2) == 1);
 }
 
@@ -161,7 +152,6 @@ RBHitInfo RayRBDstHitInfo(float2 pos, RigidBody rb)
     uint numVertices = endIndex - startIndex + 1;
     uint pathStartIndex = startIndex;
     
-    // First vertex
     float2 firstPathVec = RBVectors[startIndex].pos;
     float2 lastVec = firstPathVec;
 
@@ -230,7 +220,6 @@ void ResolveCollisionRB_RB(
     inout float2 deltaVelB,
     inout float deltaRotVelB)
 {
-    // Initialize outputs
     deltaVelA = 0;
     deltaRotVelA = 0;
     deltaVelB = 0;
@@ -241,35 +230,28 @@ void ResolveCollisionRB_RB(
     bool canRotateA = (rbA.inertia > 0);
     bool canRotateB = (rbB.inertia > 0);
 
-    // Collision point
     float2 collisionPoint = rbHitInfo.hitPoint;
 
-    // Penetration vector
     float2 penetration = AInsideB_BInsideA
         ? (collisionPoint - rbHitInfo.pointPos)
         : (rbHitInfo.pointPos - collisionPoint);
 
-    // Depth & normal
     float penetrationDepth = length(penetration);
     if (penetrationDepth <= 0.0) return;
     float2 normal = normalize(penetration);
 
-    // Inverse masses
     float invMassA = canMoveA ? 1.0 / rbA.mass : 0;
     float invMassB = canMoveB ? 1.0 / rbB.mass : 0;
     float totalInvMass = invMassA + invMassB;
     if (totalInvMass == 0) return;
 
-    // Positional correction
     float2 correction = ((penetrationDepth / totalInvMass) * RB_RBCollisionCorrectionFactor) * normal;
     if (canMoveA) rbA.pos -= correction * invMassA + RB_RBFixedCollisionCorrection * normal;
     if (canMoveB) rbB.pos += correction * invMassB + RB_RBFixedCollisionCorrection * normal;
 
-    // Recompute positions
     float2 rA = collisionPoint - rbA.pos;
     float2 rB = rbHitInfo.pointPos - rbB.pos;
 
-    // Velocities at collision
     float2 rbAVel = Int2ToFloat2(rbA.vel_AsInt2, INT_FLOAT_PRECISION_RB)
                   + crossZ(IntToFloat(rbA.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT), rA);
     float2 rbBVel = Int2ToFloat2(rbB.vel_AsInt2, INT_FLOAT_PRECISION_RB)
@@ -277,12 +259,10 @@ void ResolveCollisionRB_RB(
 
     float2 relVel = rbBVel - rbAVel;
     float relVelAlongNormal = dot(relVel, normal);
-    if (relVelAlongNormal >= 0.0) return; // separating
+    if (relVelAlongNormal >= 0.0) return;
 
-    // Restitution
     float e = min(rbA.rbElasticity, rbB.rbElasticity);
 
-    // Inverse inertias
     float invInertiaA = canRotateA ? 1.0 / rbA.inertia : 0;
     float invInertiaB = canRotateB ? 1.0 / rbB.inertia : 0;
 
@@ -296,13 +276,11 @@ void ResolveCollisionRB_RB(
     float jn = -(1 + e) * relVelAlongNormal / denom;
     float2 impulseNormal = jn * normal;
 
-    // Apply normal impulse
     if (canMoveA) deltaVelA += -impulseNormal * invMassA;
     if (canMoveB) deltaVelB +=  impulseNormal * invMassB;
     if (canRotateA) deltaRotVelA += cross2D(rA, -impulseNormal) * invInertiaA;
     if (canRotateB) deltaRotVelB += cross2D(rB,  impulseNormal) * invInertiaB;
 
-    // Friction
     float2 tangent = relVel - relVelAlongNormal * normal;
     float tangentSpeed = length(tangent);
     if (tangentSpeed > EPSILON)
@@ -339,9 +317,6 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
     if (isNotRBCollider) return;
     
     #if !DO_USE_FAST_COMPILATION
-        // Improves performance slightly, but significantly increases build times, even when DO_USE_FAST_COMPILATION = false
-        // Only uncomment this for final builds
-        // [unroll(MAX_RIGIDBODIES_NUM)]
     #endif
     for (uint rbBIndex = rbAIndex + 1; rbBIndex < NumRigidBodies; rbBIndex++)
     {
@@ -362,7 +337,6 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
         float2 posRecA = rbA.pos;
         float2 posRecB = rbB.pos;
 
-        // Early bounding check
         float dst = length(rbB.pos - rbA.pos);
         float radiusSum = sqrt(abs(rbA.maxRadiusSqr)) + sqrt(abs(rbB.maxRadiusSqr));
         if (dst > radiusSum) continue;
@@ -375,7 +349,6 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
         float deltaRotVelA = 0;
         float deltaRotVelB = 0;
 
-        // Check if any points of rbA are inside rbB
         uint startIndexA = rbA.startIndex;
         uint endIndexA = rbA.endIndex;
         for (uint vecIndex = startIndexA; vecIndex <= endIndexA && !collisionDetected; vecIndex++)
@@ -395,7 +368,6 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
                                   deltaVelA, deltaRotVelA, deltaVelB, deltaRotVelB);
         }
 
-        // Check if any points of rbB are inside rbA
         uint startIndexB = rbB.startIndex;
         uint endIndexB = rbB.endIndex;
         for (vecIndex = startIndexB; vecIndex <= endIndexB && !collisionDetected; vecIndex++)
@@ -417,19 +389,16 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
 
         if (collisionDetected)
         {
-            // Update linear velocities
             int2 deltaVelA_Int2 = Float2AsInt2(deltaVelA, INT_FLOAT_PRECISION_RB);
             int2 deltaVelB_Int2 = Float2AsInt2(deltaVelB, INT_FLOAT_PRECISION_RB);
             AccumulateDeltaVel(rbAIndex, deltaVelA_Int2);
             AccumulateDeltaVel(rbBIndex, deltaVelB_Int2);
 
-            // Update angular velocities
             int deltaRotVelA_Int = FloatAsInt(deltaRotVelA, INT_FLOAT_PRECISION_RB_ROT);
             int deltaRotVelB_Int = FloatAsInt(deltaRotVelB, INT_FLOAT_PRECISION_RB_ROT);
             AccumulateDeltaRotVel(rbAIndex, deltaRotVelA_Int);
             AccumulateDeltaRotVel(rbBIndex, deltaRotVelB_Int);
 
-            // Update positions
             float2 deltaPosA = rbA.pos - posRecA;
             float2 deltaPosB = rbB.pos - posRecB;
             int2 deltaPosA_int2 = Float2AsInt2(deltaPosA, INT_FLOAT_PRECISION_RB);
@@ -440,14 +409,11 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
     }
 }
 
-// Crude fix for filtering corrupted data
-// Sometimes, when the CPU sends new data, data in RBAdjustments gets corrupted.
-// Since the CPU shouldn't halt the GPU when sending new data, this issue was dealt with by filtering the data before usage
 bool IsDataValid(RBAdjustment data)
 {
     if (length(Int2ToFloat2(data.deltaPos_Int2, INT_FLOAT_PRECISION_RB)) > 2000) return false;
     if (length(Int2ToFloat2(data.deltaVel_Int2, INT_FLOAT_PRECISION_RB)) > 2000) return false;
-    if (abs(IntToFloat(data.deltaRotVel_Int, INT_FLOAT_PRECISION_RB)) > 2000) return false;
+    if (abs(IntToFloat(data.deltaRotVel_Int, INT_FLOAT_PRECISION_RB_ROT)) > 2000) return false;
     return true;
 }
 
@@ -476,28 +442,22 @@ void ResolveCollisionRB_P(
     out float deltaRotVel,
     out float2 deltaCenterVel)
 {
-    // Initialize outputs
     deltaRotVel = 0;
     deltaCenterVel = 0;
 
-    // Ray-cast for collision
     RBHitInfo rbHitInfo = RayRBDstHitInfo(pData.pos, rb);
 
-    // Collision point
     float2 collisionPoint  = rbHitInfo.hitPoint;
     float2 collisionNormal = float2(rbHitInfo.lineVec.y, -rbHitInfo.lineVec.x);
 
-    // RigidBody velocity at collision
     float2 dstToCollisionPoint = collisionPoint - rb.pos;
     float2 rotVelAtCollisionPoint = float2(-dstToCollisionPoint.y, dstToCollisionPoint.x) * IntToFloat(rb.rotVel_AsInt, INT_FLOAT_PRECISION_RB_ROT);
     float2 rbVel = Int2ToFloat2(rb.vel_AsInt2, INT_FLOAT_PRECISION_RB) + rotVelAtCollisionPoint;
     float2 relVel = pData.vel - rbVel;
 
-    // Check if moving towards the RB
     float relVelAlongNormal = dot(relVel, collisionNormal);
     if (relVelAlongNormal >= 0.0) return;
 
-    // Reflect velocity across normal
     float2 mirrorRelVel = relVel - (1.0 + rb.fluidElasticity)
                                   * relVelAlongNormal
                                   * collisionNormal;
@@ -505,27 +465,22 @@ void ResolveCollisionRB_P(
     float2 oldPVel = pData.vel;
     pData.vel = newPVel;
 
-    // Prevent penetration
     float penetrationDepth = dot(pData.pos - collisionPoint, collisionNormal);
     if (penetrationDepth < 0.0)
     {
         pData.pos -= penetrationDepth * collisionNormal - rotVelAtCollisionPoint * DeltaTime;
     }
 
-    // If RB is effectively immovable
     bool canMove   = (rb.mass > 0);
     bool canRotate = (rb.inertia > 0);
     if (!canMove && !canRotate) return;
 
-    // Impulse
     float2 pImpulse = pMass * (newPVel - oldPVel);
     float2 rbImpulse = -pImpulse;
 
-    // Torque
     float2 dst = collisionPoint - rb.pos;
     float torque = cross2D(dst, rbImpulse);
 
-    // Delta velocities for RB
     deltaCenterVel = canMove   ? (rbImpulse / rb.mass) : 0;
     deltaRotVel    = canRotate ? (torque / rb.inertia) : 0;
 
@@ -561,7 +516,6 @@ void SimulateRB_P(uint3 id : SV_DispatchThreadID)
         bool isNotFluidCollider = (rb.fluidElasticity == -1);
         if (isNotFluidCollider) continue;
 
-        // Early exit if the particle isn't within range of the rb
         if (dot2(rb.pos - pData.pos) <= abs(rb.maxRadiusSqr))
         {
             bool isInside = IsPointInsideRB(pData.pos, rb);
@@ -635,11 +589,9 @@ float2 interactionAcceleration(inout RigidBody rb)
     float2 dst = rb.pos - MousePos;
     float absDst = length(dst);
 
-    // Determine if the rigid body is being dragged
     bool isBeingDragged = LMousePressed && (ReadBit(rb.stateFlags, 0) || absDst < RB_MaxInteractionRadius);
     bool isBeingRepelled = RMousePressed && absDst < RB_MaxInteractionRadius;
 
-    // Update the dragging flag
     SetBit(rb.stateFlags, 0, isBeingDragged);
 
     if (!isBeingDragged && !isBeingRepelled) return 0;
@@ -749,7 +701,6 @@ void SimulateRBSprings(uint3 id : SV_DispatchThreadID)
         float2 direction = r / currentLength;
         float displacement = currentLength - springRestLength;
 
-        // Hooke's law
         float springForceMagnitude = -stiffness * displacement;
 
         float2 velAtLinkA = Int2ToFloat2(rbA.vel_AsInt2, INT_FLOAT_PRECISION_RB)
@@ -773,7 +724,6 @@ void SimulateRBSprings(uint3 id : SV_DispatchThreadID)
             deltaRotVelB += cross2D(linkPosB, -totSpringForce) * invInertiaB * DeltaTime;
     }
 
-    // Accumulate final velocities
     int2 deltaVelA_Int2 = Float2AsInt2(deltaVelA, INT_FLOAT_PRECISION_RB);
     int2 deltaVelB_Int2 = Float2AsInt2(deltaVelB, INT_FLOAT_PRECISION_RB);
     AccumulateDeltaVel(i, deltaVelA_Int2);
@@ -784,7 +734,6 @@ void SimulateRBSprings(uint3 id : SV_DispatchThreadID)
     AccumulateDeltaRotVel(i, deltaRotVelA_Int);
     AccumulateDeltaRotVel(rbA.linkedRBIndex, deltaRotVelB_Int);
 
-    // Record spring force
     if (!AreAllComponentsEqualTo(totSpringForce, 0.0))
     {
         float2 springForceNormalized = totSpringForce * 0.001;
@@ -801,16 +750,6 @@ int SafeAsInt(int asInt, float max)
     asFloat = sign(asFloat) * min(abs(asFloat), max);
     int newAsInt = FloatAsInt(asFloat, INT_FLOAT_PRECISION_RB_ROT);
     return newAsInt;
-}
-
-int2 SafeAsInt2(int2 asInt2, float max)
-{
-    if (asInt2.x == 0 && asInt2.y == 0) return 0;
-
-    float2 asFloat2 = Int2ToFloat2(asInt2, INT_FLOAT_PRECISION_RB);
-    asFloat2 = normalize(asFloat2) * min(length(asFloat2), max);
-    int2 newAsInt2 = Float2AsInt2(asFloat2, INT_FLOAT_PRECISION_RB);
-    return newAsInt2;
 }
 
 void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, float2 normal, uint rbIndex)
@@ -892,8 +831,25 @@ void ResetRBVertices(uint3 id : SV_DispatchThreadID)
 
     bool newPathFlag = EnsureNoPathMarker(rbVector.pos);
 
-    // Rotate purely to local space
     RBVectors[i].pos = rotate(rbVector.pos, -RigidBodies[rbVector.parentIndex].totRot) + float2((newPathFlag ? PATH_FLAG_OFFSET : 0.0), 0.0);
+}
+
+float2 ClampMouseDeltaForMaxSpeed(float2 baseVel, float2 deltaMouse, float maxSpeed)
+{
+    float max2 = maxSpeed * maxSpeed;
+    float base2 = dot(baseVel, baseVel);
+    float2 proposed = baseVel + deltaMouse;
+    float proposed2 = dot(proposed, proposed);
+    if (base2 >= max2)
+    {
+        if (proposed2 < base2) return deltaMouse;
+        return 0;
+    }
+    if (proposed2 <= max2) return deltaMouse;
+    float len = length(proposed);
+    if (len <= EPSILON) return 0;
+    float2 allowed = proposed * (maxSpeed / len);
+    return allowed - baseVel;
 }
 
 [numthreads(TN_RBS2,1,1)]
@@ -986,11 +942,18 @@ void UpdateRigidBodies(uint3 id : SV_DispatchThreadID)
         float2 vel = Int2ToFloat2(rb.vel_AsInt2, INT_FLOAT_PRECISION_RB);
         if (length(vel) > MinRBVelForMovement) rb.pos += vel * DeltaTime;
 
-        rb.vel_AsInt2 += Float2AsInt2(totAcceleration * DeltaTime + (isInteractable ? interactionAcceleration(rb) * RLDeltaTime : 0), INT_FLOAT_PRECISION_RB);
+        float2 deltaPhys  = totAcceleration * DeltaTime;
+        float2 deltaMouse = isInteractable ? (interactionAcceleration(rb) * RLDeltaTime) : 0;
 
-        rb.vel_AsInt2 = SafeAsInt2(rb.vel_AsInt2, MaxRBVel);
+        float2 baseVel = vel + deltaPhys;
 
-        rb.vel_AsInt2 *= (1.0 - rb.passiveDamping * DeltaTime);
+        float2 clampedMouse = ClampMouseDeltaForMaxSpeed(baseVel, deltaMouse, MaxRBVel);
+
+        float2 newVel = baseVel + clampedMouse;
+
+        newVel *= (1.0 - rb.passiveDamping * DeltaTime);
+
+        rb.vel_AsInt2 = Float2AsInt2(newVel, INT_FLOAT_PRECISION_RB);
     }
 
     RigidBodies[i] = rb;

@@ -9,8 +9,21 @@ public class InlineToolbar : PropertyDrawer
 {
     protected static Texture[] textures;
 
-    static readonly GUIStyle LABEL_STYLE = new GUIStyle(EditorStyles.label)
-        {alignment = TextAnchor.MiddleLeft,};
+    static GUIStyle _labelStyle;
+    static GUIStyle LabelStyle
+    {
+        get
+        {
+            if (_labelStyle == null)
+            {
+                GUIStyle baseStyle = null;
+                try { baseStyle = EditorStyles.label; } catch {}
+                _labelStyle = baseStyle != null ? new GUIStyle(baseStyle) : new GUIStyle();
+                _labelStyle.alignment = TextAnchor.MiddleLeft;
+            }
+            return _labelStyle;
+        }
+    }
 
     public override void OnGUI(Rect       position, SerializedProperty property,
                                GUIContent label)
@@ -18,13 +31,20 @@ public class InlineToolbar : PropertyDrawer
         using (var propScope = new EditorGUI.PropertyScope(position, label, property))
         {
             int id        = GUIUtility.GetControlID(FocusType.Keyboard, position);
-            var lableRect = position;
-            lableRect.y      += (lableRect.height - EditorGUIUtility.singleLineHeight) / 2;
-            lableRect.height =  EditorGUIUtility.singleLineHeight;
-            var toolbarRect = EditorGUI.PrefixLabel(lableRect, id, propScope.content, LABEL_STYLE);
+            var labelRect = position;
+            labelRect.y      += (labelRect.height - EditorGUIUtility.singleLineHeight) / 2;
+            labelRect.height =  EditorGUIUtility.singleLineHeight;
+            var toolbarRect = EditorGUI.PrefixLabel(labelRect, id, propScope.content, LabelStyle);
             toolbarRect.width  = EditorGUIUtility.singleLineHeight * 4f;
             toolbarRect.height = position.height;
             toolbarRect.y      = position.y;
+
+            if (textures == null || textures.Length == 0)
+            {
+                bool newVal = EditorGUI.Toggle(toolbarRect, property.boolValue);
+                if (newVal != property.boolValue) property.boolValue = newVal;
+                return;
+            }
 
             using (var changeScope = new EditorGUI.ChangeCheckScope())
             {

@@ -5,10 +5,14 @@ using Resources2;
 using Unity.Mathematics;
 using UnityEngine;
 using Utilities.Extensions;
+using System.Runtime.InteropServices;
 
 public class SceneManager : MonoBehaviour
 {
+    public enum SceneCachingMode { None, OnlyRigidBodies, All }
+
     public int MaxAtlasDims;
+    public SceneCachingMode CachingMode;
 
     private Vector2 sceneMin;
     private Vector2 sceneMax;
@@ -29,6 +33,25 @@ public class SceneManager : MonoBehaviour
     }
 
     private static CachedAtlas _cachedAtlas;
+
+    private struct CachedSceneObjects
+    {
+        public RBData[] rbDatas;
+        public RBVector[] rbVectors;
+        public int[] rbInstanceIds;
+        public float sizeMB;
+    }
+
+    private static CachedSceneObjects _cachedSceneObjects;
+
+    private struct CachedFluids
+    {
+        public PData[] pDatas;
+        public int[] fluidInstanceIds;
+        public float sizeMB;
+    }
+
+    private static CachedFluids _cachedFluids;
 
     private void SetReferences()
     {
@@ -314,6 +337,34 @@ public class SceneManager : MonoBehaviour
         SceneFluid[] allFluids = GetAllSceneFluids();
         Vector2 offset = GetBoundsOffset();
 
+        bool cacheReady =
+            _cachedFluids.pDatas != null &&
+            _cachedFluids.fluidInstanceIds != null &&
+            _cachedFluids.fluidInstanceIds.Length == allFluids.Length;
+
+        if (cacheReady)
+        {
+            for (int i = 0; i < allFluids.Length; i++)
+            {
+                if (_cachedFluids.fluidInstanceIds[i] != allFluids[i].GetInstanceID())
+                {
+                    cacheReady = false;
+                    break;
+                }
+            }
+        }
+
+        bool useCache = cacheReady && CachingMode == SceneCachingMode.All;
+
+        if (useCache)
+        {
+            int take = Mathf.Min(maxParticlesNum, _cachedFluids.pDatas.Length);
+            if (take == _cachedFluids.pDatas.Length) return _cachedFluids.pDatas;
+            var arr = new PData[take];
+            Array.Copy(_cachedFluids.pDatas, arr, take);
+            return arr.ToArray();
+        }
+
         List<PData> allPDatas = new();
         foreach (SceneFluid fluid in allFluids)
         {
@@ -321,11 +372,37 @@ public class SceneManager : MonoBehaviour
             foreach (var pData in pDatas)
             {
                 allPDatas.Add(pData);
-                if (--maxParticlesNum <= 0) return allPDatas.ToArray();
+                if (--maxParticlesNum <= 0)
+                {
+                    var result = allPDatas.ToArray();
+                    if (CachingMode == SceneCachingMode.All)
+                    {
+                        CacheFluids(allFluids, result);
+                    }
+                    return result;
+                }
             }
         }
 
-        return allPDatas.ToArray();
+        var resultAll = allPDatas.ToArray();
+        if (CachingMode == SceneCachingMode.All)
+        {
+            CacheFluids(allFluids, resultAll);
+        }
+        return resultAll;
+    }
+
+    private void CacheFluids(SceneFluid[] allFluids, PData[] pDatas)
+    {
+        int szP = Marshal.SizeOf<PData>();
+        float sizeMB = ((long)szP * pDatas.Length) / (1024f * 1024f);
+        StringUtils.LogIfInEditor($"[SceneCache] Calculated and cached fluid data: {pDatas.Length} particles, ~{sizeMB:0.00} MB");
+        _cachedFluids = new CachedFluids
+        {
+            pDatas = pDatas,
+            fluidInstanceIds = allFluids.Select(f => f.GetInstanceID()).ToArray(),
+            sizeMB = sizeMB
+        };
     }
 
     public (RBData[], RBVector[], SensorArea[]) CreateRigidBodies(float? rbCalcGridSpacingInput = null)
@@ -354,9 +431,94 @@ public class SceneManager : MonoBehaviour
 
         Vector2 boundsOffset = GetBoundsOffset();
 
+        bool cacheReady =
+            _cachedSceneObjects.rbDatas != null &&
+            _cachedSceneObjects.rbVectors != null &&
+            _cachedSceneObjects.rbInstanceIds != null &&
+            _cachedSceneObjects.rbInstanceIds.Length == allRigidBodies.Length;
+
+        if (cacheReady)
+        {
+            for (int i = 0; i < allRigidBodies.Length; i++)
+            {
+                if (_cachedSceneObjects.rbInstanceIds[i] != allRigidBodies[i].GetInstanceID())
+                {
+                    cacheReady = false;
+                    break;
+                }
+            }
+        }
+
+        bool cachingEnabled = CachingMode == SceneCachingMode.OnlyRigidBodies || CachingMode == SceneCachingMode.All;
+        bool useCache = cacheReady && cachingEnabled;
+
+        List<SensorBase> sensors = new();
+        List<SensorArea> sensorAreas = new();
+
+        if (useCache)
+        {
+            for (int i = 0; i < allRigidBodies.Length; i++)
+            {
+                SceneRigidBody rigidBody = allRigidBodies[i];
+                if (!rigidBody.rbInput.includeInSimulation) continue;
+
+                foreach (SensorBase sensor in rigidBody.linkedSensors)
+                {
+                    if (sensor == null) continue;
+                    if (!sensor.isActiveAndEnabled) continue;
+
+                    if (sensor is RigidBodySensor rigidBodySensor)
+                    {
+                        rigidBodySensor.linkedRBIndex = i;
+
+                        rigidBodySensor.SetReferences(sensorUIContainer, sensorOutlineContainer, main, sensorManager);
+                        rigidBodySensor.Initialize(_cachedSceneObjects.rbDatas[i].pos);
+                        sensors.Add(sensor);
+                    }
+                    else if (sensor is RigidBodyArrow rigidBodyArrow)
+                    {
+                        rigidBodyArrow.linkedRBIndex = i;
+
+                        rigidBodyArrow.SetReferences(arrowManager, main, sensorManager);
+                        rigidBodyArrow.Initialize();
+                        sensors.Add(sensor);
+                    }
+                }
+            }
+
+            GameObject[] fluidSensorObjects = GameObject.FindGameObjectsWithTag("FluidSensor");
+            FluidSensor[] fluidSensors = Array.ConvertAll(fluidSensorObjects, obj => obj.GetComponent<FluidSensor>());
+            foreach (FluidSensor fluidSensor in fluidSensors)
+            {
+                if (fluidSensor == null) continue;
+                sensors.Add(fluidSensor);
+
+                fluidSensor.SetReferences(sensorUIContainer, sensorOutlineContainer, main, sensorManager);
+                fluidSensor.Initialize(Vector2.zero);
+
+                sensorAreas.Add(fluidSensor.GetSensorAreaData());
+            }
+
+            GameObject[] fluidArrowFieldObjects = GameObject.FindGameObjectsWithTag("FluidArrowField");
+            FluidArrowField[] fluidArrowFields = Array.ConvertAll(fluidArrowFieldObjects, obj => obj.GetComponent<FluidArrowField>());
+            foreach (FluidArrowField fluidArrowField in fluidArrowFields)
+            {
+                if (fluidArrowField == null) continue;
+                sensors.Add(fluidArrowField);
+
+                fluidArrowField.SetReferences(arrowManager, main, sensorManager);
+                fluidArrowField.Initialize();
+
+                if (fluidArrowField.doRenderMeasurementZone) sensorAreas.Add(fluidArrowField.GetSensorAreaData());
+            }
+
+            sensorManager.sensors = sensors;
+
+            return (_cachedSceneObjects.rbDatas, _cachedSceneObjects.rbVectors, sensorAreas.ToArray());
+        }
+
         List<RBData> allRBData = new();
         List<RBVector> allRBVectors = new();
-        List<SensorBase> sensors = new();
 
         for (int i = 0; i < allRigidBodies.Length; i++)
         {
@@ -436,37 +598,28 @@ public class SceneManager : MonoBehaviour
                 if (sensor == null) continue;
                 if (!sensor.isActiveAndEnabled) continue;
 
-                if (sensors.Contains(sensor))
+                if (sensor is RigidBodySensor rigidBodySensor)
                 {
-                    Debug.LogWarning("Duplicate sensor " + sensor.name);
+                    rigidBodySensor.linkedRBIndex = i;
+                    sensors.Add(sensor);
+
+                    rigidBodySensor.SetReferences(sensorUIContainer, sensorOutlineContainer, main, sensorManager);
+                    rigidBodySensor.Initialize(transformedRBPos);
                 }
-                else
+                else if (sensor is RigidBodyArrow rigidBodyArrow)
                 {
-                    if (sensor is RigidBodySensor rigidBodySensor)
-                    {
-                        rigidBodySensor.linkedRBIndex = i;
-                        sensors.Add(sensor);
+                    rigidBodyArrow.linkedRBIndex = i;
+                    sensors.Add(sensor);
 
-                        rigidBodySensor.SetReferences(sensorUIContainer, sensorOutlineContainer, main, sensorManager);
-                        rigidBodySensor.Initialize(transformedRBPos);
-                    }
-                    else if (sensor is RigidBodyArrow rigidBodyArrow)
-                    {
-                        rigidBodyArrow.linkedRBIndex = i;
-                        sensors.Add(sensor);
-
-                        rigidBodyArrow.SetReferences(arrowManager, main, sensorManager);
-                        rigidBodyArrow.Initialize();
-                    }
+                    rigidBodyArrow.SetReferences(arrowManager, main, sensorManager);
+                    rigidBodyArrow.Initialize();
                 }
             }
         }
 
-        List<SensorArea> sensorAreas = new();
-
-        GameObject[] fluidSensorObjects = GameObject.FindGameObjectsWithTag("FluidSensor");
-        FluidSensor[] fluidSensors = Array.ConvertAll(fluidSensorObjects, obj => obj.GetComponent<FluidSensor>());
-        foreach (FluidSensor fluidSensor in fluidSensors)
+        GameObject[] fluidSensorObjects2 = GameObject.FindGameObjectsWithTag("FluidSensor");
+        FluidSensor[] fluidSensors2 = Array.ConvertAll(fluidSensorObjects2, obj => obj.GetComponent<FluidSensor>());
+        foreach (FluidSensor fluidSensor in fluidSensors2)
         {
             if (fluidSensor == null) continue;
             sensors.Add(fluidSensor);
@@ -477,9 +630,9 @@ public class SceneManager : MonoBehaviour
             sensorAreas.Add(fluidSensor.GetSensorAreaData());
         }
 
-        GameObject[] fluidArrowFieldObjects = GameObject.FindGameObjectsWithTag("FluidArrowField");
-        FluidArrowField[] fluidArrowFields = Array.ConvertAll(fluidArrowFieldObjects, obj => obj.GetComponent<FluidArrowField>());
-        foreach (FluidArrowField fluidArrowField in fluidArrowFields)
+        GameObject[] fluidArrowFieldObjects2 = GameObject.FindGameObjectsWithTag("FluidArrowField");
+        FluidArrowField[] fluidArrowFields2 = Array.ConvertAll(fluidArrowFieldObjects2, obj => obj.GetComponent<FluidArrowField>());
+        foreach (FluidArrowField fluidArrowField in fluidArrowFields2)
         {
             if (fluidArrowField == null) continue;
             sensors.Add(fluidArrowField);
@@ -492,7 +645,23 @@ public class SceneManager : MonoBehaviour
 
         sensorManager.sensors = sensors;
 
-        return (allRBData.ToArray(), allRBVectors.ToArray(), sensorAreas.ToArray());
+        var rbDatasArr = allRBData.ToArray();
+        var rbVectorsArr = allRBVectors.ToArray();
+
+        int szA = Marshal.SizeOf<RBData>();
+        int szB = Marshal.SizeOf<RBVector>();
+        float sizeMB = ((long)szA * rbDatasArr.Length + (long)szB * rbVectorsArr.Length) / (1024f * 1024f);
+        StringUtils.LogIfInEditor($"[SceneCache] Calculated and cached rigid scene data: {rbDatasArr.Length} RBs, {rbVectorsArr.Length} vertices{(CachingMode == SceneCachingMode.All ? ", Fluids=ON" : "")}, ~{sizeMB:0.00} MB");
+
+        _cachedSceneObjects = new CachedSceneObjects
+        {
+            rbDatas = rbDatasArr,
+            rbVectors = rbVectorsArr,
+            rbInstanceIds = allRigidBodies.Select(r => r.GetInstanceID()).ToArray(),
+            sizeMB = sizeMB
+        };
+
+        return (rbDatasArr, rbVectorsArr, sensorAreas.ToArray());
     }
 
     private Vector2[] GetTransformedMultiPathPoints(SceneRigidBody rigidBody, Vector2 offset, out Vector2 transformedRBPos)

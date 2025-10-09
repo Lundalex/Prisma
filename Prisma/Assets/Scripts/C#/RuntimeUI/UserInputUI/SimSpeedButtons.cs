@@ -24,14 +24,14 @@ public class SimSpeedButtons : MonoBehaviour
             PM.Instance.OnSetNewPauseState += OnPauseChanged;
             PM.Instance.OnSetNewSlowMotionState += OnSlowChanged;
         }
+
+        SyncFromPMState();
     }
 
     private void Start()
     {
-        if (PM.Instance != null && PM.Instance.pauseOnStart)
-            SetModeInternal(Mode.Pause, invokePM: false);
-        else
-            SetModeInternal(Mode.Fast, invokePM: false);
+        // Ensure correct state even if subscription happened before PM finished init
+        SyncFromPMState();
     }
 
     private void OnDisable()
@@ -43,11 +43,22 @@ public class SimSpeedButtons : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        var pm = PM.Instance;
+        if (pm == null) return;
+
+        bool paused = pm.programPaused;
+        bool slow   = pm.slowMotionActive;
+
+        if (lastPaused != paused || lastSlow != slow)
+            SyncFromPMState();
+    }
+
     // --- Public API for UI ---
 
     public void SetMode(int modeIndex)
     {
-        // Clamp to valid values then set
         if (modeIndex < 0) modeIndex = 0;
         if (modeIndex > 2) modeIndex = 2;
         SetMode((Mode)modeIndex);
@@ -59,6 +70,28 @@ public class SimSpeedButtons : MonoBehaviour
     }
 
     // --- Internal helpers ---
+
+    private void SyncFromPMState()
+    {
+        var pm = PM.Instance;
+        if (pm == null) return;
+
+        bool paused = pm.programPaused;
+        bool slow   = pm.slowMotionActive;
+
+        // Remember last observed state to avoid redundant work
+        lastPaused = paused;
+        lastSlow   = slow;
+
+        // Priority: Pause > Slow > Fast
+        Mode resolved =
+            paused ? Mode.Pause :
+            slow   ? Mode.Slow  :
+                     Mode.Fast;
+
+        // Update UI
+        SetModeInternal(resolved, invokePM: false);
+    }
 
     private void SetModeInternal(Mode mode, bool invokePM)
     {
@@ -72,21 +105,21 @@ public class SimSpeedButtons : MonoBehaviour
                     PM.Instance.TriggerSetPauseState(true);
                     PM.Instance.TriggerSetSlowMotionState(false);
                     lastPaused = true;
-                    lastSlow = false;
+                    lastSlow   = false;
                     break;
 
                 case Mode.Slow:
                     PM.Instance.TriggerSetPauseState(false);
                     PM.Instance.TriggerSetSlowMotionState(true);
                     lastPaused = false;
-                    lastSlow = true;
+                    lastSlow   = true;
                     break;
 
                 default: // Fast
                     PM.Instance.TriggerSetPauseState(false);
                     PM.Instance.TriggerSetSlowMotionState(false);
                     lastPaused = false;
-                    lastSlow = false;
+                    lastSlow   = false;
                     break;
             }
         }
@@ -101,32 +134,19 @@ public class SimSpeedButtons : MonoBehaviour
         if (fastUI)  fastUI.SetModeA(currentMode != Mode.Fast);
     }
 
-    // --- Event handlers from the existing separate system ---
+    // --- Event handlers from ProgramManager ---
 
     private void OnPauseChanged(bool paused)
     {
-        RecomputeFromSignals(paused: paused, slow: null);
+        // Update last-observed and recompute UI without re-invoking PM
+        lastPaused = paused;
+        SyncFromPMState();
     }
 
     private void OnSlowChanged(bool slow)
     {
-        RecomputeFromSignals(paused: null, slow: slow);
-    }
-
-    private void RecomputeFromSignals(bool? paused, bool? slow)
-    {
-        if (paused.HasValue) lastPaused = paused.Value;
-        if (slow.HasValue)   lastSlow   = slow.Value;
-
-        if (!lastPaused.HasValue && !lastSlow.HasValue)
-            return;
-
-        // Priority: Pause > Slow > Fast
-        Mode resolved =
-            (lastPaused == true) ? Mode.Pause :
-            (lastSlow   == true) ? Mode.Slow  :
-                                   Mode.Fast;
-
-        SetModeInternal(resolved, invokePM: false);
+        // Update last-observed and recompute UI without re-invoking PM
+        lastSlow = slow;
+        SyncFromPMState();
     }
 }

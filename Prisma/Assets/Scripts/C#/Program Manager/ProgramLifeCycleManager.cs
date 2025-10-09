@@ -7,6 +7,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
 {
     [Header("Startup Settings")]
     public bool pauseOnStart;
+    public bool slowMotionOnStart;
     public bool doShowControlsTip;
 
     [Header("Editor Settings")]
@@ -33,7 +34,7 @@ public class ProgramLifeCycleManager : MonoBehaviour
     
     void Awake()
     {
-        PM.Instance.ResetData(pauseOnStart);
+        PM.Instance.ResetData(pauseOnStart, slowMotionOnStart);
 
         // Make sure the user UI & canvas are shown
         uiCanvas.SetActive(true);

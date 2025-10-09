@@ -106,7 +106,7 @@ public class SensorUI : MonoBehaviour
         if (PM.Instance.fullscreenView != null && PM.Instance.fullscreenView.activeSelf) return;
 
         // Fresh mouse down
-        if (Main.MousePressed.x)
+        if (Input.GetMouseButtonDown(0))
         {
             if (pointerHoverArea.CheckIfHovering()
                 && PM.Instance.HoverMayReact(this)

@@ -15,10 +15,6 @@ public class UIManager : ScriptableObject
 {
     public UserSettings userSettings;
     public Michsky.MUIP.UIManager muipUIManager;
-    /* ─────────────────────────────────────────────────────────────────────────────
-       COLOR PALETTES
-    ───────────────────────────────────────────────────────────────────────────── */
-    [FormerlySerializedAs("palettes")]
     public List<ColorPalette> colorPalettes = new();
 
     [Min(0), FormerlySerializedAs("activePaletteIndex")]
@@ -32,9 +28,6 @@ public class UIManager : ScriptableObject
     public int activePaletteIndex => activeColorPaletteIndex;
     public ColorPalette ActivePalette => ActiveColorPalette;
 
-    /* ─────────────────────────────────────────────────────────────────────────────
-       FONT: MULTIPLE SUB-PALETTES + ACTIVE INDEX FOR EACH TYPE
-    ───────────────────────────────────────────────────────────────────────────── */
     [Header("Font: Sub Palettes")]
     public List<FontAssetSubPalette>   fontAssetPalettes   = new();
     public List<FontStyleSubPalette>   fontStylePalettes   = new();
@@ -46,12 +39,8 @@ public class UIManager : ScriptableObject
     [Min(0)] public int activeFontSizeSubPaletteIndex    = 0;
     [Min(0)] public int activeFontSpacingSubPaletteIndex = 0;
 
-    /// <summary>Active composed font palette used by UIController & runtime.</summary>
     public FontPalette ActiveFontPalette => ComposeActiveFont();
 
-    /* ─────────────────────────────────────────────────────────────────────────────
-       EDITOR PREVIEW
-    ───────────────────────────────────────────────────────────────────────────── */
     [Header("Composed Font (Preview)")]
     [Tooltip("Editor-only preview; changes to this field will be overwritten.")]
     public FontPalette composedFontPreview;
@@ -117,16 +106,13 @@ public class UIManager : ScriptableObject
         UpdateAll((int)textSize, (int)lineSpacing, (int)theme, dyslexiaMode);
     }
 
-    // === NEW: startup sync from UserSettings (kept simple) ===
     public void SyncFromUserSettingsAndApply()
     {
         if (userSettings == null) return;
-        // Assuming UserSettings exposes these enums/flags:
         UpdateAll(userSettings.textSize, userSettings.lineSpacing, userSettings.theme, userSettings.dyslexiaMode);
         if (Application.isPlaying) ApplyActiveFontToMUIP();
     }
 
-    // Also trigger for all loaded managers right after scene load.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void RuntimeSyncAllManagers()
     {
@@ -137,9 +123,7 @@ public class UIManager : ScriptableObject
             if (m) m.SyncFromUserSettingsAndApply();
         }
     }
-    // === END: startup sync ===
 
-    // Helpers for UpdateAll
     int ClampIndex<T>(int idx, List<T> list)
     {
         int count = list == null ? 0 : list.Count;
@@ -154,9 +138,8 @@ public class UIManager : ScriptableObject
         if (count == 0) return 0;
 
         if (!dyslexiaMode)
-            return 0; // default palette 
+            return 0;
 
-        // Try to find a palette whose name hints at dyslexia (e.g., "Dyslexic", "Dyslexia")
         for (int i = 0; i < count; i++)
         {
             var n = list[i].name;
@@ -164,7 +147,6 @@ public class UIManager : ScriptableObject
                 return i;
         }
 
-        // Otherwise prefer index 1 if it exists, else 0
         return count > 1 ? 1 : 0;
     }
 
@@ -177,37 +159,28 @@ public class UIManager : ScriptableObject
     void ApplyTooltipToMUIP(in FontPalette fp)
     {
         if (muipUIManager == null) return;
-
-        // Assign safely/simple: only apply when values are meaningful.
         if (fp.tooltip.fontAsset != null)
             muipUIManager.tooltipFont = fp.tooltip.fontAsset;
-
         if (fp.tooltip.fontSize > 0f)
             muipUIManager.tooltipFontSize = fp.tooltip.fontSize;
-
         if (fp.tooltip.fontAsset != null)
         {
             muipUIManager.selectorFont = fp.tooltip.fontAsset;
             muipUIManager.selectorFont = fp.interactField.fontAsset;
             muipUIManager.inputFieldFont = fp.interactField.fontAsset;
         }
-            
 #if UNITY_EDITOR
         if (!Application.isPlaying)
             EditorUtility.SetDirty(muipUIManager);
 #endif
     }
 
-    /* ─────────────────────────────────────────────────────────────────────────────
-       HASHING (poll-based; call this to detect changes)
-    ───────────────────────────────────────────────────────────────────────────── */
     public int ComputeHash()
     {
         unchecked
         {
             int h = 17;
 
-            // Color palette index + data
             h = h * 31 + activeColorPaletteIndex;
             if (colorPalettes != null)
             {
@@ -221,25 +194,23 @@ public class UIManager : ScriptableObject
                     h = h * 31 + p.interactGradient.GetHashCode();
                     h = h * 31 + p.text.GetHashCode();
                     h = h * 31 + p.contrast.GetHashCode();
+                    h = h * 31 + p.lowContrast.GetHashCode();
                     h = h * 31 + p.notification.GetHashCode();
-                    h = h * 31 + (p.glassUI ? 1 : 0); // NEW
+                    h = h * 31 + (p.glassUI ? 1 : 0);
                     h = h * 31 + (p.name?.GetHashCode() ?? 0);
                 }
             }
 
-            // Active indices for sub-palettes
             h = h * 31 + activeFontAssetSubPaletteIndex;
             h = h * 31 + activeFontStyleSubPaletteIndex;
             h = h * 31 + activeFontSizeSubPaletteIndex;
             h = h * 31 + activeFontSpacingSubPaletteIndex;
 
-            // Lists of sub-palettes
             h = HashList(h, fontAssetPalettes, HashAllTextTypes);
             h = HashList(h, fontStylePalettes, HashAllTextTypes);
             h = HashList(h, fontSizePalettes, HashAllTextTypes);
             h = HashList(h, fontSpacingPalettes, HashAllTextTypes);
 
-            // Also fold in the composed palette to capture cross-sub interactions
             var fp = ComposeActiveFont();
             h = h * 31 + (fp.name?.GetHashCode() ?? 0);
             h = h * 31 + HashFontSettings(fp.header1);
@@ -257,9 +228,6 @@ public class UIManager : ScriptableObject
         }
     }
 
-    /* ─────────────────────────────────────────────────────────────────────────────
-       Composition helpers
-    ───────────────────────────────────────────────────────────────────────────── */
     FontPalette ComposeActiveFont()
     {
         var a  = GetActive(fontAssetPalettes,   activeFontAssetSubPaletteIndex);
@@ -322,9 +290,6 @@ public class UIManager : ScriptableObject
         };
     }
 
-    /* ─────────────────────────────────────────────────────────────────────────────
-       Hash helpers
-    ───────────────────────────────────────────────────────────────────────────── */
     static int HashFontSettings(FontSettings fs)
     {
         unchecked
@@ -483,7 +448,6 @@ public class UIManager : ScriptableObject
     }
 }
 
-/* ────────── palette-data structs ────────── */
 [System.Serializable]
 public struct ColorPalette
 {
@@ -500,14 +464,13 @@ public struct ColorPalette
 
     [ColorUsage(true, true)] public Color text;
     [ColorUsage(true, true)] public Color contrast;
+    [ColorUsage(true, true)] public Color lowContrast;
 
     [ColorUsage(true, true)] public Color notification;
 
-    // NEW: whether this palette uses glassy UI styling
     public bool glassUI;
 }
 
-/* ────────── FontSettings + FontPalette (consumed by UIController) ────────── */
 [System.Serializable]
 public struct FontSettings
 {
@@ -543,7 +506,6 @@ public struct FontPalette
     public FontSettings interactField;
 }
 
-/* ────────── Sub-palette setting structs ────────── */
 [System.Serializable]
 public struct FontAssetSetting
 {
@@ -575,7 +537,6 @@ public struct FontSpacingSetting
     public float paragraphSpacing;
 }
 
-/* ────────── Sub-palette containers (per text type) ────────── */
 [System.Serializable]
 public struct FontAssetSubPalette
 {
