@@ -195,6 +195,7 @@ public class UIManager : ScriptableObject
                     h = h * 31 + p.text.GetHashCode();
                     h = h * 31 + p.contrast.GetHashCode();
                     h = h * 31 + p.lowContrast.GetHashCode();
+                    h = h * 31 + p.lowestContrast.GetHashCode();
                     h = h * 31 + p.notification.GetHashCode();
                     h = h * 31 + (p.glassUI ? 1 : 0);
                     h = h * 31 + (p.name?.GetHashCode() ?? 0);
@@ -465,6 +466,7 @@ public struct ColorPalette
     [ColorUsage(true, true)] public Color text;
     [ColorUsage(true, true)] public Color contrast;
     [ColorUsage(true, true)] public Color lowContrast;
+    [ColorUsage(true, true)] public Color lowestContrast;
 
     [ColorUsage(true, true)] public Color notification;
 

@@ -418,6 +418,9 @@ public class Main : MonoBehaviour
             PM.Instance.globalBrightnessFactor = 1f;
         UpdateScript();
 
+        // Dumb fix for rigid body data sometimes becoming corrupted on start. This line just sets the buffer data again.
+        RBDataBuffer.SetData(RBDatas);
+
         StringUtils.LogIfInEditor("Simulation started with " + ParticlesNum + " particles, " + NumRigidBodies + " rigid bodies, and " + NumRigidBodyVectors + " vertices. Platform: " + Application.platform);
 
         TryLoadAddressableCaustics();
@@ -1065,6 +1068,8 @@ public class Main : MonoBehaviour
         PrecomputedCausticsDims = new(tex.width, tex.height, tex.depth);
         renderShader.SetVector("PrecomputedCausticsDims", Utils.Int3ToVector3(PrecomputedCausticsDims));
         renderShader.SetTexture(1, "PrecomputedCaustics", tex);
+
+        ppFrameValid = false;
     }
 
     public void OnRenderImage(RenderTexture src, RenderTexture dest)

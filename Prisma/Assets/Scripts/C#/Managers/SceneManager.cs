@@ -104,7 +104,7 @@ public class SceneManager : MonoBehaviour
         sceneMin.x = transform.position.x - transform.localScale.x * 0.5f + main.FluidPadding;
         sceneMin.y = transform.position.y - transform.localScale.y * 0.5f + main.FluidPadding;
         sceneMax.x = transform.position.x + transform.localScale.x * 0.5f - main.FluidPadding;
-        sceneMax.y = transform.position.y + main.FluidPadding + transform.localScale.y * 0.5f - main.FluidPadding;
+        sceneMax.y = transform.position.y + transform.localScale.y * 0.5f - main.FluidPadding;
 
         min = sceneMin;
         max = sceneMax;
@@ -117,7 +117,7 @@ public class SceneManager : MonoBehaviour
         sceneMin.x = transform.position.x - transform.localScale.x * 0.5f + main.FluidPadding;
         sceneMin.y = transform.position.y - transform.localScale.y * 0.5f + main.FluidPadding;
         sceneMax.x = transform.position.x + transform.localScale.x * 0.5f - main.FluidPadding;
-        sceneMax.y = transform.position.y + main.FluidPadding + transform.localScale.y * 0.5f - main.FluidPadding;
+        sceneMax.y = transform.position.y + transform.localScale.y * 0.5f - main.FluidPadding;
 
         bool isInsideBounds = point.x > sceneMin.x
                               && point.y > sceneMin.y

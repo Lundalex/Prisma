@@ -11,12 +11,12 @@ public class StreamingMessage : MonoBehaviour
     public enum StretchOrigin { Left, Right }
 
     [Header("References")]
-    [Tooltip("Child TextMeshPro (UI) component whose content drives the size.")]
-    [SerializeField] private TMP_Text text; // Typically TextMeshProUGUI on a child
+    [SerializeField] private TMP_Text text;
 
-    [Header("Target")]
-    [Tooltip("The RectTransform to size/anchor. If left empty, falls back to this GameObject's RectTransform.")]
-    [SerializeField] private RectTransform targetRT;
+    [Header("Targets")]
+    [Tooltip("RectTransforms to size/anchor. If unassigned, they are ignored.")]
+    [SerializeField] private RectTransform targetRT_A;
+    [SerializeField] private RectTransform targetRT_B;
 
     [Header("Content")]
     [Tooltip("Text to display (also settable at runtime via SetText).")]
@@ -24,7 +24,6 @@ public class StreamingMessage : MonoBehaviour
     [SerializeField] private string initialText = "Hello world!";
 
     [Header("Layout")]
-    [Tooltip("Minimum free space to the far parent edge (the edge opposite the stretch origin).")]
     [Min(0f)] [SerializeField] private float minDstToParentEdge = 24f;
 
     [Tooltip("Padding around the text inside this rect (x = left+right / 2, y = top+bottom / 2).")]
@@ -41,16 +40,16 @@ public class StreamingMessage : MonoBehaviour
     [Tooltip("Characters per second for the type-on animation. Minimum is 1.")]
     [Min(1f)] [SerializeField] private float streamCharsPerSecond = 40f;
 
-    RectTransform _parentRT; 
+    RectTransform _parentRT_A;
+    RectTransform _parentRT_B;
     RectTransform _textRT;
-    VerticalLayoutGroup _ownerParentVLG; 
+    VerticalLayoutGroup _ownerParentVLG;
 
-    bool _applying;                 
+    bool _applying;
     int  _fitFramesPending = 0;
-    private const float kTopTextOffsetY = -15f;
-    Coroutine _streamCo;            
+    private const float kTopTextOffsetY = -17f;
+    Coroutine _streamCo;
 
-    // NEW: subscription guard
     bool _subscribedToTMPEvent;
 
     void Awake()
@@ -58,7 +57,7 @@ public class StreamingMessage : MonoBehaviour
         CacheRefs();
         ApplySettings();
         SubscribeTMPTextChanged();
-        RequestFit(); 
+        RequestFit();
     }
 
     void OnEnable()
@@ -86,7 +85,7 @@ public class StreamingMessage : MonoBehaviour
 
     void Start()
     {
-        RequestFit(); 
+        RequestFit();
     }
 
     void Update()
@@ -104,8 +103,8 @@ public class StreamingMessage : MonoBehaviour
 
     void OnRectTransformDimensionsChange()
     {
-        if (_applying) return;  
-        RequestFit();           
+        if (_applying) return;
+        RequestFit();
     }
 
     public void SetText(string value)
@@ -157,9 +156,10 @@ public class StreamingMessage : MonoBehaviour
         FitImmediate();
     }
 
-    public void SetTargetRectTransform(RectTransform rt)
+    public void SetTargets(RectTransform a, RectTransform b)
     {
-        targetRT = rt;
+        targetRT_A = a;
+        targetRT_B = b;
         CacheRefs();
         FitImmediate();
     }
@@ -171,10 +171,10 @@ public class StreamingMessage : MonoBehaviour
 
     void CacheRefs()
     {
-        if (targetRT == null)
-            targetRT = GetComponent<RectTransform>(); 
+        // No defaulting: if A/B are null, we simply ignore them elsewhere.
+        _parentRT_A = (targetRT_A != null) ? targetRT_A.parent as RectTransform : null;
+        _parentRT_B = (targetRT_B != null) ? targetRT_B.parent as RectTransform : null;
 
-        _parentRT = (targetRT != null) ? targetRT.parent as RectTransform : null;
         if (text != null) _textRT = text.rectTransform;
 
         var myParent = transform.parent;
@@ -194,7 +194,8 @@ public class StreamingMessage : MonoBehaviour
 
     public void FitImmediate()
     {
-        if (text == null || targetRT == null) return;
+        if (text == null) return;
+        if (targetRT_A == null && targetRT_B == null) return;
 
         text.ForceMeshUpdate();
         Canvas.ForceUpdateCanvases();
@@ -227,46 +228,60 @@ public class StreamingMessage : MonoBehaviour
     void FitNow()
     {
         if (_applying) return;
-        if (targetRT == null || text == null) return;
+        if (text == null) return;
+        if (targetRT_A == null && targetRT_B == null) return;
         if (_textRT == null) _textRT = text.rectTransform;
 
         _applying = true;
 
-        // ─────────────────────────────────────────────────────────────────
-        // Horizontal anchoring (unchanged): left/right bubble edge stays fixed
-        // ─────────────────────────────────────────────────────────────────
-        if (stretchFrom == StretchOrigin.Left)
-        {
-            targetRT.anchorMin = new Vector2(0f, targetRT.anchorMin.y);
-            targetRT.anchorMax = new Vector2(0f, targetRT.anchorMax.y);
-            targetRT.pivot     = new Vector2(0f, targetRT.pivot.y);
-            targetRT.anchoredPosition = new Vector2(0f, targetRT.anchoredPosition.y);
-        }
-        else
-        {
-            targetRT.anchorMin = new Vector2(1f, targetRT.anchorMin.y);
-            targetRT.anchorMax = new Vector2(1f, targetRT.anchorMax.y);
-            targetRT.pivot     = new Vector2(1f, targetRT.pivot.y);
-            targetRT.anchoredPosition = new Vector2(0f, targetRT.anchoredPosition.y);
-        }
-
-        targetRT.anchorMin = new Vector2(targetRT.anchorMin.x, 1f);
-        targetRT.anchorMax = new Vector2(targetRT.anchorMax.x, 1f);
-        targetRT.pivot     = new Vector2(targetRT.pivot.x, 1f);
-        targetRT.anchoredPosition = new Vector2(targetRT.anchoredPosition.x, 0f);
-
-        // Do the same for the inner text rect to keep its top edge fixed inside the bubble.
+        // Top-anchored text rect (fixed top edge inside bubble)
         _textRT.anchorMin = new Vector2(_textRT.anchorMin.x, 1f);
         _textRT.anchorMax = new Vector2(_textRT.anchorMax.x, 1f);
         _textRT.pivot     = new Vector2(_textRT.pivot.x, 1f);
 
-        // ─────────────────────────────────────────────────────────────────
-        // Measure and size
-        // ─────────────────────────────────────────────────────────────────
-        float parentWidth = (_parentRT != null) ? Mathf.Max(1f, _parentRT.rect.width) : 100000f;
+        // Horizontal anchoring helper for a target
+        void ApplyAnchors(RectTransform rt)
+        {
+            if (rt == null) return;
+
+            if (stretchFrom == StretchOrigin.Left)
+            {
+                rt.anchorMin = new Vector2(0f, rt.anchorMin.y);
+                rt.anchorMax = new Vector2(0f, rt.anchorMax.y);
+                rt.pivot     = new Vector2(0f, rt.pivot.y);
+                rt.anchoredPosition = new Vector2(0f, rt.anchoredPosition.y);
+            }
+            else
+            {
+                rt.anchorMin = new Vector2(1f, rt.anchorMin.y);
+                rt.anchorMax = new Vector2(1f, rt.anchorMax.y);
+                rt.pivot     = new Vector2(1f, rt.pivot.y);
+                rt.anchoredPosition = new Vector2(0f, rt.anchoredPosition.y);
+            }
+
+            rt.anchorMin = new Vector2(rt.anchorMin.x, 1f);
+            rt.anchorMax = new Vector2(rt.anchorMax.x, 1f);
+            rt.pivot     = new Vector2(rt.pivot.x, 1f);
+            rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, 0f);
+        }
+
+        ApplyAnchors(targetRT_A);
+        ApplyAnchors(targetRT_B);
+
+        // Measure and size (use the tightest constraint among assigned parents)
+        float parentWidthA = (_parentRT_A != null) ? Mathf.Max(1f, _parentRT_A.rect.width) : float.PositiveInfinity;
+        float parentWidthB = (_parentRT_B != null) ? Mathf.Max(1f, _parentRT_B.rect.width) : float.PositiveInfinity;
+        float parentWidth  = Mathf.Min(parentWidthA, parentWidthB);
+
+        if (float.IsInfinity(parentWidth) && (targetRT_A == null || _parentRT_A == null) && (targetRT_B == null || _parentRT_B == null))
+        {
+            // No usable parent constraints; do nothing.
+            _applying = false;
+            return;
+        }
+
         float padX = Mathf.Max(0f, padding.x) * 2f;
         float padY = Mathf.Max(0f, padding.y) * 2f;
-
         float maxTextWidth = Mathf.Max(1f, parentWidth - minDstToParentEdge - padX);
 
         string  content   = text.text ?? string.Empty;
@@ -288,18 +303,23 @@ public class StreamingMessage : MonoBehaviour
         float selfW = textW + padX;
         float selfH = textH + padY;
 
-        targetRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, selfW);
-        targetRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   selfH);
+        void SizeTarget(RectTransform rt, RectTransform parentRT)
+        {
+            if (rt == null) return;
+            rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, selfW);
+            rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   selfH);
+
+            // Keep previous behavior: if target has a parent RT, match height
+            if (parentRT != null)
+                parentRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, selfH);
+        }
+
+        SizeTarget(targetRT_A, _parentRT_A);
+        SizeTarget(targetRT_B, _parentRT_B);
 
         _textRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textW);
         _textRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   textH);
-
-        // With top pivot, (0,0) means text’s top-left relative to bubble’s pivot/top.
         _textRT.anchoredPosition = new Vector2(0f, kTopTextOffsetY);
-
-        // Preserve previous behavior: set parent height to match (if there is a parent RT)
-        if (_parentRT != null)
-            _parentRT.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, selfH);
 
         if (Application.isPlaying)
             initialText = content;

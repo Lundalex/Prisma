@@ -26,8 +26,7 @@ public class ProgramManager : ScriptableObject
     [NonSerialized] public GameObject fullscreenView;
 
     // Persisted between scene reloads: the last applied scale.
-    [Header("Render Scale (Persisted)")]
-    [Tooltip("Stored copy of the active ResolutionScale. Main sets it; this keeps it across scene reloads.")]
+    [Header("Render Scale")]
     public Main.ResolutionScale StoredResolutionScale = Main.ResolutionScale.Scale_1_1;
 
     // UI elements
@@ -85,11 +84,6 @@ public class ProgramManager : ScriptableObject
     private bool viewTransformInitiated;
     private float lastScreenRatio;
     private readonly Vector2 StandardResolution = new(1920, 1080);
-
-    // Private - Animated Texture Scrolling
-    private static readonly float NonSettingsMaterialScrollSpeed = 2.0f;
-    private static readonly float SettingsMaterialScrollSpeed = 1.0f;
-    private float offset;
 
     // Private - Pause UI
     [NonSerialized] private TMP_Text pauseText;
@@ -167,6 +161,7 @@ public class ProgramManager : ScriptableObject
             if (scaleChanged || baseChanged || !hasBeenReset)
             {
                 ApplyResolutionScale(main.ResolutionScaleSetting, forceSceneReset: true);
+                HardSceneReset();
             }
         }
 
@@ -261,6 +256,7 @@ public class ProgramManager : ScriptableObject
         rapidFrameSteppingTimer = null;
 
         startConfirmationStatus = StartConfirmationStatus.NotStarted;
+        sceneIsResetting = true;
         hasBeenReset = true;
         UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
     }
@@ -342,11 +338,11 @@ public class ProgramManager : ScriptableObject
                 Debug.Log("'R' key pressed. Scene resetting...");
                 return true;
             }
-            else if (Input.GetKeyDown(KeyCode.Space))
+            else if (Input.GetKeyDown(KeyCode.Space) && !IsWorkspaceViewActive())
             {
                 TriggerSetPauseState(!programPaused);
             }
-            else if (Input.GetKey(KeyCode.F) && rapidFrameSteppingTimer != null && rapidFrameSteppingTimer.Check())
+            else if (Input.GetKey(KeyCode.F) && rapidFrameSteppingTimer != null && rapidFrameSteppingTimer.Check() && !IsWorkspaceViewActive())
             {
                 if (!programPaused) TriggerSetPauseState(true);
                 frameStep = !frameStep;
@@ -856,7 +852,11 @@ public class ProgramManager : ScriptableObject
     }
 
     private void TriggerNewLanguageSelected() => OnNewLanguageSelected?.Invoke();
-    public void TriggerSetPauseState(bool state) => OnSetNewPauseState?.Invoke(state);
+    public void TriggerSetPauseState(bool state)
+    {
+        if (state && IsWorkspaceViewActive() && !sceneIsResetting) return;
+        OnSetNewPauseState?.Invoke(state);
+    }
     public void TriggerSetSlowMotionState(bool state) => OnSetNewSlowMotionState?.Invoke(state);
 
     // ===== Resolution scale helpers =====
@@ -913,6 +913,8 @@ public class ProgramManager : ScriptableObject
             SoftResetScene();
         }
     }
+
+    private bool IsWorkspaceViewActive() => fullscreenView != null && fullscreenView.activeInHierarchy;
 }
 
 #if UNITY_EDITOR

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using Utilities.Extensions;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -13,6 +12,11 @@ public class UIGlassControllerExtension : MonoBehaviour
     public RectTransform glassContainerReference;
     public GameObject GlassUI;
     public List<Image> NonGlassyUI = new();
+
+
+    [Header("Glass Padding")]
+    public float paddingX = 0f;
+    public float paddingY = 0f;
 
     bool _isActive;
     bool _alignQueued;
@@ -56,7 +60,6 @@ public class UIGlassControllerExtension : MonoBehaviour
             {
                 Image img = NonGlassyUI[i];
                 if (img) img.enabled = !_isActive;
-                // img.SetActive(true);
             }
         }
     }
@@ -82,10 +85,26 @@ public class UIGlassControllerExtension : MonoBehaviour
         var glassRect = GlassUI.GetComponent<RectTransform>();
         if (!glassRect) return;
 
-        glassRect.anchorMin = glassContainerReference.anchorMin;
-        glassRect.anchorMax = glassContainerReference.anchorMax;
-        glassRect.pivot = glassContainerReference.pivot;
-        glassRect.anchoredPosition = glassContainerReference.anchoredPosition;
-        glassRect.sizeDelta = glassContainerReference.sizeDelta;
+        var refRect = glassContainerReference;
+
+        // Mirror anchors/pivot from the reference
+        glassRect.anchorMin = refRect.anchorMin;
+        glassRect.anchorMax = refRect.anchorMax;
+        glassRect.pivot = refRect.pivot;
+
+        // Start from the reference rect
+        glassRect.anchoredPosition = refRect.anchoredPosition;
+        glassRect.sizeDelta = refRect.sizeDelta;
+
+        // Apply padding (equal on all sides)
+        if (paddingX != 0f || paddingY != 0f)
+        {
+            Vector2 extra = new(paddingX * 2f, paddingY * 2f);
+            glassRect.sizeDelta += extra;
+
+            Vector2 p = refRect.pivot;
+            Vector2 shift = new((p.x - 0.5f) * extra.x, (p.y - 0.5f) * extra.y);
+            glassRect.anchoredPosition += shift;
+        }
     }
 }

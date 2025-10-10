@@ -1,4 +1,4 @@
-#pragma kernel SimulateRB_P // 0
+#pragma kernel SimulateRB_P // 0 
 #pragma kernel SimulateRB_RB // 1
 #pragma kernel SimulateRBSprings // 2
 #pragma kernel AdjustRBDatas // 3
@@ -208,6 +208,162 @@ bool EnsureNoPathMarker(inout float2 a)
     return newPathFlag;
 }
 
+bool SegmentsIntersectRB(float2 p1, float2 p2, float2 q1, float2 q2, out float2 ip, out float2 dirA, out float2 dirB)
+{
+    float2 r = p2 - p1;
+    float2 s = q2 - q1;
+    dirA = (length(r) > EPSILON) ? r / length(r) : float2(1,0);
+    dirB = (length(s) > EPSILON) ? s / length(s) : float2(1,0);
+
+    float rxs = cross2D(r, s);
+    float2 qp = q1 - p1;
+    float qpxr = cross2D(qp, r);
+
+    // Collinear
+    if (abs(rxs) <= EPSILON && abs(qpxr) <= EPSILON)
+    {
+        float rr = dot(r, r);
+        if (rr <= EPSILON) { ip = 0; return false; } // degenerate
+        float t0 = dot(q1 - p1, r) / rr;
+        float t1 = t0 + dot(s, r) / rr;
+
+        float tmin = min(t0, t1);
+        float tmax = max(t0, t1);
+        if (tmax < 0.0 || tmin > 1.0) { ip = 0; return false; } // disjoint
+
+        // Clamp overlap to [0,1] and pick midpoint for contact
+        float ta = clamp(tmin, 0.0, 1.0);
+        float tb = clamp(tmax, 0.0, 1.0);
+        float tm = 0.5 * (ta + tb);
+        ip = p1 + r * tm;
+        return true;
+    }
+
+    // Parallel & non-intersecting
+    if (abs(rxs) <= EPSILON)
+    {
+        ip = 0;
+        return false;
+    }
+
+    float t = cross2D(qp, s) / rxs;
+    float u = cross2D(qp, r) / rxs;
+
+    if (t >= -1e-6 && t <= 1.0 + 1e-6 && u >= -1e-6 && u <= 1.0 + 1e-6)
+    {
+        ip = p1 + r * clamp(t, 0.0, 1.0);
+        return true;
+    }
+
+    ip = 0;
+    return false;
+}
+
+bool FindRB_EdgeEdgeContact(in RigidBody rbA, in RigidBody rbB, out RBHitInfo info, out bool AInsideB_BInsideA)
+{
+    info = InitRBHitInfo();
+    AInsideB_BInsideA = false; // treat as "A against B's edge" for normal orientation
+
+    uint startA = rbA.startIndex;
+    uint endA   = rbA.endIndex;
+    uint numA   = endA - startA + 1;
+
+    // Iterate edges of A
+    float2 firstA = RBVectors[startA].pos;
+    float2 lastA  = firstA;
+    uint pathStartA = startA;
+
+    for (uint ia = 1; ia <= numA; ia++)
+    {
+        uint idxA = (ia == numA) ? pathStartA : (startA + ia);
+        float2 newA = RBVectors[idxA].pos;
+        bool newPathFlagA = (newA.x > PATH_FLAG_THRESHOLD);
+
+        float2 a1 = lastA; 
+        float2 a2 = newPathFlagA ? firstA : newA;
+
+        // Build world positions (strip path markers)
+        EnsureNoPathMarker(a1);
+        EnsureNoPathMarker(a2);
+        float2 a1w = a1 + rbA.pos;
+        float2 a2w = a2 + rbA.pos;
+
+        // Iterate edges of B (inner loop)
+        uint startB = rbB.startIndex;
+        uint endB   = rbB.endIndex;
+        uint numB   = endB - startB + 1;
+
+        float2 firstB = RBVectors[startB].pos;
+        float2 lastB  = firstB;
+        uint pathStartB = startB;
+
+        for (uint ib = 1; ib <= numB; ib++)
+        {
+            uint idxB = (ib == numB) ? pathStartB : (startB + ib);
+            float2 newB = RBVectors[idxB].pos;
+            bool newPathFlagB = (newB.x > PATH_FLAG_THRESHOLD);
+
+            float2 b1 = lastB;
+            float2 b2 = newPathFlagB ? firstB : newB;
+
+            // World positions for B edge
+            EnsureNoPathMarker(b1);
+            EnsureNoPathMarker(b2);
+            float2 b1w = b1 + rbB.pos;
+            float2 b2w = b2 + rbB.pos;
+
+            // Quick bounding-box reject (cheap)
+            float2 minA = min(a1w, a2w);
+            float2 maxA = max(a1w, a2w);
+            float2 minB = min(b1w, b2w);
+            float2 maxB = max(b1w, b2w);
+            if (maxA.x < minB.x || maxB.x < minA.x || maxA.y < minB.y || maxB.y < minA.y)
+            {
+                // no overlap in AABBs
+            }
+            else
+            {
+                float2 ip, dirA, dirB;
+                if (SegmentsIntersectRB(a1w, a2w, b1w, b2w, ip, dirA, dirB))
+                {
+                    // Fill as if we hit B's edge: lineVec = B's tangent
+                    info.hitPoint = ip;
+                    info.pointPos = ip;           // zero penetration; let resolver fallback
+                    info.lineVec  = normalize(dirB);
+                    info.dst      = 0.0;
+                    return true;
+                }
+            }
+
+            if (newPathFlagB)
+            {
+                newB.x -= PATH_FLAG_OFFSET;
+                firstB = newB;
+                lastB = newB;
+                pathStartB = idxB;
+            }
+            else
+            {
+                lastB = newB;
+            }
+        }
+
+        if (newPathFlagA)
+        {
+            newA.x -= PATH_FLAG_OFFSET;
+            firstA = newA;
+            lastA = newA;
+            pathStartA = idxA;
+        }
+        else
+        {
+            lastA = newA;
+        }
+    }
+
+    return false;
+}
+
 void ResolveCollisionRB_RB(
     int rbAIndex,
     int rbBIndex,
@@ -237,8 +393,18 @@ void ResolveCollisionRB_RB(
         : (rbHitInfo.pointPos - collisionPoint);
 
     float penetrationDepth = length(penetration);
-    if (penetrationDepth <= 0.0) return;
-    float2 normal = normalize(penetration);
+
+    float2 normal;
+    if (penetrationDepth > 0.0)
+    {
+        normal = normalize(penetration);
+    }
+    else
+    {
+        float2 nCand = float2(rbHitInfo.lineVec.y, -rbHitInfo.lineVec.x);
+        normal = AInsideB_BInsideA ? nCand : -nCand;
+        penetrationDepth = RB_RBFixedCollisionCorrection; // small slop
+    }
 
     float invMassA = canMoveA ? 1.0 / rbA.mass : 0;
     float invMassB = canMoveB ? 1.0 / rbB.mass : 0;
@@ -349,6 +515,7 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
         float deltaRotVelA = 0;
         float deltaRotVelB = 0;
 
+        // --- 1) A's vertices inside B ---
         uint startIndexA = rbA.startIndex;
         uint endIndexA = rbA.endIndex;
         for (uint vecIndex = startIndexA; vecIndex <= endIndexA && !collisionDetected; vecIndex++)
@@ -368,11 +535,12 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
                                   deltaVelA, deltaRotVelA, deltaVelB, deltaRotVelB);
         }
 
+        // --- 2) B's vertices inside A ---
         uint startIndexB = rbB.startIndex;
         uint endIndexB = rbB.endIndex;
-        for (vecIndex = startIndexB; vecIndex <= endIndexB && !collisionDetected; vecIndex++)
+        for (uint vecIndexB = startIndexB; vecIndexB <= endIndexB && !collisionDetected; vecIndexB++)
         {
-            float2 vertexB = RBVectors[vecIndex].pos;
+            float2 vertexB = RBVectors[vecIndexB].pos;
             EnsureNoPathMarker(vertexB);
             vertexB += rbB.pos;
 
@@ -385,6 +553,19 @@ void SimulateRB_RB(uint3 id : SV_DispatchThreadID)
 
             ResolveCollisionRB_RB(rbAIndex, rbBIndex, rbA, rbB, rbHitInfo, AInsideB_BInsideA,
                                   deltaVelA, deltaRotVelA, deltaVelB, deltaRotVelB);
+        }
+
+        // Edge–Edge intersection ---
+        if (!collisionDetected)
+        {
+            bool aInsideB_BInsideA_dummy = false;
+            RBHitInfo edgeInfo;
+            if (FindRB_EdgeEdgeContact(rbA, rbB, edgeInfo, aInsideB_BInsideA_dummy))
+            {
+                collisionDetected = true;
+                ResolveCollisionRB_RB(rbAIndex, rbBIndex, rbA, rbB, edgeInfo, aInsideB_BInsideA_dummy,
+                                      deltaVelA, deltaRotVelA, deltaVelB, deltaRotVelB);
+            }
         }
 
         if (collisionDetected)
@@ -763,7 +944,7 @@ void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, floa
     float relVelAlongNormal = dot(relVel, normal);
     if (relVelAlongNormal >= 0.0) return;
 
-    float invMass = (rb.mass > 0) ? 1.0 / rb.mass : 0;
+    float invMass    = (rb.mass    > 0) ? 1.0 / rb.mass    : 0;
     float invInertia = (rb.inertia > 0) ? 1.0 / rb.inertia : 0;
 
     float rCrossN = cross2D(r, normal);
@@ -779,6 +960,7 @@ void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, floa
     float deltaRotVel = cross2D(r, impulseNormal) * invInertia;
     rb.rotVel_AsInt += FloatAsInt(deltaRotVel, INT_FLOAT_PRECISION_RB_ROT);
 
+    // --- Friction ---
     float2 tangent = relVel - relVelAlongNormal * normal;
     float tangentSpeed = length(tangent);
     if (tangentSpeed > EPSILON)
@@ -802,13 +984,23 @@ void ResolveCollisionRB_Boundary(inout RigidBody rb, float2 collisionPoint, floa
         AccumulateFrictionForce(rbIndex, frictionForce_Int2);
     }
 
-    float penetrationDepth = -dot(collisionPoint - (rb.pos + r), normal);
-    float epsilonCorrection = 0.1;
-    float2 correction = (max(penetrationDepth, -epsilonCorrection)
-                         + epsilonCorrection
-                         + RB_RBFixedCollisionCorrection)
-                         * normal;
-    rb.pos += correction;
+    float c =
+        (normal.x > 0.5)  ?  RigidBodyPadding :
+        (normal.x < -0.5) ? -(BoundaryDims.x - RigidBodyPadding) :
+        (normal.y > 0.5)  ?  RigidBodyPadding :
+                            -(BoundaryDims.y - RigidBodyPadding);
+
+    float signedDist = dot(normal, collisionPoint) - c;
+    float penetration = max(-signedDist, 0.0);
+
+    if (penetration > 0.0)
+    {
+        // small slop + mild Baumgarte to avoid jitter
+        const float slop = 0.01;
+        const float beta = 0.2;
+        float correctionMag = max(penetration - slop, 0.0) * beta;
+        rb.pos += correctionMag * normal;
+    }
 
     {
         float2 totalImpulse = -impulseNormal;

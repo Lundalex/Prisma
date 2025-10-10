@@ -19,6 +19,7 @@ public class UIController : MonoBehaviour
     public List<Image> lightBackgrounds = new();
     public List<Image> contrasts = new();
     public List<Image> lowContrasts = new();
+    public List<Image> lowestContrasts = new();
     public List<Image> interactColors = new();
     public List<UIGradient> interactGradients = new();
     public List<TMP_Text> interactGradientTexts = new();
@@ -145,6 +146,7 @@ public class UIController : MonoBehaviour
                 h = h * 31 + p.text.GetHashCode();
                 h = h * 31 + p.contrast.GetHashCode();
                 h = h * 31 + p.lowContrast.GetHashCode();
+                h = h * 31 + p.lowestContrast.GetHashCode();
                 h = h * 31 + p.notification.GetHashCode();
                 h = h * 31 + (p.glassUI ? 1 : 0);
                 h = h * 31 + (p.name?.GetHashCode() ?? 0);
@@ -206,6 +208,7 @@ public class UIController : MonoBehaviour
         ApplyColour(interactColors, cp.interactColor);
         ApplyColour(contrasts, cp.contrast);
         ApplyColour(lowContrasts, cp.lowContrast);
+        ApplyColour(lowestContrasts, cp.lowestContrast);
         ApplyGradient(interactGradients, cp.interactGradient);
         ApplyGradient(interactGradientTexts, cp.interactGradient);
         ApplyColour(notifications, cp.notification);
@@ -490,7 +493,8 @@ public class UIController : MonoBehaviour
     bool IsInAnyImageList(Image img) =>
         outlines.Contains(img) || backgrounds.Contains(img) ||
         lightBackgrounds.Contains(img) || interactColors.Contains(img) ||
-        contrasts.Contains(img) || lowContrasts.Contains(img) || notifications.Contains(img);
+        contrasts.Contains(img) || lowContrasts.Contains(img) || lowestContrasts.Contains(img) ||
+        notifications.Contains(img);
 
     bool IsInAnyTextListGraphic(MaskableGraphic g) =>
         texts.Contains(g) || header1s.Contains(g as TMP_Text) || header2s.Contains(g as TMP_Text) ||

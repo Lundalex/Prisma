@@ -71,10 +71,10 @@ namespace Michsky.MUIP
             StopCoroutine("StartTimer");
             StopCoroutine("DisableNotification");
 
-            notificationAnimator.Play("In");
+            if (gameObject.activeInHierarchy) notificationAnimator.Play("In");
             onOpen.Invoke();
 
-            if (enableTimer) StartCoroutine("StartTimer");
+            if (enableTimer && gameObject.activeInHierarchy) StartCoroutine("StartTimer");
         }
 
         public void Close()

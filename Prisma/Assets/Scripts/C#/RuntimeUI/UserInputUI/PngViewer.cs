@@ -83,6 +83,8 @@ public class PngViewer : MonoBehaviour
 
     void OnEnable()
     {
+        if (transform.parent != null) transform.SetAsLastSibling();
+        
         _fadeT = 0f;
         _fading = true;
         _enabled = true;

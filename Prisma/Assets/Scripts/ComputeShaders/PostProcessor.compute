@@ -26,7 +26,7 @@
 // Constants & uniforms
 // ---------------------------
 
-// Shadow optics (interpreted per *full-res* pixel length)
+// Shadow optics
 const float ShadowDarkness;
 const float ShadowFalloff;  // per-1px (full-res) falloff
 
@@ -59,7 +59,12 @@ const float AAMaxBlend;
 const float GlobalBrightnessFactor;
 const float4 GlobalBrightness;
 
-// static seetings
+// Slow motion vignette
+static const float VignetteLerpFactor = 1.0;
+static const float VignetteSizeNormalized = 0.1;
+static const float VignetteStrength = 0.3;
+
+// Static settings
 static const bool DO_APPLY_SHADOWS_TO_SPRINGS = true;
 
 // ---------------------------
@@ -68,7 +73,7 @@ static const bool DO_APPLY_SHADOWS_TO_SPRINGS = true;
 Texture2D<unorm float4> Result;
 RWTexture2D<unorm float4> PPResult;
 
-// AA I/O (bind in C#; see ShaderHelper.SetPostProcessorTextures)
+// AA
 Texture2D<unorm float4> AAInput;
 RWTexture2D<unorm float4> AAOutput;
 
@@ -104,6 +109,25 @@ bool IsOutsideLowDims (uint2 p) { return p.x >= ShadowResolution.x || p.y >= Sha
 
 float2 ClampToLowGrid(float2 pos) { return clamp(pos, float2(-0.5, -0.5), float2(ShadowResolution) - 0.5); }
 int2   ClampToLowCoord(int2 p)    { return clamp(p, int2(0,0), int2(ShadowResolution) - 1); }
+
+// ---------------------------
+// Slow motion vignette
+// ---------------------------
+
+float VignetteFactor(uint2 px)
+{
+    if (VignetteLerpFactor == 0.0) return 1.0;
+
+    float border = (float)min(Resolution.x, Resolution.y) * 0.1;
+    float2 p = (float2)px + 0.5;
+    float2 toEdges = min(p, (float2)Resolution - p);
+    float minEdge = min(toEdges.x, toEdges.y);
+    float t = saturate(minEdge / border);
+    t = smoothstep(0.0, 1.0, t);
+    float strength = 0.3;
+    float v = lerp(1.0 - strength, 1.0, t);
+    return v * 0.8;
+}
 
 // ---------------------------
 // Shadow accumulation helpers
@@ -641,7 +665,6 @@ float bilinearSampleLow(float2 lowPos, uint kind)
     return lerp(sx0, sx1, f.y);
 }
 
-// ---- FIX: RB-aware bilinear upsample (ignore low-res RB interior texels) ----
 float bilinearSampleLow_NoRB(float2 lowPos, uint kind)
 {
     lowPos = ClampToLowGrid(lowPos);
@@ -713,7 +736,6 @@ float2 fullPxToLowPos(uint2 pxFull)
 
 inline void ApplyCommon(uint2 px, float2 lowPos, float shadow)
 {
-    // ---- FIX: never shade RB interior pixels ----
     float sFull = ShadowSrcFullRes[GetPixelKeyFull(px)];
     bool insideSpringFull   = (sFull < 0.0);
     bool insideFluidGasFull = (sFull > 0.0) && (sFull < 1.0 - 1e-6);
@@ -747,7 +769,6 @@ void ApplySharpShadows(uint3 id : SV_DispatchThreadID)
     if (IsOutsideFullDims(px)) return;
 
     float2 lowPos = fullPxToLowPos(px);
-    // ---- FIX: RB-aware sampling to avoid seam next to RBs ----
     float shadow  = bilinearSampleLow_NoRB(lowPos, BUF_SHARP);
     ApplyCommon(px, lowPos, shadow);
 }
@@ -760,7 +781,6 @@ void ApplyBlurredShadows(uint3 id : SV_DispatchThreadID)
 
     float2 lowPos = fullPxToLowPos(px);
     uint   buf    = StepBufferCycle ? BUF_B : BUF_A;
-    // ---- FIX: RB-aware sampling to avoid seam next to RBs ----
     float  shadow = bilinearSampleLow_NoRB(lowPos, buf);
     ApplyCommon(px, lowPos, shadow);
 }
@@ -841,5 +861,6 @@ void ApplyAA(uint3 id : SV_DispatchThreadID)
 void CopyResultToPP(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= (uint)Resolution.x || id.y >= (uint)Resolution.y) return;
-    PPResult[id.xy] = saturate(Result[id.xy]) * GlobalBrightness * GlobalBrightnessFactor;
+    float4 c = saturate(Result[id.xy]);
+    PPResult[id.xy] = c * GlobalBrightness * GlobalBrightnessFactor * VignetteFactor(id.xy);
 }
